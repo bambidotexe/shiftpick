@@ -19,9 +19,8 @@ That is the whole action. It takes a few minutes, most of it Apple's notary serv
 
 ## What it does, and why each part is not optional
 
-1. **Checks the version rule** (`scripts/version.sh`): the tree is always one patch ahead of the newest
-   release on GitHub. So the copy on this Mac is always newer than anything published, and is never offered
-   an update that would replace it with something older.
+1. **Builds exactly the tree's version** (`scripts/version.sh`): no GitHub check, no requirement to be
+   ahead of what is published. A local install always carries the same version as the code in the tree.
 2. **Builds the real thing** (`scripts/release.sh`) — signed with the Wooflab team's Developer ID under the
    Hardened Runtime, notarized by Apple, stapled, wrapped in the disk image. Not a shortcut, not an ad-hoc
    build. What lands in `/Applications` is byte-for-byte what a stranger would download.
@@ -90,7 +89,7 @@ swift run axdump views          # and then actually Shift-click something
 
 The authority is `Developer ID Application: Wooflab (85F6AC5QZF)` and the flags include `runtime`. The log
 should carry `ShiftPick <version> launched` and, once the permission is granted, `watching for clicks`. The
-version is whatever `scripts/version.sh`'s rule gave, one patch above the newest GitHub release.
+version is whatever the tree holds, per `scripts/version.sh`.
 
 **A clean install is not proof that the app works.** ShiftPick's whole behaviour is one gesture, and
 nothing in the install path exercises it: ⇧ Shift click two icons in a Finder window, or run
