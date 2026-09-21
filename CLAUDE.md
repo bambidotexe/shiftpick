@@ -147,7 +147,7 @@ make release     # skill: macos-publish-release. The same, plus tag, push, GitHu
 
 - `swift build` — the three code targets and the probe. **This is the truth**; editor diagnostics are
   frequently stale.
-- `swift test` — two bundles, and **one summary line each: count two.** `ShiftPickCoreTests` (246) runs in
+- `swift test` — two bundles, and **one summary line each: count two.** `ShiftPickCoreTests` (247) runs in
   about three seconds; `ShiftPickPlatformTests` (36) spawns real subprocesses and threads and takes a moment
   longer.
   `swift test --filter <SuiteName>` runs one suite; `swift test --filter SafetyNetTests` is the quick look
@@ -333,13 +333,13 @@ the log.
 
 ## Status
 
-`swift build` is clean and `swift test` is green (246 + 36) at this commit. The app target has no automated
+`swift build` is clean and `swift test` is green (247 + 36) at this commit. The app target has no automated
 tests; `docs/manual-test-checklist.md` is its verification.
 
 **What is proven and what is not, about the safety model.** The rules are proven: `TapLifecycle` is a value,
 and its 96 scenarios and 80,000 seeded events run on every `swift test`, as do the click's deadline and the
-taps' thread. **The code no test can run is pinned where it stands**: `SafetyNetTests` holds 17 checks over
-it, and each was shown to fail against a copy of the code with its net removed (21 such copies, 21 caught).
+taps' thread. **The code no test can run is pinned where it stands**: `SafetyNetTests` holds 18 checks over
+it, and each was shown to fail against a copy of the code with its net removed (23 such copies, 23 caught).
 **The taps have been seen on the owner's Mac**, which is the only place they can be:
 `ClickGuard` cannot run in a test, because a test runner has no Accessibility grant to create a tap with. The
 first install found `docs/pitfalls.md` 15 within the millisecond; the builds after it passed the Finder

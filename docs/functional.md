@@ -41,7 +41,8 @@ owner has said so for that rule. `SafetyNetTests` and the `TapLifecycle` tests p
 
 ## 1. Which clicks ShiftPick looks at
 
-ShiftPick holds **two session event taps**, and they are not alike.
+ShiftPick holds **two session event taps**, and nothing else that touches the event stream: no other tap, no
+`NSEvent` global monitor, and it never posts an event. The two are not alike.
 
 - **The sentinel only listens.** It hears the modifier keys change and the left button go down, and nothing
   else: no moves, no drags, no key presses. macOS does not wait for a listening tap, so nothing that happens

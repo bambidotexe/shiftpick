@@ -32,6 +32,20 @@ final class SafetyNetTests: XCTestCase {
                        "The sentinel only listens, and a listener can hold nothing up whatever happens to the app.")
     }
 
+    /// Two taps, and nothing else that touches the event stream. A global monitor is a tap by another name,
+    /// a HID manager is one below the window server, and a posted event goes through every tap on the Mac,
+    /// this app's included: each is a way to hold up or replay input that `TapLifecycle` knows nothing about.
+    func testNothingElseTouchesTheEventStream() throws {
+        let everything = try swiftFiles(under: ["Sources", "Tools"])
+        for forbidden in [".post(tap:", "CGEventPost", "addGlobalMonitorForEvents", "IOHIDManager", "CGEventTapCreate"] {
+            XCTAssertEqual(occurrences(of: forbidden, in: everything), [], """
+                \(forbidden) reaches the event stream beside the two taps. Listening goes through the sentinel and \
+                swallowing through the click tap, both under TapLifecycle; ShiftPick posts no event and holds no \
+                monitor (docs/functional.md §1; CLAUDE.md, Where a change usually lands).
+                """)
+        }
+    }
+
     func testTheClickTapIsEnabledInOnePlaceOnly() throws {
         XCTAssertEqual(occurrences(of: "tapEnable(tap: click, enable: true)", in: try swiftFiles(under: ["Sources"])),
                        [Self.clickGuard], """
