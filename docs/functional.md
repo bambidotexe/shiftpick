@@ -354,6 +354,12 @@ the bottom right. Its height follows the page around its **top-left** corner: 44
    Otherwise nothing is removed, and the last alert says so.
 4. The app quits. Whatever could not be done is named, with what the system said about it.
 
+**The window stays responsive the whole time.** Steps 1 and 2 wait on other processes, so they run off the
+main thread, each within **`K.uninstallStepWait` (10 s)**: one that does not answer in time is named in the
+last alert (*macOS did not answer in time*) and the uninstall goes on without it. The window's own refresh of
+the grant and the login item is paused meanwhile, the button is disabled, and every step is logged with what
+came back and how long it took.
+
 **Only what is ShiftPick's own is touched, and only through the system's own tools.** The answer once given
 to "may ShiftPick send notifications" stays where macOS keeps it, and a reinstall inherits it: putting it
 back would mean rewriting another program's private database.

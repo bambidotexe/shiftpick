@@ -11,6 +11,8 @@ public enum UninstallStep: Sendable, Hashable {
     case storedState
     /// The helper was never started: what it would have removed could not be shown to be this app's own.
     case storedStateNotProvablyOurs
+    /// The login item's service did not answer within `K.uninstallStepWait`.
+    case loginItemNoAnswer
 }
 
 public struct UninstallFailure: Sendable, Hashable {
@@ -37,18 +39,42 @@ public enum Uninstall {
     /// The grant and the login item, in that order, while the bundle they both name is still where they
     /// name it. `tccutil reset` against a bundle identifier with no bundle behind it fails, and nothing
     /// puts that right afterwards, so this runs before the app goes anywhere.
-    @MainActor
+    ///
+    /// **Blocking, and never on the main thread.** Each step waits on another process, `K.uninstallStepWait`
+    /// at most, without running anything else meanwhile (`BoundedWait`); a step that does not answer in time
+    /// is reported failed and the uninstall goes on. Each one is logged with how long it took.
     public static func removeSystemRegistrations() -> [UninstallFailure] {
+        dispatchPrecondition(condition: .notOnQueue(.main))
         var failed: [UninstallFailure] = []
         let bundleIdentifier = AppIdentity.bundleIdentifier
-        if !resetAccessibilityGrant(bundleIdentifier) {
-            failed.append(.init(step: .accessibilityGrant, reason: ""))
+
+        let reset = timed("the Accessibility grant reset") {
+            BoundedWait.run("/usr/bin/tccutil", ["reset", "Accessibility", bundleIdentifier],
+                            timeout: K.uninstallStepWait)
         }
-        if LoginItem.isEnabled {
-            do { try LoginItem.setEnabled(false) }
-            catch { failed.append(.init(step: .loginItem, reason: error.localizedDescription)) }
+        // `tccutil reset` exits non-zero when it has nothing to reset as well as when it fails, so a grant
+        // that was never given reads as a failure here. The sentence the user reads names where to look,
+        // which is true either way.
+        if reset != .exited(0) { failed.append(.init(step: .accessibilityGrant, reason: "")) }
+
+        if timed("the login item's state", { LoginItem.isEnabled }) {
+            switch timed("the login item removal", { LoginItem.remove(within: K.uninstallStepWait) }) {
+            case .removed: break
+            case .failed(let reason): failed.append(.init(step: .loginItem, reason: reason))
+            case .noAnswer: failed.append(.init(step: .loginItemNoAnswer, reason: ""))
+            }
         }
         return failed
+    }
+
+    /// One line per step, with what came back and how long it took: the next time a step is slow, the log
+    /// says which one.
+    private static func timed<T>(_ step: String, _ body: () -> T) -> T {
+        let start = DispatchTime.now().uptimeNanoseconds
+        let result = body()
+        let ms = Double(DispatchTime.now().uptimeNanoseconds - start) / 1_000_000
+        Log.app.notice("uninstall: \(step, privacy: .public): \(String(describing: result), privacy: .public) in \(Int(ms), privacy: .public) ms")
+        return result
     }
 
     /// The Trash, not a delete: the app the user has just removed is still there to put back.
@@ -84,22 +110,4 @@ public enum Uninstall {
         }
     }
 
-    /// `tccutil reset` exits non-zero when it has nothing to reset as well as when it fails, so a grant
-    /// that was never given reads as a failure here. The caller shows a sentence naming where to look,
-    /// which is true either way.
-    private static func resetAccessibilityGrant(_ bundleIdentifier: String) -> Bool {
-        run("/usr/bin/tccutil", ["reset", "Accessibility", bundleIdentifier]) == 0
-    }
-
-    @discardableResult
-    private static func run(_ path: String, _ arguments: [String]) -> Int32 {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: path)
-        process.arguments = arguments
-        process.standardOutput = FileHandle.nullDevice
-        process.standardError = FileHandle.nullDevice
-        guard (try? process.run()) != nil else { return -1 }
-        process.waitUntilExit()
-        return process.terminationStatus
-    }
 }

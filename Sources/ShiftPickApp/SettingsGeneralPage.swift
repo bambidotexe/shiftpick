@@ -13,6 +13,9 @@ struct GeneralPage: View {
     /// What the uninstall stops before it takes the grant away.
     let engine: ShiftPickEngine
     @State private var loginError: String?
+    /// From the confirmation to the quit. The button is disabled meanwhile, so a second press cannot start a
+    /// second uninstall behind the first.
+    @State private var isUninstalling = false
 
     var body: some View {
         let words = Loc.settings.general
@@ -46,6 +49,7 @@ struct GeneralPage: View {
                           warnings: [words.uninstallWarning]) {
                 ButtonRow {
                     Button(words.uninstallButton, role: .destructive) { confirmUninstall() }
+                        .disabled(isUninstalling)
                 }
             }
         }
@@ -65,13 +69,31 @@ struct GeneralPage: View {
         alert.addButton(withTitle: words.uninstallCancelButton)
         guard alert.runModal() == .alertFirstButtonReturn else { return }
 
-        // **First, and before the grant is touched.** The next line resets the Accessibility grant, and an
+        // **First, and before the grant is touched.** The steps below reset the Accessibility grant, and an
         // enabled click tap whose owner has just lost it stalls every click on the Mac, a moment before this
         // asks for one on its last alert. It returns once no tap exists. There is no way back from here, so
         // nothing starts again.
         engine.shutDown()
+        // Nothing of the window's own reads the grant or the login item while they are being taken away.
+        status.stopPolling()
+        isUninstalling = true
 
-        var failures = Uninstall.removeSystemRegistrations()
+        // **Off the main thread.** Every step waits on another process, each within `K.uninstallStepWait`, so
+        // the window stays responsive however long macOS takes, and a step that never answers is named in the
+        // last alert instead of freezing the app (`docs/pitfalls.md` 16).
+        DispatchQueue.global(qos: .userInitiated).async {
+            let failures = Uninstall.removeSystemRegistrations()
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated { finishUninstall(after: failures) }
+            }
+        }
+    }
+
+    /// The bundle to the Trash, the helper that removes the rest once this process has gone, and the last
+    /// alert, which names whatever could not be done. Then the app quits.
+    private func finishUninstall(after registrations: [UninstallFailure]) {
+        let words = Loc.settings.general
+        var failures = registrations
         Uninstall.moveBundleToTrash { failure in
             if let failure { failures.append(failure) }
             if let failure = Uninstall.startHelper() { failures.append(failure) }
@@ -96,6 +118,7 @@ struct GeneralPage: View {
         case .bundleToTrash: return words.uninstallTrashFailed(failure.reason)
         case .storedState: return words.uninstallHelperFailed(failure.reason)
         case .storedStateNotProvablyOurs: return words.uninstallHelperFailed(words.uninstallRefusedReason)
+        case .loginItemNoAnswer: return words.uninstallLoginItemFailed(words.uninstallNoAnswerReason)
         }
     }
 

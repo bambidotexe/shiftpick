@@ -73,6 +73,14 @@ public enum K {
     /// wait is only there to let Finder finish selecting before it is asked what is under the pointer.
     public static let anchorDelay: TimeInterval = 0.06
 
+    // MARK: - Uninstalling
+
+    /// How long one step of the uninstall waits for the process or the daemon it depends on. `tccutil`
+    /// resets the grant in about ten milliseconds and the login item answers in well under a second, so ten
+    /// seconds is a step that is not coming back: it is reported failed, named in the last alert, and the
+    /// uninstall goes on without it.
+    public static let uninstallStepWait: TimeInterval = 10
+
     // MARK: - Updates
 
     /// How long after launch the first check nobody asked for is made. Late enough that it never competes

@@ -97,7 +97,9 @@ final class LocalizationTests: XCTestCase {
                      ("general.uninstallGrantFailed", general.uninstallGrantFailed),
                      ("general.uninstallLoginItemFailed", general.uninstallLoginItemFailed("x")),
                      ("general.uninstallTrashFailed", general.uninstallTrashFailed("x")),
-                     ("general.uninstallHelperFailed", general.uninstallHelperFailed("x"))] {
+                     ("general.uninstallHelperFailed", general.uninstallHelperFailed("x")),
+                     ("general.uninstallRefusedReason", general.uninstallRefusedReason),
+                     ("general.uninstallNoAnswerReason", general.uninstallNoAnswerReason)] {
             add(pair.0, pair.1)
         }
 

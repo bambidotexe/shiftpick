@@ -144,6 +144,11 @@ that alone was the difference between 47 seconds and 0.06 for five thousand icon
   with `TapThread.perform`. The one caller that cannot wait, the teardown, uses `performAndWait`, which says
   whether the block ran or never will: past `K.shutDownWait` the ports are disabled and invalidated from the
   calling thread instead, which the window server honours from any thread.
+- **Nothing waits on another process on the main thread.** `Process.waitUntilExit()` runs the calling
+  thread's run loop while it waits, which on the main thread re-runs timers, notifications and view updates
+  in the middle of the wait (`pitfalls.md` 16). `Platform/BoundedWait` blocks the calling thread and nothing
+  else, with a deadline, and is only ever called off the main thread: the uninstall's `tccutil` and login
+  item run on a global queue and hop back to show the last alert.
 - **Two more exceptions, both in the update.** `URLSession` calls its delegate on its own queue and the
   caller hops; unpacking a disk image runs on one serial queue of its own, because it mounts, copies and
   verifies, and two of those at once would share a mount point.

@@ -191,6 +191,32 @@ the invariant run treats the event as the tap being off, so a lifecycle that sta
 The lesson is the one entry 13 already names, from the other side: **the tap API's pseudo-events are not what
 their names say**, and a rule built on one needs the event measured, not read.
 
+## 16. `Process.waitUntilExit()` on the main thread runs the main run loop
+
+**Symptom.** The first uninstall on the owner's Mac, from Settings › General › Uninstall: a spinning wheel
+over the app for as long as the dead-man's switch let it live, a minute. The Mac itself kept answering. When
+the switch killed the app, the permission had been reset and nothing else had happened: the bundle was still
+in `/Applications`, the login item still registered, the preferences still there.
+
+**What the log said.** The taps were destroyed first, as they should be (`stopped listening; no event tap
+exists`, 22:15:42.062), and `tccutil` reset the grant and exited in ten milliseconds. The app's main thread
+then logged one more thing, an `SMAppService` status read at 22:15:42.082, **while it was still waiting for
+`tccutil`**, and nothing ever again. The login-item daemon never received an unregister.
+
+**Why.** The uninstall waited for `tccutil` with `Process.waitUntilExit()`, on the main thread, and that call
+**runs the calling thread's run loop until the tool is done**. Measured with a throwaway app: thirteen timer
+ticks during a 64 ms wait for `/usr/bin/true`. So in the middle of an uninstall that was resetting the grant,
+the Settings window's two-second refresh ran, read the grant and the login item, and one of the main thread's
+own calls from inside that wait never came back. Which one is not known: a hardened app cannot be sampled
+without root, and the next run's log now times every step to say.
+
+**What holds.** Nothing waits on another process on the main thread. `Platform/BoundedWait` blocks the calling
+thread and nothing else, stops a tool past its deadline and gives up on a reply that does not come; the
+uninstall's `tccutil` and login item run on a global queue through it, `K.uninstallStepWait` at most each,
+with the Settings refresh paused and a line in the log per step. A step that does not answer is named in the
+last alert and the uninstall goes on. `BoundedWaitTests` pins both waits, including that nothing on the
+caller's run loop fires while they wait.
+
 ---
 
 ## Open issues

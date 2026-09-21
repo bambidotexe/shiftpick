@@ -232,6 +232,15 @@ public struct GeneralPageStrings {
         }
     }
 
+    /// The reason `uninstallLoginItemFailed` is given when the login item's service did not answer in time.
+    /// It reads after a colon and before a full stop.
+    public var uninstallNoAnswerReason: String {
+        switch language {
+        case .en: "macOS did not answer in time"
+        case .fr: "macOS n'a pas répondu à temps"
+        }
+    }
+
     public func uninstallLoginItemFailed(_ reason: String) -> String {
         switch language {
         case .en: "The Login Items entry could not be removed: \(reason). Remove \(AppIdentity.name) "

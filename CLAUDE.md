@@ -118,7 +118,7 @@ make release     # skill: macos-publish-release. The same, plus tag, push, GitHu
 - `swift build` — the three code targets and the probe. **This is the truth**; editor diagnostics are
   frequently stale.
 - `swift test` — two bundles, and **one summary line each: count two.** `ShiftPickCoreTests` (229) runs in
-  about three seconds; `ShiftPickPlatformTests` (29) spawns real subprocesses and threads and takes a moment
+  about three seconds; `ShiftPickPlatformTests` (36) spawns real subprocesses and threads and takes a moment
   longer.
   `swift test --filter <SuiteName>` runs one suite.
 - `swift run axdump <command>` — the Accessibility probe (`Tools/axdump`, never shipped). `trust`, `views`,
@@ -224,6 +224,9 @@ the log.
   program's files, no system daemon.
 - **Anything that takes the grant or the process away destroys both taps first**: `engine.shutDown()` comes
   before `tccutil`, before a quit, before anything new of that kind.
+- **Nothing waits on another process on the main thread.** `Process.waitUntilExit()` runs the main run
+  loop while it waits and froze the uninstall for a minute (`docs/pitfalls.md` 16). A wait on a tool or a
+  daemon goes through `Platform/BoundedWait`, off the main thread, with a deadline.
 - **The thread that serves the taps never calls Accessibility and never blocks without a timeout.** It hands
   a click to the worker through `DeadlineGate` and waits `K.clickBudget`; the budget belongs to whoever waits,
   never to the work. Every Accessibility element gets `K.axTimeout`, which sits under the budget, and an
@@ -278,7 +281,7 @@ the log.
 
 ## Status
 
-`swift build` is clean and `swift test` is green (229 + 29) at this commit. The app target has no automated
+`swift build` is clean and `swift test` is green (229 + 36) at this commit. The app target has no automated
 tests; `docs/manual-test-checklist.md` is its verification.
 
 **What is proven and what is not, about the safety model.** The rules are proven: `TapLifecycle` is a value,
@@ -299,10 +302,11 @@ Known limitations, in plain words:
   unlock notification that never arrived, leaves that one click to Finder, which adds one file; the press
   itself arms for the next, or wakes ShiftPick up. Never the other way round: nothing is ever
   swallowed on a guess.
-- **Two things the drill has not shown.** Step D, the uninstall, has not been walked with these taps, so
-  whether `tccutil` reaches a running process is still reported by others. And the click tap has never been
-  enabled at the very moment a grant went: turning the switch off takes a click and Touch ID, and the live
-  question at the ⇧ Shift press got there first each time. The watch bounds that case to half a second.
+- **Two things the drill has not shown.** The uninstall (step D) destroyed the taps first when it was walked,
+  then froze on its main thread (`docs/pitfalls.md` 16); the rework has not been walked yet, and whether
+  `tccutil` reaches a running process is still reported by others. And the click tap has never been enabled
+  at the very moment a grant went: turning the switch off takes a click and Touch ID, and the live question
+  at the ⇧ Shift press got there first each time. The watch bounds that case to half a second.
 - **A range is bounded by what Finder has built.** Both ends have to be on screen. Click a file, scroll
   three screens, ⇧ Shift click another, and the click goes to Finder untouched, because the first file is
   no longer something Accessibility can name. Everything between two icons that are both visible is
@@ -314,5 +318,6 @@ Known limitations, in plain words:
   helper has installed and rolled back a stand-in app for real; the notification, the update window and
   ShiftPick installing over itself are `docs/manual-test-checklist.md` §10. Nothing is published, so every check answers
   **No release published yet** until the repository is public and carries a release.
-- **The uninstall has not been walked.** Its two halves are tested apart (`UninstallPlanTests`, and the
-  helper's quoting), and the order is `snappy-snap`'s, which has been walked.
+- **The uninstall has been walked once, and froze.** The rework that runs its waits off the main thread is
+  tested (`BoundedWaitTests`, `UninstallPlanTests`) and has not been walked; `docs/manual-test-checklist.md`
+  §11 is the walk.

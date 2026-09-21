@@ -281,7 +281,10 @@ SHIFTPICK_UPDATE_FEED=file:///tmp/latest.json /Applications/ShiftPick.app/Conten
 
 ## 11. Uninstall
 
-- [ ] Settings › General › Uninstall → the alert says what will go → Uninstall.
+- [ ] Settings › General › Uninstall → the alert says what will go → Uninstall. **The window never shows a
+      spinning wheel**, the button greys out, and the last alert comes within about a second. The log has
+      `stopped listening; no event tap exists` first, then one `uninstall: …` line per step with what came back
+      and how long it took.
 - [ ] Afterwards: no **ShiftPick** in System Settings › Privacy & Security › Accessibility; none in
       General › Login Items; `ls ~/Library/Application\ Support/ShiftPick` and
       `defaults read dev.rubens.ShiftPick` both say nothing is there; the app is **in the Trash**, not
