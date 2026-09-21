@@ -117,21 +117,46 @@ role descriptions beside them.
 - A window element's `AXRole` can read as `AXApplication` for a moment after Finder relaunches. Walk **up**
   from a hit test; never index into the application's children.
 
-## The event tap
+## The event taps
 
-- `CGEvent.tapCreate(tap: .cgSessionEventTap, place: .headInsertEventTap, options: .defaultTap, …)`,
-  subscribed to `leftMouseDown` and `leftMouseUp` and nothing else. **`.defaultTap`, not `.listenOnly`**:
-  swallowing the click is the whole point, and a listening tap cannot.
-- Creating it needs the Accessibility grant. When the grant is missing, `tapCreate` returns nil, which is
-  the only signal there is; the app says so on the System page rather than going quiet.
-- The callback runs on the **main run loop**, because that is where the source is added. It holds up every
-  click on the Mac while it runs.
-- The system disables a tap for two reasons, `tapDisabledByTimeout` (this app held the callback too long,
-  which is a bug here) and `tapDisabledByUserInput` (the system interrupting, which is nobody's bug). Both
-  are re-enabled at once and logged apart, with a count: a line that could not tell them apart sends a
-  reader looking in the wrong place.
-- **The callback recovers `self` from an unretained pointer**, so a tap left running would outlive the
-  object and dereference freed memory. `MouseTap` disables, removes and invalidates in `deinit`.
+- **A listening tap and a tap that can swallow are different animals.** `CGEvent.tapCreate(… options:
+  .listenOnly …)` is handed a copy of each event and the window server does not wait for it. `options:
+  .defaultTap` puts the tap **in the path of the event**: the window server waits for the callback's answer,
+  and nothing behind that event is delivered until it has it, the keyboard included. Swallowing a click needs
+  the second kind. Nothing else in the app does.
+- **An enabled `.defaultTap` whose owner loses the Accessibility grant stalls the Mac.** Measured here, and
+  reported the same way by others on macOS 15, 26 and 27: the callback is no longer run, the clicks are still
+  routed into the tap, and each one holds the whole session's input until the system's own timeout disables
+  the tap and sends `tapDisabledByTimeout`. **That pseudo-event still reaches the callback.** Enable the tap
+  again from there and the next click stalls the same way, for ever; `pitfalls.md` 13 has the log. A
+  `.listenOnly` tap under the same revocation holds nothing up.
+- So ShiftPick holds **two taps, both `.cgSessionEventTap`, `.headInsertEventTap`**: a `.listenOnly` sentinel
+  on `flagsChanged` and `leftMouseDown`, always on; and a `.defaultTap` on `leftMouseDown` and `leftMouseUp`
+  that is **created disabled and enabled only while ⇧ Shift is held**. A tap is born enabled, so the click
+  tap is disabled in the line after it is created, before its source is on any run loop.
+- **A listening tap on `flagsChanged` needs no second permission**: the Accessibility grant covers it, which
+  is how `snappy-snap` has always run the same tap. Both taps are only created once the grant reads as given:
+  a tap that listens to the keyboard, asked for without it, is reported to make macOS offer Input Monitoring
+  instead, and that is a prompt this app never wants on screen.
+- Creating them needs the Accessibility grant. When it is missing, `tapCreate` returns nil, which is the
+  only signal there is; the app says so on the System page rather than going quiet.
+- The callbacks run on **a thread of their own** (`TapThread`), because a tap is answered by whichever run
+  loop its source was added to, and on the main run loop every stall of the interface is a stall of the mouse.
+- The system disables a tap for two reasons, `tapDisabledByTimeout` (the callback was not answered in time:
+  a bug here, or a grant that has gone) and `tapDisabledByUserInput` (the system interrupting). **Neither is
+  ever answered by enabling the tap**: both are counted, logged apart, and left to the next ⇧ Shift press.
+- **`CGEventSource.flagsState(.hidSystemState)` is the keyboard as the hardware sees it**, and it goes on
+  being right while the event stream is stalled, which is exactly when a key's release would never be heard.
+  `.combinedSessionState` also counts keys pressed by another Mac through a sharing tool, which never reach
+  the hardware state. The watch kept while armed believes either.
+- **A press and its release carry the same `mouseEventNumber`**, which is how the release of a swallowed
+  press is recognised and nobody else's is.
+- **The callbacks recover `self` from an unretained pointer**, so a tap left running would outlive the
+  object and call into freed memory. `ClickGuard` disables and invalidates both in `deinit`, and
+  `CGEvent.tapEnable` and `CFMachPortInvalidate` are honoured from any thread.
+- **A process that dies takes its taps with it**, however it dies: the ports are the kernel's to clean up.
+  Nothing ShiftPick does to the event stream outlives its process, and it changes nothing persistent that a
+  crash could leave behind.
 
 ## Coordinates
 
@@ -141,6 +166,15 @@ converted anywhere, and no Cocoa rectangle ever reaches the click path.
 
 ## The permission
 
+- **`AXIsProcessTrusted()` is an answer the system keeps for the process, not a live one.** It is right at
+  launch. It lags the notification that says the grant moved, and it has been reported to go on saying yes
+  after the grant was taken away, above all when the app is removed from the list with the minus button
+  rather than switched off. Windows may show it; **nothing that enables an event tap relies on it alone.**
+- **A real request is refused the moment the grant is gone**: any Accessibility call comes back
+  `kAXErrorAPIDisabled`. That is the live question (`Permissions.liveVerdict`): one attribute asked of the
+  Dock, which is always running and answers in well under a millisecond, with a 50 ms timeout. A timeout says
+  nothing either way and is never read as a revocation. Every call the click path makes is a witness as
+  well: `AX.refusalCount` moves when one is refused.
 - `AXIsProcessTrusted()` answers whether this process may ask anything, and shows nothing, which is why it
   may run behind a poll. `AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt: true])` shows the
   system's own dialog. **They are two calls and they are never swapped**: the second returns the current
@@ -161,10 +195,16 @@ converted anywhere, and no Cocoa rectangle ever reaches the click path.
   signature gives the app a new identity on every build and loses it every time. That is why an ad-hoc
   build is never installed.
 - **`com.apple.accessibility.api`** is posted on the *distributed* notification centre when the privacy
-  database changes. It is how a grant given or taken away reaches a running app with no timer at all. It
-  can arrive a moment before the process is really trusted, which is why the onboarding wizard also polls
-  every `K.onboardingPollInterval` while it is up, and only while it is up. That poll is the app's only one:
-  its tick refreshes the wizard's rows **and** tells the app, so there is no second timer on the same grant.
+  database changes. It is how a grant given or taken away reaches a running app with no timer at all, **and
+  it is a hint, never an answer**: it is posted for any application's grant, it can arrive before
+  `AXIsProcessTrusted()` changes, and removing an application with the minus button has been reported to
+  post nothing. So hearing it disarms the click tap first, asks the live question, and looks again
+  `K.trustRecheckDelays` later; a handler that reads the grant once and leaves is how a revocation goes
+  unnoticed. The onboarding wizard also polls every `K.onboardingPollInterval` while it is up, and only while
+  it is up: its tick refreshes the wizard's rows **and** tells the app.
+- **`tccutil reset Accessibility <bundle id>` is a revocation this app performs on itself**, in its
+  uninstall. Whether it reaches the running process at once or only the next launch has **not been measured
+  here**, and others report both; the uninstall does not find out, because it destroys both taps first.
 - A **command-line tool inherits the Accessibility grant of the terminal that starts it**, which is why
   `Tools/axdump` can read Finder long before the app is allowed to.
 

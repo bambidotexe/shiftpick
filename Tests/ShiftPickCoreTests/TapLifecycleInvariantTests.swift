@@ -124,7 +124,8 @@ final class TapLifecycleInvariantTests: XCTestCase {
 
     private func event(_ random: inout Generator, lastGeneration: Int) -> TapLifecycle.Event {
         switch random.below(24) {
-        case 0: return .start(trusted: random.below(4) > 0)
+        case 0: return random.below(3) == 0 ? .tryAgain(trusted: random.below(4) > 0)
+                                            : .start(trusted: random.below(4) > 0)
         case 1, 2, 3: return .modifiers(shift: true, optionOrControl: random.below(6) == 0)
         case 4, 5: return .modifiers(shift: false, optionOrControl: false)
         case 6, 7, 8:

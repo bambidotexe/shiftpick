@@ -5,15 +5,18 @@ import Foundation
 public enum K {
     // MARK: - Clicks
 
-    /// How long the app gives Accessibility to answer one question. A tap's callback holds up the whole
-    /// event stream while it runs, so a Finder that does not answer must be given up on rather than waited
-    /// for. Measured on macOS 27: one `AXFrame` read of a Finder icon costs about 0.06 ms warm, so 200 ms
-    /// is three thousand times the normal cost of the slowest single call the click path makes.
-    public static let axTimeout: TimeInterval = 0.2
+    /// How long the app gives Accessibility to answer one question. It sits **under `clickBudget`**, so one
+    /// call that never answers cannot spend the whole budget on its own and the worker is free again soon
+    /// after the click has been given up on. Measured on macOS 27: one `AXFrame` read of a Finder icon costs
+    /// about 0.06 ms warm, so 100 ms is fifteen hundred times the normal cost of the slowest single call the
+    /// click path makes.
+    public static let axTimeout: TimeInterval = 0.1
 
-    /// The whole click path's budget. Past it the original event is returned unmodified, whatever has been
-    /// worked out so far. Measured: reading every icon of a full screen costs 6 to 20 ms, so this is an
-    /// order of magnitude of headroom and still far below the ~1 s at which the system takes a tap away.
+    /// The whole click path's budget, **enforced by the wait and not by the work**: the tap's thread hands
+    /// the click to the worker and waits this long for an answer, and past it the original event is returned
+    /// unmodified whatever the worker is still doing. Measured: reading every icon of a full screen costs 6
+    /// to 20 ms, so this is an order of magnitude of headroom and still far below the ~1 s at which the
+    /// system takes a tap away.
     public static let clickBudget: TimeInterval = 0.15
 
     /// How much longer a click is held when the budget runs out **while the selection is already being

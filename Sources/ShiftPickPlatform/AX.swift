@@ -1,28 +1,49 @@
 import ApplicationServices
 import CoreGraphics
 import Foundation
+import os
 
 /// Thin wrappers over the C Accessibility API. Every call is synchronous IPC to the target app, which is
-/// why every element the click path touches is given `K.axTimeout` first.
+/// why every element the click path touches is given `K.axTimeout` first, and why **none of this is ever
+/// called on the thread that serves the event taps**: the worker asks, and the tap's thread waits for the
+/// worker with a deadline of its own (`DeadlineGate`).
 public enum AX {
-    public static func attribute<T>(_ element: AXUIElement, _ name: String) -> T? {
+    // MARK: - The grant, as the calls themselves report it
+
+    /// How many calls have come back `apiDisabled` in the life of this process.
+    ///
+    /// `AXIsProcessTrusted()` is an answer the system keeps for the process and can go on giving after the
+    /// grant has been taken away; a real request is refused the moment it is gone. So every call made here
+    /// is also a witness: whoever needs to know compares this number before and after its work, and a
+    /// difference means the grant is gone whatever the cached answer still says.
+    public static var refusalCount: Int { refusals.withLock { $0 } }
+
+    private static let refusals = OSAllocatedUnfairLock(initialState: 0)
+
+    private static func witness(_ error: AXError) {
+        if error == .apiDisabled { refusals.withLock { $0 += 1 } }
+    }
+
+    private static func copy(_ element: AXUIElement, _ name: String) -> CFTypeRef? {
         var value: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(element, name as CFString, &value) == .success, let value
-        else { return nil }
-        return value as? T
+        let error = AXUIElementCopyAttributeValue(element, name as CFString, &value)
+        witness(error)
+        return error == .success ? value : nil
+    }
+
+    // MARK: - Reading
+
+    public static func attribute<T>(_ element: AXUIElement, _ name: String) -> T? {
+        copy(element, name) as? T
     }
 
     public static func element(_ element: AXUIElement, _ name: String) -> AXUIElement? {
-        var value: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(element, name as CFString, &value) == .success, let value,
-              CFGetTypeID(value) == AXUIElementGetTypeID() else { return nil }
+        guard let value = copy(element, name), CFGetTypeID(value) == AXUIElementGetTypeID() else { return nil }
         return (value as! AXUIElement)
     }
 
     public static func elements(_ element: AXUIElement, _ name: String) -> [AXUIElement] {
-        var value: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(element, name as CFString, &value) == .success, let value,
-              let array = value as? [AnyObject] else { return [] }
+        guard let array = copy(element, name) as? [AnyObject] else { return [] }
         return array.compactMap { CFGetTypeID($0) == AXUIElementGetTypeID() ? ($0 as! AXUIElement) : nil }
     }
 
@@ -68,14 +89,20 @@ public enum AX {
         AXUIElementSetMessagingTimeout(element, seconds)
     }
 
+    // MARK: - Writing
+
     @discardableResult
     public static func set(_ element: AXUIElement, _ name: String, to value: CFTypeRef) -> Bool {
-        AXUIElementSetAttributeValue(element, name as CFString, value) == .success
+        let error = AXUIElementSetAttributeValue(element, name as CFString, value)
+        witness(error)
+        return error == .success
     }
 
     public static func perform(_ element: AXUIElement, _ action: String) {
-        AXUIElementPerformAction(element, action as CFString)
+        witness(AXUIElementPerformAction(element, action as CFString))
     }
+
+    // MARK: - Hit testing
 
     /// The element the window server draws at this point, which is the top one: a Finder window behind
     /// another application's window does not answer for a point that application covers. That is what makes
@@ -84,8 +111,8 @@ public enum AX {
         let system = AXUIElementCreateSystemWide()
         setTimeout(timeout, on: system)
         var hit: AXUIElement?
-        guard AXUIElementCopyElementAtPosition(system, Float(point.x), Float(point.y), &hit) == .success
-        else { return nil }
-        return hit
+        let error = AXUIElementCopyElementAtPosition(system, Float(point.x), Float(point.y), &hit)
+        witness(error)
+        return error == .success ? hit : nil
     }
 }

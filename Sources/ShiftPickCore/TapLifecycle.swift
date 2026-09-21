@@ -59,8 +59,11 @@ public struct TapLifecycle: Equatable, Sendable {
     public enum LogLevel: Equatable, Sendable { case debug, notice, error }
 
     public enum Event: Equatable, Sendable {
-        /// Launch, the grant arriving, or the user asking for another try after the breaker opened.
+        /// Launch, the grant arriving, a poll that finds the grant in place. Does nothing while the taps exist,
+        /// **and nothing while the breaker is open**: none of those is somebody asking for another try.
         case start(trusted: Bool)
+        /// The user asking for another try after the breaker opened, and the only thing that closes it.
+        case tryAgain(trusted: Bool)
         /// The answer to `createTaps`.
         case tapsCreated(Bool)
         /// The modifier keys as the sentinel, or a click's own flags, last saw them.
@@ -164,12 +167,13 @@ public struct TapLifecycle: Equatable, Sendable {
     private mutating func transition(_ event: Event, now: TimeInterval) -> [Effect] {
         switch event {
         case .start(let trusted):
-            guard case .off = phase else { return [] }
-            guard trusted else {
-                phase = .off(.needsPermission)
-                return []
-            }
-            return [.createTaps]
+            // An open breaker is not something a launch, a grant or a poll gets to close: `tryAgain` does.
+            guard case .off(let reason) = phase, reason != .breakerOpen else { return [] }
+            return begin(trusted: trusted)
+
+        case .tryAgain(let trusted):
+            guard phase == .off(.breakerOpen) else { return [] }
+            return begin(trusted: trusted) + [.log(.notice, "another try was asked for; the breaker is closed")]
 
         case .tapsCreated(let created):
             guard case .off = phase else { return [] }
@@ -328,6 +332,15 @@ public struct TapLifecycle: Equatable, Sendable {
 
     // MARK: - The few moves everything above is made of
 
+    /// From an `off` phase only. Without the grant nothing is created, and the phase says why.
+    private mutating func begin(trusted: Bool) -> [Effect] {
+        guard trusted else {
+            phase = .off(.needsPermission)
+            return []
+        }
+        return [.createTaps]
+    }
+
     /// A new question, which makes every answer still on its way an answer to an older one.
     private mutating func askAboutTheGrant() -> Effect {
         probeGeneration += 1
@@ -338,7 +351,8 @@ public struct TapLifecycle: Equatable, Sendable {
         phase = .armed
         lastActivity = now
         outstandingPress = nil
-        return [.enableClickTap, .startWatchdog]
+        // At `debug`, which nobody pays for unless they are streaming it: this happens at every capital letter.
+        return [.enableClickTap, .startWatchdog, .log(.debug, "armed")]
     }
 
     /// From `armed` only. A press still waiting for its release is forgotten with it: the release goes to
@@ -346,7 +360,7 @@ public struct TapLifecycle: Equatable, Sendable {
     private mutating func disarm() -> [Effect] {
         phase = .idle
         outstandingPress = nil
-        return [.disableClickTap, .stopWatchdog]
+        return [.disableClickTap, .stopWatchdog, .log(.debug, "disarmed")]
     }
 
     private mutating func loseTheGrant(_ why: String) -> [Effect] {

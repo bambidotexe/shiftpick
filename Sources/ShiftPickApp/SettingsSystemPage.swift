@@ -62,6 +62,7 @@ struct SystemPage: View {
     private var clicksWarnings: [String] {
         let words = Loc.settings.system
         if !store.settings.enabled { return [words.clicksWarningDisabled] }
+        if engine.breakerIsOpen { return [words.clicksWarningStoppedByMacOS] }
         if engine.tapWasRefused || !engine.isWatching { return [words.clicksWarningNoTap] }
         return []
     }

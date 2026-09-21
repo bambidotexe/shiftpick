@@ -88,6 +88,17 @@ public struct SystemPageStrings {
         }
     }
 
+    /// The way back is the one switch the user already knows: turning it on again is what asks for another
+    /// try.
+    public var clicksWarningStoppedByMacOS: String {
+        switch language {
+        case .en: "macOS interrupted \(AppIdentity.name) \(K.breakerTrips) times in a row, so it stopped "
+            + "listening for clicks. Turn \(AppIdentity.name) off and on again on the Selection page."
+        case .fr: "macOS a interrompu \(AppIdentity.name) \(K.breakerTrips) fois de suite, il a donc cessé "
+            + "d'écouter les clics. Désactivez puis réactivez \(AppIdentity.name) sur la page Sélection."
+        }
+    }
+
     public var clicksWarningDisabled: String {
         switch language {
         case .en: "\(AppIdentity.name) is off. Turn it on again on the Selection page."

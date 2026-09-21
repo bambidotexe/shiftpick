@@ -233,10 +233,20 @@ final class TapLifecycleTests: XCTestCase {
         XCTAssertEqual(pressShift(), [])
     }
 
-    func testStartingAgainClosesTheBreaker() {
+    /// A launch, a grant that arrives, a poll that finds the grant in place: all of them start, and none of
+    /// them is somebody asking for another try. Only that closes the breaker.
+    func testAnOrdinaryStartLeavesTheBreakerOpen() {
         arm()
         for _ in 0..<K.breakerTrips { send(.tapDisabledBySystem(.click, .timeout), after: 1) }
-        XCTAssertEqual(send(.start(trusted: true)), [.createTaps])
+        XCTAssertEqual(send(.start(trusted: true)), [])
+        XCTAssertEqual(send(.trustRecheck(.trusted)), [])
+        XCTAssertEqual(life.phase, .off(.breakerOpen))
+    }
+
+    func testAskingForAnotherTryClosesTheBreaker() {
+        arm()
+        for _ in 0..<K.breakerTrips { send(.tapDisabledBySystem(.click, .timeout), after: 1) }
+        XCTAssertEqual(send(.tryAgain(trusted: true)), [.createTaps])
         send(.tapsCreated(true))
         // The count starts over too: one more trip is one trip.
         let asked = pressShift()
@@ -258,6 +268,19 @@ final class TapLifecycleTests: XCTestCase {
         let effects = send(.tapDisabledBySystem(.sentinel, .userInput))
         XCTAssertTrue(effects.contains(.disableClickTap))
         XCTAssertTrue(effects.contains(.stopWatchdog))
+        XCTAssertEqual(life.phase, .idle)
+    }
+
+    func testAnotherTryWithoutTheGrantWaitsForIt() {
+        arm()
+        for _ in 0..<K.breakerTrips { send(.tapDisabledBySystem(.click, .timeout), after: 1) }
+        XCTAssertEqual(send(.tryAgain(trusted: false)), [.report(.needsPermission)])
+        XCTAssertEqual(life.phase, .off(.needsPermission))
+    }
+
+    func testAnotherTryWithNothingBrokenIsNothing() {
+        startWatching()
+        XCTAssertEqual(send(.tryAgain(trusted: true)), [])
         XCTAssertEqual(life.phase, .idle)
     }
 

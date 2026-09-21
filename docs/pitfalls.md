@@ -177,6 +177,65 @@ does not**: it answers `kAXErrorNoValue`. Since the window's `AXIdentifier` is t
 panel from any other application's collection view, that silently refused every panel click until the
 window was found by walking the chain the hit test had already built instead.
 
+## 13. An enabled click tap, a revoked grant, and a callback that enables the tap again
+
+**Symptom.** The Accessibility switch for ShiftPick is turned off in System Settings while the app is
+running. The pointer still moves. No click lands anywhere, the keyboard does nothing, and the only way out
+is holding the power button.
+
+**What the log said**, read back after the reboot:
+
+```
+16:00:09.491 E [click] the event tap was disabled by TIMEOUT (1 this launch) and re-enabled; clicks were lost
+16:00:19.032 E [click] the event tap was disabled by TIMEOUT (2 this launch) and re-enabled; clicks were lost
+16:00:22.781 E [click] the event tap was disabled by TIMEOUT (3 this launch) and re-enabled; clicks were lost
+16:03:07.996    [app]  ShiftPick enabled                                     ← pid 1415: after the power button
+```
+
+and what it did **not** say: no `the Accessibility permission has been taken away`, anywhere.
+
+**Why, in three parts.**
+
+1. The tap was `.defaultTap` and enabled for the life of the process. Once the grant went, macOS stopped
+   running the callback and went on routing every click into the tap, so each click held the whole session's
+   input, keyboard included, until the system's own timeout gave up on the tap.
+2. **The system's safety net worked, three times, and the app cut it three times.** macOS disabled the tap
+   and said so with `tapDisabledByTimeout`, which still reaches the callback of a process that has lost the
+   grant. The callback's answer to that event was `CGEvent.tapEnable(tap, true)`. Without that one line the
+   incident is a second of lost clicks.
+3. The revocation was never noticed. The handler for `com.apple.accessibility.api` read
+   `AXIsProcessTrusted()` once, got the answer from before the change, found the engine already watching,
+   and returned. Nothing asked again.
+
+**How it got here.** The tap's scaffolding (the main run loop, enable-again-on-disable, the notification as
+the only watch on the grant) was taken from a sibling app whose taps are `.listenOnly`, where all of it is
+harmless: a listener holds nothing up. One option was changed to `.defaultTap` and everything around it
+stayed. **What is safe around a listening tap is not safe around one that can swallow.**
+
+**The second way in.** The uninstall ran `tccutil reset Accessibility` with the tap still enabled, and then
+waited for a click on an alert.
+
+**What holds now** is `architecture.md`, *The safety model*. In one line each: the click tap is enabled only
+while ⇧ Shift is held; a tap macOS disabled is never enabled by the event that says so; arming asks a live
+question first; the notification disarms before it asks; both taps are destroyed before the uninstall touches
+the grant. `TapLifecycleTests.testATapMacOSDisabledIsNeverReEnabledByThatEvent` is this incident as a test,
+and putting the line back fails 16,000 assertions of `TapLifecycleInvariantTests`.
+
+**Do not measure this by trying it.** `MANUAL_TESTS.md` §9 is the drill, and it starts a dead-man's switch
+first: `scripts/drill.sh` kills the app after thirty seconds whatever happens to the mouse, and a process
+that dies takes its taps with it.
+
+## 14. A budget the work checks on itself is not a budget
+
+The click path promised 150 ms and checked the clock at three places between steps, while every
+Accessibility element was given 200 ms to answer, which is more than the whole budget, and the loop that
+reads one frame per icon checked nothing. A Finder stuck on a network volume would have held a click for
+200 ms times the number of icons on screen, with the event tap's thread inside the call.
+
+**What holds.** The thread that holds the click does no work and waits with a timeout (`DeadlineGate`); the
+work happens elsewhere and is told when nobody is waiting any more. `K.axTimeout` sits under `K.clickBudget`.
+The same stuck Finder now costs a click its range, 150 ms later, and nothing else.
+
 ---
 
 ## Open issues

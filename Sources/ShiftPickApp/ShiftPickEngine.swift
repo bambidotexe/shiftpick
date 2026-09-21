@@ -1,210 +1,141 @@
 import AppKit
-import ApplicationServices
 import Combine
 import CoreGraphics
 import Foundation
 import ShiftPickCore
 import ShiftPickPlatform
 
-/// The whole feature: one event tap, and what one ⇧ Shift click does.
+/// The feature, as the rest of the app sees it: start it, stop it, and what state it is in.
 ///
-/// **Every path through it fails safe.** A question Accessibility will not answer, a layout with no usable
-/// anchor, a selection Finder refuses, the budget running out: all of them return the event unmodified, and
-/// Finder does exactly what it has always done. The only way a click is swallowed is the last line of
-/// `shiftClick`, after the new selection has already been set.
+/// It owns three things and does none of their work. `ClickGuard` holds the two event taps on a thread of
+/// their own; `ShiftClickResolver` makes every Accessibility call on a worker queue; `DeadlineGate` is the
+/// only way a held click gets from the first to the second, and it keeps the click's budget whatever the
+/// worker does. **The main thread is in none of it**: a window that stalls, an alert that runs, a `tccutil`
+/// that is waited for, none of them can delay a click.
+///
+/// What is left here is wiring, and the one published fact the windows and the menu draw: `status`.
 @MainActor
 final class ShiftPickEngine: ObservableObject {
-    /// Where a range is measured from, per container. It is held as the two Accessibility elements, which
-    /// compare by `CFEqual` across reads; when Finder has rebuilt them the anchor simply reads as gone, and
-    /// the rule for a missing anchor takes over.
-    private struct Anchor {
-        let container: AXUIElement
-        let item: AXUIElement
-    }
+    /// What the click listener is doing, as `TapLifecycle` reports it. Arming and disarming are not in it:
+    /// they happen at every capital letter.
+    @Published private(set) var status: TapLifecycle.Status = .stopped
 
-    /// Whether the tap is up. False while the Accessibility permission is missing, and false when macOS
-    /// refused the tap, which the System page tells the two apart by asking `tapWasRefused`.
-    @Published private(set) var isWatching = false
-    /// The tap could not be created although the permission is granted. It is the one failure that is
-    /// otherwise completely silent.
-    @Published private(set) var tapWasRefused = false
-    /// How many times the system has taken the tap away this launch, both reasons together.
-    @Published private(set) var tapDisableCount = 0
+    /// Whether the taps exist and ⇧ Shift is being listened for.
+    var isWatching: Bool { status == .watching }
+    /// The permission reads as granted and macOS would still not create the taps. It is the one failure
+    /// that is otherwise completely silent.
+    var tapWasRefused: Bool { status == .refused }
+    /// macOS kept taking the click tap away, and ShiftPick stopped creating it.
+    var breakerIsOpen: Bool { status == .breakerOpen }
 
-    private let tap = MouseTap()
     private let store: SettingsStore
-    private var anchor: Anchor?
-    private var finderPID: pid_t?
+    private let resolver = ShiftClickResolver()
+    private let clickGuard: ClickGuard
     private var cancellables: Set<AnyCancellable> = []
 
     init(store: SettingsStore) {
         self.store = store
-        tap.isEnabled = { [weak self] in self?.store.settings.enabled ?? false }
-        tap.onShiftClick = { [weak self] point, flags in
-            self?.shiftClick(at: point, flags: flags) ?? .pass
+        let resolver = self.resolver
+        let gate = DeadlineGate(queue: resolver.queue)
+        let status = StatusRelay()
+
+        clickGuard = ClickGuard(userEnabled: store.settings.enabled, hooks: ClickGuard.Hooks(
+            decidePress: { point, flags in
+                let outcome = gate.run(budget: K.clickBudget, grace: K.commitGrace) { ticket in
+                    resolver.shiftClick(at: point, flags: flags, ticket: ticket)
+                }
+                switch outcome {
+                case .answered:
+                    break
+                case .busy:
+                    Log.click.error("let through: the worker is still busy with an earlier click")
+                case .outOfTime:
+                    Log.click.error("let through: no answer in \(K.clickBudget, privacy: .public) s")
+                case .outOfTimeWhileSelecting:
+                    Log.click.error("let through while the selection was being set: Finder will have toggled the clicked file on top of it")
+                }
+                return outcome.swallow
+            },
+            plainClick: { point in resolver.notePlainClick(at: point) },
+            probeTrust: { answer in resolver.queue.async { answer(Permissions.liveVerdict()) } },
+            statusChanged: { new in DispatchQueue.main.async { status.deliver(new) } }))
+
+        status.deliver = { [weak self] new in
+            MainActor.assumeIsolated { self?.statusChanged(to: new) }
         }
-        tap.onPlainClick = { [weak self] point, _ in self?.notePlainClick(at: point) }
-        tap.onDisabled = { [weak self] reason, count in
-            self?.tapDisableCount = count
-            switch reason {
-            case .timeout:
-                Log.click.error("the event tap was disabled by TIMEOUT (\(count, privacy: .public) this launch) and re-enabled; clicks were lost")
-            case .userInput:
-                Log.click.error("the event tap was disabled by USER INPUT (\(count, privacy: .public) this launch) and re-enabled; clicks were lost")
+        resolver.onGrantLost = { [clickGuard] in clickGuard.trustWasLost() }
+        resolver.update(store.settings)
+
+        // The kill switch is a flag the sentinel reads, so turning ShiftPick off takes effect on the next
+        // press of ⇧ Shift rather than on the next launch, and no tap is created or destroyed for it.
+        store.$settings
+            .removeDuplicates()
+            .sink { [resolver, clickGuard] settings in
+                resolver.update(settings)
+                clickGuard.setUserEnabled(settings.enabled)
             }
-        }
-        // The kill switch is the tap's own flag, so turning ShiftPick off takes effect on the next click
-        // rather than on the next launch. The tap stays up: tearing it down and building it again on a
-        // switch is how a tap ends up refused.
+            .store(in: &cancellables)
         store.$settings
             .map(\.enabled)
             .removeDuplicates()
-            .sink { on in Log.app.notice("ShiftPick \(on ? "enabled" : "disabled", privacy: .public)") }
+            .sink { [weak self] on in
+                Log.app.notice("ShiftPick \(on ? "enabled" : "disabled", privacy: .public)")
+                // Turning it on again is how the user asks for another try once macOS has taken the click
+                // tap away too often: the one switch they already know, and nothing new to learn.
+                if on, self?.breakerIsOpen == true { self?.clickGuard.tryAgain() }
+            }
             .store(in: &cancellables)
     }
 
     // MARK: - Running
 
-    /// Starts the tap. False when macOS refused it, which is what a permission that has just been taken
-    /// away looks like; the caller says so rather than going quiet.
-    @discardableResult
-    func start() -> Bool {
-        guard !isWatching else { return true }
-        guard tap.start() else {
-            tapWasRefused = true
-            isWatching = false
-            Log.app.error("the event tap could not be created; is Accessibility granted?")
-            return false
-        }
-        tapWasRefused = false
-        isWatching = true
-        anchor = nil
-        Log.app.notice("watching for clicks")
-        return true
+    /// Launch, or the grant arriving. Asking twice is asking once, and it never closes an open breaker:
+    /// turning ShiftPick off and on again is what does.
+    func start() {
+        resolver.forgetAnchor()
+        clickGuard.start()
     }
 
-    func stop() {
-        guard isWatching || tapWasRefused else { return }
-        tap.stop()
-        isWatching = false
-        tapWasRefused = false
-        anchor = nil
-        Log.app.notice("stopped watching for clicks")
+    /// **Returns once no event tap exists.** It comes before anything that takes the grant, the bundle or
+    /// the process away, and nothing starts again after it.
+    func shutDown() {
+        clickGuard.shutDown()
+        Log.app.notice("stopped listening; no event tap exists")
     }
 
-    // MARK: - The anchor
+    /// The Mac is going to sleep, the screen is locking, or another user's session is coming forward.
+    func suspend() { clickGuard.suspend() }
 
-    /// A plain or ⌘ Command click. Nothing is asked of Finder here: the event has already been handed back
-    /// to the system, and the hit test happens a moment later, so an ordinary click gains no latency at all.
-    private func notePlainClick(at point: CGPoint) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + K.anchorDelay) { [weak self] in
-            MainActor.assumeIsolated { self?.findAnchor(at: point) }
-        }
+    func resume() {
+        resolver.forgetAnchor()
+        clickGuard.resume()
     }
 
-    private func findAnchor(at point: CGPoint) {
-        guard let pid = finderProcess() else { return }
-        switch FinderAX.hit(at: point, finderPID: pid, timeout: Float(K.axTimeout)) {
-        case .item(let target):
-            // Only if the application that owns the view is frontmost by then. A click that went
-            // somewhere else selected nothing in it, and the anchor must keep naming what is actually
-            // selected.
-            guard NSWorkspace.shared.frontmostApplication?.processIdentifier
-                    == AX.pid(of: target.view.container) else { return }
-            anchor = Anchor(container: target.view.container, item: target.item)
-        case .emptyIconView:
-            // The view has just deselected everything. Keeping the old anchor would let a later ⇧ Shift
-            // click select a range from a file nothing on screen says anything about.
-            anchor = nil
-        case .elsewhere:
-            break
+    /// The system said the privacy database moved, which may or may not be about this app. The click tap is
+    /// disarmed first and the grant is asked about afterwards, a few times over a few seconds.
+    func trustMayHaveChanged() { clickGuard.trustMayHaveChanged() }
+
+    /// A cheap look, for a poll that is running anyway: the onboarding wizard's. It starts the listener when
+    /// the grant has arrived and takes it down when the grant reads as gone.
+    func refreshTrust() {
+        if Permissions.accessibilityGranted { clickGuard.start() } else { clickGuard.trustWasLost() }
+    }
+
+    private func statusChanged(to new: TapLifecycle.Status) {
+        guard new != status else { return }
+        status = new
+        switch new {
+        case .watching: Log.app.notice("listening for ⇧ Shift clicks")
+        case .needsPermission: Log.app.notice("not listening: the Accessibility permission is missing")
+        case .refused: Log.app.error("not listening: macOS would not create the event taps")
+        case .breakerOpen: Log.app.error("not listening: macOS kept taking the click tap away, so it is no longer created")
+        case .stopped: break
         }
     }
+}
 
-    // MARK: - The click
-
-    private func shiftClick(at point: CGPoint, flags: CGEventFlags) -> MouseTap.Decision {
-        let deadline = Date().addingTimeInterval(K.clickBudget)
-        let adds = flags.contains(.maskCommand)
-        // ⌘ Command with ⇧ Shift is Finder's when the switch is off, exactly as it is when ShiftPick is.
-        guard !adds || store.settings.commandShiftAdds else { return .pass }
-        guard let pid = finderProcess() else { return .pass }
-
-        let timeout = Float(K.axTimeout)
-        guard case .item(let target) = FinderAX.hit(at: point, finderPID: pid, timeout: timeout)
-        else { return .pass }
-
-        // The application that owns the view, which is Finder for a window and for the Desktop and
-        // whichever application put the panel up for a panel.
-        let application = AXUIElementCreateApplication(AX.pid(of: target.view.container))
-        AX.setTimeout(timeout, on: application)
-        // A name being typed in place: the click belongs to the text field, not to a range. Finder only:
-        // a Save panel keeps its own name field focused the whole time it is up, so the same question
-        // asked of a panel would refuse every click in it.
-        if target.view.host != .panel, FinderAX.isRenaming(finder: application) { return .pass }
-
-        let pairs = FinderAX.items(in: target.view, timeout: timeout)
-        guard !pairs.isEmpty, Date() < deadline else { return pass("Finder answered too slowly") }
-        let elements = pairs.map(\.1)
-        guard let targetIndex = FinderAX.index(of: target.item, among: elements) else { return .pass }
-
-        let model = LayoutModel(items: pairs.map(\.0), fallbackFlow: target.view.fallbackFlow)
-
-        // Read once: the derived anchor and ⌘ Command both want it, and it is a round trip to Finder.
-        var selection: [Int]?
-        func currentSelection() -> [Int] {
-            if let selection { return selection }
-            let read = FinderAX.selection(in: target.view, among: elements)
-            selection = read
-            return read
-        }
-
-        var anchorIndex: Int?
-        if let anchor, CFEqual(anchor.container, target.view.container) {
-            anchorIndex = FinderAX.index(of: anchor.item, among: elements)
-        }
-        if anchorIndex == nil {
-            // Missing, stale, or in another container. The selection is what is left to measure from, and
-            // a selection with nothing in it means there is nothing to measure at all.
-            anchorIndex = model.derivedAnchor(target: targetIndex, selection: currentSelection())
-        }
-        guard let anchorIndex else { return pass("no anchor and nothing selected") }
-        guard let range = model.range(from: anchorIndex, to: targetIndex)
-        else { return pass("the anchor or the target is not a file") }
-        guard Date() < deadline else { return pass("the click took too long") }
-
-        let chosen = adds ? Array(Set(range).union(currentSelection())).sorted() : range
-        guard FinderAX.select(chosen.map { elements[$0] }, in: target.view)
-        else { return pass("Finder refused the selection") }
-
-        // The click was swallowed, so what it would otherwise have done has to be done here.
-        FinderAX.raise(target.view, application: application)
-        Log.click.debug("""
-            selected \(chosen.count, privacy: .public) of \(elements.count, privacy: .public) \
-            (\(String(describing: model.kind), privacy: .public)\(adds ? ", added" : "", privacy: .public))
-            """)
-        // The anchor does not move: widening and narrowing a range are both measured from the same file.
-        return .swallow
-    }
-
-    /// One place to say why a ⇧ Shift click was let through. Silence is a defect, and this is the only
-    /// thing about the click path that is otherwise invisible; `debug` keeps it out of the way until
-    /// somebody asks for it with `log stream --level debug`.
-    private func pass(_ reason: StaticString) -> MouseTap.Decision {
-        Log.click.debug("let through: \(reason, privacy: .public)")
-        return .pass
-    }
-
-    // MARK: - Finder
-
-    /// Finder's pid, remembered until the process it names has gone. Finder restarts, and a pid kept from
-    /// the one before would make every click read as somebody else's.
-    private func finderProcess() -> pid_t? {
-        if let pid = finderPID, NSRunningApplication(processIdentifier: pid) != nil { return pid }
-        let found = NSWorkspace.shared.runningApplications
-            .first { $0.bundleIdentifier == FinderAX.bundleIdentifier }?
-            .processIdentifier
-        finderPID = found
-        return found
-    }
+/// How a status reported on the taps' thread reaches an object that belongs to the main actor, without that
+/// object being captured before it exists.
+private final class StatusRelay: @unchecked Sendable {
+    var deliver: (TapLifecycle.Status) -> Void = { _ in }
 }

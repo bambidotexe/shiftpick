@@ -10,13 +10,16 @@ hold ⇧ Shift, click another, and everything between them is selected. Finder a
 column and gallery views; in icon view ⇧ Shift only adds the one item under the pointer, and an AppKit file
 panel shown as icons has exactly the same gap. ShiftPick closes it and does nothing else.
 
-It listens on one `CGEventTap` for the left mouse button. A click without ⇧ Shift leaves the callback after
-one bit test. A click with it is hit-tested through the Accessibility API: if what is under the pointer is
-an icon in a Finder icon view, ShiftPick works out the range, sets Finder's selection itself, brings Finder
-forward, raises the clicked window, and **swallows the click** so Finder does not apply its own toggle on
-top. Anything else at all — another application, a list view, the gap between two icons, a rename in
-progress, a question Accessibility will not answer, a budget of 150 ms running out — returns the event
-unmodified. **A bug in this app must never be able to break clicking.**
+It holds two event taps, and they are not alike. A **listening** one hears ⇧ Shift go down and come up, and
+a listening tap can hold nothing up whatever happens to the app. The one that **can swallow a click** is
+enabled only while ⇧ Shift is held: with no finger on the key, no click on the Mac passes through ShiftPick
+at all. A ⇧ Shift click is handed to a worker and hit-tested through the Accessibility API: if what is under
+the pointer is an icon in a Finder icon view, ShiftPick works out the range, sets Finder's selection itself,
+**swallows the click** so Finder does not apply its own toggle on top, brings Finder forward and raises the
+clicked window. Anything else at all — another application, a list view, the gap between two icons, a rename
+in progress, a question Accessibility will not answer, a budget of 150 ms running out — returns the event
+unmodified. **A bug in this app must never be able to break clicking**, and that sentence is not a hope:
+`docs/architecture.md` *The safety model* is how it is kept, and `docs/pitfalls.md` 13 is the day it was not.
 
 Accessibility is the only permission it needs, and it is not sandboxed, because neither an event tap that
 may swallow an event nor control of Finder's selection is a thing a sandbox allows.
@@ -72,10 +75,12 @@ and the newer of a request and a written rule wins only after the owner has said
 | To change… | Edit | Then document in |
 |---|---|---|
 | what counts as a range: the lattice, the flow, the rubber band | `Core/LayoutModel.swift`, `Core/Lattice.swift`, `Core/LayoutItem.swift` — pinned by `RangeSelectionTests`, `LatticeTests` | `functional.md` §3 |
-| where a range is measured from | `Core/LayoutModel.derivedAnchor`, `App/ShiftPickEngine` (`anchor`, `notePlainClick`) — `AnchorTests` | `functional.md` §2 |
-| which clicks are looked at at all, and what is swallowed | `Platform/MouseTap.swift` | `functional.md` §1, `macOS.md` *The event tap* |
+| where a range is measured from | `Core/LayoutModel.derivedAnchor`, `App/ShiftClickResolver` (`anchor`, `notePlainClick`) — `AnchorTests` | `functional.md` §2 |
+| **when the click tap may be enabled**: arming, a tap macOS took away, the breaker, the grant going or coming, sleep and the lock screen | **Read `architecture.md` *The safety model* first.** `Core/TapLifecycle.swift`, and nowhere else: a new way for the tap's state to move is a new `Event`, its scenario in `TapLifecycleTests`, and a line in `TapLifecycleInvariantTests`' generator | `functional.md` §1 and §7 |
+| the taps themselves, their thread, what is swallowed, the click's budget | `Platform/ClickGuard.swift` (it executes `TapLifecycle`'s effects and decides nothing), `TapThread.swift`, `DeadlineGate.swift` — `DeadlineGateTests`, `TapThreadTests` | `functional.md` §1 and §2, `macOS.md` *The event taps* |
+| how the grant is read, asked about live, or lost | `Platform/Permissions.swift` (`liveVerdict`, `verdict(for:)`), `Platform/AX.swift` (`refusalCount`) — `TrustVerdictTests` | `macOS.md` *The permission*, `functional.md` §7 |
 | how Finder is read and written | `Platform/FinderAX.swift`, `Platform/AX.swift` | **`macOS.md` first**, then `functional.md` §4 |
-| what one ⇧ Shift click does, end to end | `App/ShiftPickEngine.shiftClick` | `functional.md` §1–2, `architecture.md` *The click path* |
+| what one ⇧ Shift click does, end to end | `App/ShiftClickResolver.shiftClick`, which runs on the worker and answers through its `ClickTicket` | `functional.md` §1–2, `architecture.md` *The click path* |
 | a timing, a budget, a threshold | `Core/Constants.swift`, with its measurement in the comment | the section that states it |
 | a user setting | **Invoke the `building-settings-pages` skill first.** `Core/Settings.swift` + a row on its page + `SettingsTests` | `functional.md` §5 |
 | the Settings window's pages, look or copy | **Invoke the `building-settings-pages` skill first**: it holds every rule of the window's structure, numbers and wording. `App/SettingsKit.swift` (the kit and `SettingsMetrics`), `App/SettingsView.swift` (`SettingsPageID`, `SystemStatus`), `App/SettingsWindow.swift` (the toolbar, the height that follows the page), `App/Settings…Page.swift`. **The words are not in the page files**: they are `Core/Strings<Page>Page.swift` | `functional.md` §5 |
@@ -145,16 +150,21 @@ Three code targets, dependencies pointing one way: Core ← Platform ← App. Fu
   the selection maths: classify a set of icon frames, order them, and answer with a range) · `Settings` ·
   `Constants` (`K`, every number with its measurement) · `AppIdentity` + `Paths` · `QuietLaunch` ·
   `UninstallPlan` · the update's rules (`UpdateCheck`, `UpdateSchedule`, `UpdatePanel`, `UpdateSession`,
-  `StagedUpdateCheck`, `UpdateInstallScript`) · `Localization` (`Language`, `Loc`) + `Strings*` (every
+  `StagedUpdateCheck`, `UpdateInstallScript`) · **`TapLifecycle`** + `TrustVerdict` (when the click tap may be
+  enabled, as a value: an event and the time in, the new state and what to do about it out) · `Localization` (`Language`, `Loc`) + `Strings*` (every
   user-facing string, English and French side by side, one table per surface).
-- **`Sources/ShiftPickPlatform`** — the only code that talks to the system. **`MouseTap`** (the one event
-  tap, and the only thing that may swallow a click) · **`FinderAX`** (the only code that knows the shape of
+- **`Sources/ShiftPickPlatform`** — the only code that talks to the system. **`ClickGuard`** (the two event
+  taps, and the only thing that may swallow a click; it executes what `Core/TapLifecycle` decides) ·
+  `TapThread` (the thread the taps are served on, and nothing else is) · `DeadlineGate` + `ClickTicket` (the
+  wait that keeps a click's budget whatever the worker does) · **`FinderAX`** (the only code that knows the shape of
   Finder's icon views: find the view under a point, read its items, read and set its selection) · `AX` (the
   C Accessibility API, one round trip per call) · `Permissions` · `LoginItem` · `SettingsStore` · `Log` ·
   the update's I/O (`UpdateChecker` + `UpdateDownload`, the only network code; `UpdateStager`,
   `CodeSignature`, `UpdateInstaller`, `DetachedProcess`) · `Uninstall`.
-- **`Sources/ShiftPickApp`** — `AppDelegate` wires everything. **`ShiftPickEngine`** owns the tap and the
-  anchor and is where one ⇧ Shift click is decided. `MenuBarController` · the onboarding wizard
+- **`Sources/ShiftPickApp`** — `AppDelegate` wires everything, including what happens when the Mac sleeps,
+  locks or quits. **`ShiftPickEngine`** wires the guard, the gate and the resolver and publishes one status;
+  **`ShiftClickResolver`** owns the anchor, makes every Accessibility call on its worker queue, and is where
+  one ⇧ Shift click is decided. `MenuBarController` · the onboarding wizard
   (`OnboardingWindow` the controller, the pages, the row and `OnboardingMetrics`; `GrantCatalogue` what a
   grant is and the two lists; `ControlActionHandler`) ·
   `UpdateController` (the update's one owner) + `UpdateNotifier` + `UpdateWindow` · the settings window
@@ -181,11 +191,24 @@ the log.
   depends on, or the measurement behind a derived number. No dates, versions, attributions or accounts of
   what the code replaced. History belongs in git and, for traps only, in `docs/pitfalls.md`.
 - **Fail safe, always.** Every path through the click returns the event unmodified unless the new selection
-  has already been set. Adding a path that can swallow a click without having selected anything is a defect
-  even if it never fires.
-- **Nothing on the click path may be slow.** It runs inside the event tap's callback, which holds up every
-  click on the Mac while it runs. Every Accessibility element it touches gets `K.axTimeout`; the whole path
-  is bounded by `K.clickBudget`; and an ordinary click never reaches Accessibility at all.
+  has already been set. The one line that swallows is `ticket.finish(swallow: true)`, and it is only honoured
+  after a `ticket.commit()` that was granted. Adding a path that can swallow a click without having selected
+  anything is a defect even if it never fires.
+- **The click tap is enabled only while ⇧ Shift is held, and only `TapLifecycle` says when.**
+  `CGEvent.tapEnable(…, enable: true)` on the click tap exists in exactly one place, `ClickGuard.run`, under
+  `.enableClickTap`. A second place is a defect, whatever it is for.
+- **A tap macOS disabled is never enabled by the event that says so.** That is the system's own safety net,
+  and the callback that cut it is what cost a hard reboot (`docs/pitfalls.md` 13). What comes back is the
+  next ⇧ Shift press, asked about like any other.
+- **`AXIsProcessTrusted()` never keeps a tap enabled on its own.** It is a cached answer and has been seen
+  to be wrong. Arming asks `Permissions.liveVerdict`; windows may show the cached one.
+- **Anything that takes the grant or the process away destroys both taps first**: `engine.shutDown()` comes
+  before `tccutil`, before a quit, before anything new of that kind.
+- **The thread that serves the taps never calls Accessibility and never blocks without a timeout.** It hands
+  a click to the worker through `DeadlineGate` and waits `K.clickBudget`; the budget belongs to whoever waits,
+  never to the work. Every Accessibility element gets `K.axTimeout`, which sits under the budget, and an
+  ordinary click never reaches ShiftPick's click tap at all. **The main thread touches no event**: nothing a
+  window does can delay a click.
 - **Never assume Finder's hierarchy.** It is not documented and it is not stable. `docs/macOS.md` holds
   what was read, `swift run axdump` is how it is read again, and `FinderAX` is the only file that may know
   it.
@@ -208,8 +231,12 @@ the log.
 
 ## Traps
 
-`docs/pitfalls.md` is the full list, with the measurements. The six that cost the most:
+`docs/pitfalls.md` is the full list, with the measurements. The seven that cost the most:
 
+0. **An enabled tap that can swallow, a revoked grant, and a callback that enables the tap again: the Mac
+   takes no click and no key until the power button.** It happened here, and the log of it is
+   `docs/pitfalls.md` 13. What is safe around a `.listenOnly` tap is not safe around a `.defaultTap`. **Never
+   reproduce it by trying it**: `MANUAL_TESTS.md` §9 is the drill, behind a dead-man's switch.
 1. **Finder only builds the icons that are on screen.** A folder of 2,500 files answers with 24 to 30. A
    range is therefore only ever as complete as what is visible, and ShiftPick lets the click through rather
    than making a quietly smaller selection.

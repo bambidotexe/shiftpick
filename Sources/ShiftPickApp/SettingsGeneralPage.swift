@@ -63,6 +63,11 @@ struct GeneralPage: View {
         alert.addButton(withTitle: words.uninstallCancelButton)
         guard alert.runModal() == .alertFirstButtonReturn else { return }
 
+        // **First, and before the grant is touched.** The next line resets the Accessibility grant, and an
+        // enabled click tap whose owner has just lost it stalls every click on the Mac, a moment before this
+        // asks for one on its last alert. There is no way back from here, so nothing starts again.
+        (NSApp.delegate as? AppDelegate)?.prepareForRemoval()
+
         var failures = Uninstall.removeSystemRegistrations()
         Uninstall.moveBundleToTrash { failure in
             if let failure { failures.append(failure) }

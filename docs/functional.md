@@ -11,30 +11,65 @@ in the code is the one that counts.
 
 ## 1. Which clicks ShiftPick looks at
 
-ShiftPick puts one **session event tap** on the left mouse button, subscribed to **mouse down and mouse up
-and nothing else**: no moves, no drags, no modifier changes.
+ShiftPick holds **two session event taps**, and they are not alike.
 
-1. **The kill switch is read first.** With *Enable ShiftPick* off, every event is returned unmodified and
-   nothing else happens. It takes effect on the next click, not on the next launch.
-2. **The ⇧ Shift flag is read next.** A click without it is returned at once, and Finder is not asked
-   anything at all. This is almost every click on the Mac, and it costs one bit test.
-3. A click **with ⌥ Option or ⌃ Control held is returned**: both mean something else in Finder, and neither
-   is ShiftPick's to take.
-4. Everything else is a **⇧ Shift click**, and §2 decides it.
+- **The sentinel only listens.** It hears the modifier keys change and the left button go down, and nothing
+  else: no moves, no drags, no key presses. macOS does not wait for a listening tap, so nothing that happens
+  to ShiftPick can make it hold an event up. It is on for as long as the app is watching.
+- **The click tap can swallow a click**, which is the whole feature and the one thing in the app that could
+  hold up the Mac's input. It is subscribed to **the left button going down and coming up and nothing
+  else**; it is **created disabled, and it is enabled only while ⇧ Shift is held**, or while a press it
+  swallowed is still waiting for its release. With no finger on ⇧ Shift, no click on the Mac passes through
+  ShiftPick at all.
+
+**Arming**, when ⇧ Shift goes down:
+
+1. **The kill switch is read first.** With *Enable ShiftPick* off nothing is armed, every click goes straight
+   to the system, and no anchor is looked for. It takes effect on the next press of ⇧ Shift, not on the next
+   launch.
+2. **⌥ Option or ⌃ Control held with it arms nothing**: both mean something else in Finder, and neither is
+   ShiftPick's to take.
+3. **The grant is asked about first, live.** A real Accessibility request is made of the Dock, and an answer
+   no older than **`K.trustFreshness` (2 s)** is reused, so a burst of capital letters asks once. A refusal
+   takes both taps down (§7). No answer within **`K.trustProbeTimeout` (50 ms)** arms nothing.
+4. The click tap is enabled. Releasing ⇧ Shift disables it again.
+
+While it is armed, a click **with ⇧ Shift and without ⌥ Option or ⌃ Control** is a **⇧ Shift click**, and §2
+decides it. Any other click is returned at once.
 
 **What is under the cursor decides, never which app is frontmost.** The hit test asks the window server
 what it draws at that point, so a Finder window behind another application's window does not answer for a
 point that window covers, and a Desktop icon or a background Finder window answers while another
 application is in front.
 
-**A swallowed press swallows its release.** Finder applies its ⇧ Shift toggle on the mouse-up, so letting
-the release through would undo the range on the file that was clicked. The next press clears the flag,
-so a release that never arrives cannot swallow somebody else's.
+**A swallowed press swallows its release, and only its own.** Finder applies its ⇧ Shift toggle on the
+mouse-up, so letting the release through would undo the range on the file that was clicked. macOS gives a
+press and its release the same event number, which is how the release is recognised, and the tap stays armed
+until it has come even if ⇧ Shift is let go first. A press that is let through forgets the one before it, so
+a release that never arrives cannot swallow somebody else's.
 
-**If the system takes the tap away** (its two reasons are a callback that ran too long and the system
-interrupting a tap), it is re-enabled at once and the log says which reason it was and how many times it
-has happened this launch. The clicks missed in between are gone, which is exactly the symptom that has to
-be visible.
+**A watch is kept while the tap is armed, and only then.** Every **`K.armedWatchInterval` (0.5 s)** the
+hardware is asked whether ⇧ Shift is still down, the grant is asked about again, and a tap that has been
+armed for **`K.armedIdleLimit` (60 s)** with nothing clicked is disarmed: a key held down by a bag, or latched
+by Sticky Keys, does not keep it enabled for hours. Most ⇧ Shift clicks are over before the first look.
+
+**If macOS takes the click tap away** (its two reasons are a callback that ran too long and the system
+interrupting a tap), **it is never enabled again by the event that says so.** macOS disabling a tap that has
+stopped answering is the system's own safety net, and it is left whole. The tap stays disabled, the log says
+which reason it was, the grant is looked at again, and the next press of ⇧ Shift arms it through the same
+questions as any other. **`K.breakerTrips` (3) of these inside `K.breakerWindow` (60 s)** and ShiftPick
+destroys both taps and stops creating them: the menu and Settings › System say so, and turning *Enable
+ShiftPick* off and on again is what asks for another try.
+
+**Nothing is armed while nobody can be clicking**: the Mac going to sleep, the screen locking, another user's
+session coming forward. Coming back asks about the grant again before anything arms.
+
+**Both taps are destroyed before anything that takes the grant or the process away**: a quit, which is also
+how an update begins (§8, where the helper touches nothing until the process has gone), and an uninstall,
+before it resets the grant (§9).
+
+**One ShiftPick at a time.** A second copy started while one is running asks the first for its window and
+leaves before it has created anything.
 
 ## 2. One ⇧ Shift click
 
@@ -54,20 +89,27 @@ always done.
 7. **Set the selection.** One call, whatever the size of the range. With ⌘ Command held and the switch on,
    the range is added to what was already selected instead of replacing it; with the switch off, a ⌘ Command
    ⇧ Shift click is left to Finder entirely.
-8. **Do what the click would have done besides selecting**: bring Finder forward, and raise the window
-   that was clicked. The Desktop has no window, so making Finder frontmost is the whole of it.
-9. **Swallow the click**, and its release.
+8. **Swallow the click**, and its release.
+9. **Do what the click would have done besides selecting**: bring Finder forward, and raise the window
+   that was clicked. The Desktop has no window, so making Finder frontmost is the whole of it. The press has
+   been answered by then, so nobody's click waits for this part.
 
-The whole of that is bounded by **`K.clickBudget` (150 ms)**, and every Accessibility element it touches by
-**`K.axTimeout` (200 ms)**. Past the budget the event is returned. Measured: one frame read costs about
-0.06 ms warm, so a full screen of icons costs 6 to 20 ms.
+**The work happens on a worker, and the thread that holds the click waits for it `K.clickBudget` (150 ms)
+and no longer.** Past that the event is returned whatever the worker is doing; the worker is told, stops at
+the next thing it was about to ask, and sets nothing. If the budget runs out at the very moment the selection
+is being set, that one call is waited for, for at most **`K.commitGrace` (100 ms)** more: letting the click
+through then would have Finder toggle the clicked file on top of the range. **A click never queues**: one
+that arrives while the worker is still busy with the click before is returned at once. Every Accessibility
+element is given **`K.axTimeout` (100 ms)**, which sits under the budget so that one call that never answers
+cannot spend all of it. Measured: one frame read costs about 0.06 ms warm, so a full screen of icons costs 6
+to 20 ms.
 
 ### 2.1 Where a range is measured from
 
-- **A plain click or a ⌘ Command click on an icon sets the anchor.** It is looked for
-  **`K.anchorDelay` (60 ms) after the click has been handed back to the system**, and only if Finder is
-  frontmost by then, so an ordinary click gains no latency and a click that went to another application
-  sets nothing.
+- **A plain click or a ⌘ Command click on an icon sets the anchor.** The sentinel hears it, and the click
+  itself is never held. The anchor is looked for **`K.anchorDelay` (60 ms) later**, on the worker, and only if
+  the application that owns the view is frontmost by then, so an ordinary click gains no latency and a click
+  that went to another application sets nothing.
 - **A plain click on empty space inside an icon view clears the anchor.** Finder has just deselected
   everything. A click outside Finder leaves it alone.
 - **A ⇧ Shift click does not move the anchor.** Widening and narrowing a range are both measured from the
@@ -152,7 +194,7 @@ numbers and its copy are the `building-settings-pages` skill's, not this documen
 | **Tip** | the app icon beside one sentence, in a card with no title | every feature is free and stays free, and a coffee is how the project is supported |
 | | One-time tip | the Ko-fi cup, *A cup of coffee*, what it is, and a button naming the smallest tip the page takes (`SupportLink.smallestTip`, 5 €). It opens `https://ko-fi.com/bambidotexe` in the browser; nothing is paid inside the app. |
 | **System** | Accessibility | the permission, live. While it is denied, a button to the pane and a warning naming the switch; once granted both go and the row stays. |
-| | Clicks | whether ShiftPick is watching. Its warning tells *off on purpose* from *macOS refused the tap*. |
+| | Clicks | whether ShiftPick is watching. Its warning tells *off on purpose* from *macOS refused the taps* and from *macOS kept taking the click tap away* (§1), and that last one names the way back: *Enable ShiftPick* off and on again. |
 | | Start over | one button, *Show Onboarding Again*, which opens a fresh wizard at its first page |
 
 Defaults: **Enable ShiftPick on**, **⌘ Command adds on**, **Show in menu bar on**. Launch at login is the
@@ -178,8 +220,9 @@ Settings…                   ⌘,
 Quit ShiftPick              ⌘Q
 ```
 
-The status line is one of four: *Watching for ⇧ Shift clicks*, *Off: Finder handles every click*, *Waiting
-for the Accessibility permission*, *macOS refused the click listener*.
+The status line is one of five: *Watching for ⇧ Shift clicks*, *Off: Finder handles every click*, *Waiting
+for the Accessibility permission*, *macOS refused the click listener*, *Stopped: macOS kept interrupting the
+click listener*.
 
 Hiding the icon leaves the app working. Opening the bundle again from the Applications folder or Spotlight
 is then the way back to the Settings window.
@@ -211,13 +254,17 @@ the bottom right. Its height follows the page around its **top-left** corner: 44
   launch, nothing when a window opens, nothing "once, to get it out of the way": a prompt nobody clicked for
   arrives with no explanation beside it, and macOS remembers a refusal for good. The system's dialog carries
   its own way to the pane, so nothing opens a pane beside it or instead of it after a refusal.
-- **The grant arriving does not close the wizard.** The engine starts the moment it lands, with no relaunch;
-  the row ticks over to *Granted* and the button turns from *Skip* to *Continue*. Closing it is the user's
-  move. It is noticed two ways: the system's `com.apple.accessibility.api` notification, which costs nothing
-  while nothing happens, and the wizard's **`K.onboardingPollInterval` (2 s)** tick, because that
-  notification has been seen to arrive a moment before the process is really trusted.
-- **A grant taken away** is noticed the same way: the tap is stopped and the wizard comes back, unless it is
-  already up.
+- **The grant arriving does not close the wizard.** The taps are created the moment it lands, with no
+  relaunch; the row ticks over to *Granted* and the button turns from *Skip* to *Continue*. Closing it is the
+  user's move. It is noticed two ways: the system's `com.apple.accessibility.api` notification, which costs
+  nothing while nothing happens and after which the grant is looked at again **`K.trustRecheckDelays` (0.25 s,
+  1 s and 3 s)** later, because that notification has been seen to arrive before the answer changes; and the
+  wizard's **`K.onboardingPollInterval` (2 s)** tick.
+- **A grant taken away destroys both taps at once and brings the wizard back**, unless it is already up. It
+  is noticed four ways, and none of them is relied on alone: the notification, which **disarms the click tap
+  before anything is asked**; the live question every arming asks (§1); any Accessibility call that comes
+  back refused; and the watch kept while armed. **`AXIsProcessTrusted()` alone never keeps a tap enabled**:
+  it has been seen to go on saying yes after the grant had gone.
 - **Who is in front.** The wizard is an ordinary window at the ordinary level, with the default collection
   behaviour: the Accessibility dialog and System Settings open over it and stay there. The app is activated
   once, when the window opens. Two things bring it back afterwards and nothing else: **System Settings
@@ -225,7 +272,8 @@ the bottom right. Its height follows the page around its **top-left** corner: 44
   the wizard is its only window, which orders it front without activating.
 - **Nothing else polls, ever.** The wizard starts its one timer when it opens and stops it when it closes.
   With the permission granted and no window open, ShiftPick arms no timer at all except the update
-  schedule's.
+  schedule's, and **the watch kept while ⇧ Shift is held (§1), which exists only for as long as the key is
+  down**. The looks after a notification are three, and then nothing.
 
 ## 8. Updates
 
@@ -242,7 +290,8 @@ the bottom right. Its height follows the page around its **top-left** corner: 44
 - **The update window** fetches the image, holds it against the length and SHA-256 GitHub stated, mounts
   it, copies the app out, and checks that copy before enabling anything: same bundle identifier, strictly
   newer, runs on this macOS, **signed by the same team as the running app**.
-- **Install and Relaunch** starts a detached helper and quits through the ordinary quit. The helper waits
+- **Install and Relaunch** starts a detached helper and quits through the ordinary quit, which destroys both
+  event taps on its way out. The helper waits
   for the process to go, renames the old bundle aside, renames the new one in, opens it, and **puts the old
   one back if the new version is not seen running**. It leaves one line behind, which the next launch reads
   and shows.
@@ -254,6 +303,8 @@ the bottom right. Its height follows the page around its **top-left** corner: 44
 
 **Settings › General › Uninstall**, after an alert that says what will go. In this order:
 
+0. **Both event taps are destroyed**, before anything else and for good. The next step takes the grant away,
+   and an enabled click tap whose owner has just lost it stalls every click on the Mac (§1).
 1. The **Accessibility grant** and the **login item**, while the bundle they both name is still where they
    name it. `tccutil reset` against a bundle identifier with no bundle behind it fails, and nothing puts
    that right afterwards.

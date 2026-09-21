@@ -13,7 +13,7 @@ ShiftPickCore  ←  ShiftPickPlatform  ←  ShiftPickApp
   click.
 - **`ShiftPickPlatform`** is the only code that talks to the system. Nothing above it calls an
   Accessibility function, creates an event tap or opens a URL.
-- **`ShiftPickApp`** owns the run loop, the windows and the one object that decides a click.
+- **`ShiftPickApp`** owns the run loop, the windows and the wiring of the one behaviour.
 - **`Tools/axdump`** never ships. `scripts/make-app.sh` copies one executable into the bundle and this is
   not it.
 
@@ -22,54 +22,98 @@ ShiftPickCore  ←  ShiftPickPlatform  ←  ShiftPickApp
 | Layer | Files | What they own |
 |---|---|---|
 | Core | `LayoutItem`, `Lattice`, **`LayoutModel`** | The selection maths. Frames in, a classified layout and a range out. |
+| | **`TapLifecycle`**, `TrustVerdict` | When the click tap may be enabled, and what every event does to it. An event and the time in, the new state and what to do about it out. |
 | | `Settings`, `Constants` (`K`), `AppIdentity`, `Paths`, `QuietLaunch`, `SupportLink` | The values the rest of the app is built on. |
 | | `UpdateCheck`, `UpdateSchedule`, `UpdatePanel`, `UpdateSession`, `StagedUpdateCheck`, `UpdateInstallScript` | Every rule of the update that does not need a network or a disk. |
 | | `UninstallPlan` | What an uninstall removes, and the text of the helper that finishes it. |
 | | `Localization`, `Strings*` | Every sentence the user reads, in both languages. |
-| Platform | **`MouseTap`** | The one event tap, and the only thing that may swallow a click. |
+| Platform | **`ClickGuard`** | The two event taps, and the only thing that may swallow a click. It does what `TapLifecycle` says and decides nothing. |
+| | `TapThread`, `DeadlineGate` + `ClickTicket` | The thread the taps are served on, and the wait that keeps a click's budget whatever the worker does. |
 | | **`FinderAX`** | The only code that knows the shape of Finder's icon views. |
 | | `AX` | The C Accessibility API, one round trip per call. |
 | | `Permissions`, `LoginItem`, `SettingsStore`, `Log` | The rest of the system boundary. |
 | | `UpdateChecker` + `UpdateDownload`, `UpdateStager`, `CodeSignature`, `UpdateInstaller`, `DetachedProcess` | The update's I/O. The only network code in the app. |
 | | `Uninstall` | The registrations an uninstall gives back. |
-| App | `ShiftPickMain`, `AppDelegate`, **`ShiftPickEngine`**, `MenuBarController` | The app, and the one behaviour. |
+| App | `ShiftPickMain`, `AppDelegate`, `MenuBarController` | The app: one instance, its windows, and what it does when the Mac sleeps, locks or quits. |
+| | **`ShiftPickEngine`**, **`ShiftClickResolver`** | The one behaviour. The engine wires and publishes a status; the resolver is what one ⇧ Shift click does, and makes every Accessibility call. |
 | | `OnboardingWindow` + `GrantCatalogue` + `ControlActionHandler`, `SettingsKit`, `SettingsWindow`, `SettingsView`, `Settings…Page` | The windows. The wizard is the one hand-built AppKit window; everything else is SwiftUI in a hosting controller. |
 | | `UpdateController`, `UpdateNotifier`, `UpdateWindow` | The update's one owner and its two surfaces. |
 
+## The safety model
+
+One sentence shapes everything below: **a bug in this app must never be able to break clicking.**
+
+An event tap that can swallow a click sits in the path of every click in the session, and the window server
+waits for its answer. If its owner loses the Accessibility grant while it is enabled, the callback stops
+being run and the clicks are still routed into it: each one stalls the whole session's input until macOS
+gives up on the tap and disables it. macOS disabling it is the net under everything; an app that enables it
+again from that callback cuts the net, and the Mac stays unusable until it is powered off. `pitfalls.md` 13
+has the log of the day that happened here.
+
+So the design does not try to notice that moment in time. **It arranges for there to be nothing to go wrong
+at that moment**, and then layers what is left:
+
+| Layer | What it is | What it survives |
+|---|---|---|
+| 0 | **The click tap is enabled only while ⇧ Shift is held.** The rest of the time the only live tap is a listener, which the window server never waits for. | A grant revoked, a thread hung, a Mac asleep, at any moment the key is up: nothing is enabled to stall. |
+| 1 | **A tap macOS disabled is never enabled by the event that says so**, and three trips in a minute destroy both taps until another try is asked for. | Everything the layers below miss costs one stalled click, once, and then heals itself. |
+| 2 | **Arming asks first**: a live Accessibility request, answered by the Dock, no older than 2 s. Any call that comes back refused destroys both taps. | `AXIsProcessTrusted()` going on saying yes after the grant has gone. |
+| 3 | **The privacy notification disarms before anything is asked**, then the grant is looked at three times over three seconds. | The notification arriving before the answer changes. |
+| 4 | **A watch while armed, and only then**: is ⇧ Shift still down according to the hardware, is the grant still there, has anything been clicked in a minute. | A key release never heard, a key held down by a bag, Sticky Keys. |
+| 5 | **Taps destroyed first** on quit and before an uninstall resets the grant; nothing armed across sleep, the lock screen, another user's session. | The app taking its own grant away. |
+| 6 | **The budget is kept by whoever waits.** The taps' thread hands a click to a worker and waits 150 ms. | A Finder, or an Accessibility call, that never answers. |
+
+**The rules are a value.** `Core/TapLifecycle` decides all of layers 0 to 5 from an event and the time, with
+no tap, no thread and no clock in sight, which is what lets every scenario be a unit test: 61 of them by
+name, and a seeded run of 80,000 events in an order nobody would write, after each of which the click tap is
+enabled in exactly one phase. `Platform/ClickGuard` executes what it says, in order, and carries one rule of
+its own: the callback never enables a tap.
+
 ## The click path
 
-Everything below happens **on the main run loop**, inside the event tap's callback, with the event still
-held. That is the constraint the whole design is shaped by: while this runs, nobody's clicks are being
-delivered.
+**Three execution contexts, and nothing shared between them without a lock.**
+
+| Context | Owns | Never does |
+|---|---|---|
+| **the taps' thread** (`TapThread`, its own run loop, user-interactive) | both event taps, `TapLifecycle`, the watch kept while armed, the looks after a notification | an Accessibility call, or anything else that can block without a timeout |
+| **the worker** (one serial queue, user-interactive) | every Accessibility call, the anchor, the live question about the grant | hold an event |
+| **the main thread** | windows, settings, the published status | touch an event, or delay one: a stalled window cannot delay a click |
 
 ```
-CGEventTap  (leftMouseDown | leftMouseUp)
-  │
-  ├─ enabled?              no  → return the event                      (one boolean)
-  ├─ ⇧ Shift held?         no  → note the anchor later, return         (one bit test)
-  ├─ ⌥ Option / ⌃ Control? yes → return the event
-  │
-  └─ ShiftPickEngine.shiftClick
-       ├─ FinderAX.hit(at:)            the element the window server draws there
-       ├─ FinderAX.isRenaming          a text field has focus → return
-       ├─ FinderAX.items(in:)          one AXFrame read per icon
-       ├─ LayoutModel(items:)          rows, columns, arranged or not, the fill order
-       ├─ the anchor                   stored, or derived from the selection
-       ├─ LayoutModel.range(from:to:)  the answer
-       ├─ FinderAX.select              one call
-       ├─ FinderAX.raise               Finder forward, the window up
-       └─ swallow the press, and its release
+sentinel tap (.listenOnly: flagsChanged | leftMouseDown)          always on, holds nothing up
+  ├─ ⇧ Shift down  → TapLifecycle: kill switch? ⌥/⌃? grant vouched for within 2 s?
+  │                    └─ no  → ask the worker for a live answer, arm when it says trusted
+  │                    └─ yes → enable the click tap, start the watch
+  ├─ ⇧ Shift up    → disable the click tap, stop the watch   (after a swallowed press: once its release has come)
+  └─ a plain press → the worker looks for the anchor 60 ms later; the click itself was never held
+
+click tap (.defaultTap: leftMouseDown | leftMouseUp)              enabled only while armed
+  ├─ no ⇧ Shift, or ⌥ Option / ⌃ Control → return the event
+  ├─ DeadlineGate.run                     the worker busy with the click before → return the event at once
+  │    └─ on the worker: ShiftClickResolver.shiftClick
+  │         ├─ FinderAX.hit(at:)            the element the window server draws there
+  │         ├─ FinderAX.isRenaming          a text field has focus → no answer
+  │         ├─ FinderAX.items(in:)          one AXFrame read per icon, stopping if nobody is waiting any more
+  │         ├─ LayoutModel(items:)          rows, columns, arranged or not, the fill order
+  │         ├─ the anchor                   stored, or derived from the selection
+  │         ├─ LayoutModel.range(from:to:)  the answer
+  │         ├─ ticket.commit()              refused when the click has already been given back → set nothing
+  │         ├─ FinderAX.select              one call
+  │         ├─ ticket.finish(swallow: true) ← the waiting thread wakes here
+  │         └─ FinderAX.raise               Finder forward, the window up; nobody waits for this
+  │    └─ the taps' thread waits 150 ms (100 ms more only if the selection is being set), then returns the event
+  ├─ swallow the press, and the release that carries the same event number
+  └─ tapDisabledByTimeout / ByUserInput → reported to TapLifecycle, and NEVER enabled here
 ```
 
 **Costs, measured on macOS 27 on an M-series Mac.** One `AXFrame` read of a Finder icon is about 0.06 ms
 warm, so a full screen of icons is 6 to 20 ms. `AXFrame` is asked for rather than `AXPosition` and
 `AXSize` because it is one round trip instead of two, and the path asks it of every icon on screen. The
-whole path is bounded by `K.clickBudget`, and every element by `K.axTimeout`, so a Finder that has stopped
-answering costs a click rather than the mouse.
+budget belongs to the thread that waits and not to the work, so a Finder that has stopped answering costs a
+click its range rather than the Mac its mouse.
 
-**The anchor is tracked the other way round.** A plain or ⌘ Command click is handed straight back to the
-system, and `K.anchorDelay` later the same point is hit-tested from a dispatched block. An ordinary click
-therefore never reaches Accessibility at all.
+**An ordinary click never reaches ShiftPick's click tap at all**: with ⇧ Shift up it is disabled. The
+sentinel hears the press, which holds nothing up, and the anchor is looked for on the worker afterwards.
 
 ## The selection maths
 
@@ -90,15 +134,22 @@ that alone was the difference between 47 seconds and 0.06 for five thousand icon
 
 ## Threading
 
-- Everything is on the **main actor**. The tap's source is added to the main run loop, so its callback is,
-  and the engine, the windows and the settings store are all `@MainActor`.
-- **Two exceptions, both in the update.** `URLSession` calls its delegate on its own queue and the caller
-  hops; unpacking a disk image runs on one serial queue of its own, because it mounts, copies and verifies,
-  and two of those at once would share a mount point.
+- **Events never touch the main thread.** The taps have a thread of their own, the Accessibility calls a
+  serial queue of their own, and the two meet only through `DeadlineGate`. The windows, the settings store
+  and `ShiftPickEngine`'s published status are `@MainActor`; the engine hears about a change of status through
+  one hop to the main queue and about nothing else.
+- **`TapLifecycle` is touched only on the taps' thread**, so it needs no lock. Other threads hand it events
+  with `TapThread.perform`. The one caller that cannot wait, the teardown, uses `performAndWait`, which says
+  whether the block ran or never will: past `K.shutDownWait` the ports are disabled and invalidated from the
+  calling thread instead, which the window server honours from any thread.
+- **Two more exceptions, both in the update.** `URLSession` calls its delegate on its own queue and the
+  caller hops; unpacking a disk image runs on one serial queue of its own, because it mounts, copies and
+  verifies, and two of those at once would share a mount point.
 - **Nothing polls while idle.** With the permission granted and no window open, the only timer armed is the
-  update schedule's, which is coarse (`K.updateTick`) and tolerant. The Settings window starts and stops its
-  own two-second poll; the onboarding wizard starts and stops the other, also two seconds, and that tick is
-  the only thing besides the system's notification that tells the app the grant has arrived.
+  update schedule's, which is coarse (`K.updateTick`) and tolerant. The watch over the click tap exists only
+  while ⇧ Shift is held; the looks after a privacy notification are three and then nothing. The Settings
+  window starts and stops its own two-second poll; the onboarding wizard starts and stops the other, also two
+  seconds.
 
 ## Persistence
 

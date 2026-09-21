@@ -100,7 +100,12 @@ public enum FinderAX {
     /// What is under `point`, decided by what the window server draws there and by nothing else: a Finder
     /// window behind another application's window does not answer for a point that window covers, which is
     /// what makes "decide by what is under the cursor" the same thing the user sees.
-    public static func hit(at point: CGPoint, finderPID: pid_t, timeout: Float) -> Hit {
+    ///
+    /// `shouldContinue` is asked between two questions. The walk is up to three dozen round trips to an
+    /// application this code knows nothing about, and once the click has been given back to the system
+    /// there is nobody left to ask them for.
+    public static func hit(at point: CGPoint, finderPID: pid_t, timeout: Float,
+                           shouldContinue: () -> Bool = { true }) -> Hit {
         guard let hit = AX.element(at: point, timeout: timeout) else { return .elsewhere }
         let isFinder = AX.pid(of: hit) == finderPID
         AX.setTimeout(timeout, on: hit)
@@ -109,12 +114,13 @@ public enum FinderAX {
         // deepest, a file panel, puts its window seven above the icon — and it bounds the walk in a
         // hierarchy this code does not own.
         var chain: [AXUIElement] = [hit]
-        while chain.count < 12, let parent = AX.parent(chain[chain.count - 1]) {
+        while chain.count < 12, shouldContinue(), let parent = AX.parent(chain[chain.count - 1]) {
             AX.setTimeout(timeout, on: parent)
             chain.append(parent)
         }
 
         for (depth, element) in chain.enumerated() {
+            guard shouldContinue() else { return .elsewhere }
             let role = AX.role(element)
             let subrole = AX.subrole(element)
             if role == "AXGroup", subrole == "AXDesktop" {
@@ -180,7 +186,11 @@ public enum FinderAX {
     /// around here; `ShiftPickEngine` checks that both ends of the range are among what came back, which is
     /// what makes the answer complete or makes it let the click through. `docs/pitfalls.md` has the
     /// measurement and why Apple events are not the way out.
-    public static func items(in view: IconView, timeout: Float) -> [(LayoutItem, AXUIElement)] {
+    ///
+    /// **Nothing at all comes back once `shouldContinue` answers false**, rather than the icons read so
+    /// far: half a view is a range that quietly leaves files out.
+    public static func items(in view: IconView, timeout: Float,
+                             shouldContinue: () -> Bool = { true }) -> [(LayoutItem, AXUIElement)] {
         let containerWidth = AX.frame(view.container)?.width ?? .greatestFiniteMagnitude
         var result: [(LayoutItem, AXUIElement)] = []
 
@@ -188,6 +198,7 @@ public enum FinderAX {
             // The Desktop has no sections, and it is the only place a stack can be, so this is the only
             // path that pays for an AXURL per item.
             for (order, child) in AX.children(view.container).enumerated() {
+                guard shouldContinue() else { return [] }
                 AX.setTimeout(timeout, on: child)
                 guard let frame = AX.frame(child), frame.width > 0, frame.height > 0 else { continue }
                 result.append((LayoutItem(frame: frame, section: 0, axOrder: order,
@@ -199,6 +210,7 @@ public enum FinderAX {
         for (section, list) in AX.children(view.container).enumerated() {
             AX.setTimeout(timeout, on: list)
             for (order, child) in AX.children(list).enumerated() {
+                guard shouldContinue() else { return [] }
                 AX.setTimeout(timeout, on: child)
                 guard let frame = AX.frame(child), frame.width > 0, frame.height > 0 else { continue }
                 // A group's header runs the whole width of the view and is a band rather than a square.
@@ -243,6 +255,13 @@ public enum FinderAX {
         guard let focused = AX.element(finder, "AXFocusedUIElement") else { return false }
         let role = AX.role(focused)
         return role == "AXTextField" || role == "AXTextArea"
+    }
+
+    /// Whether this application is the one in front, asked of the application itself. The anchor is looked
+    /// for on the worker, and this keeps AppKit's own idea of the frontmost application, which moves with the
+    /// main run loop, off that thread.
+    public static func isFrontmost(_ application: AXUIElement) -> Bool {
+        (AX.attribute(application, kAXFrontmostAttribute as String) as Bool?) ?? false
     }
 
     /// What the swallowed click would have done besides selecting: bring the owning application forward,

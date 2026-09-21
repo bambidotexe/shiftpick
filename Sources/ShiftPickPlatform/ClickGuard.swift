@@ -1,0 +1,399 @@
+import CoreGraphics
+import Foundation
+import os
+import ShiftPickCore
+
+/// The two event taps, and the only thing in the app that may swallow a click.
+///
+/// **What this is built against.** An event tap created with `.defaultTap` sits in the path of every click
+/// in the session, and the window server waits for its answer. If its owner loses the Accessibility grant
+/// while it is enabled, the callback is no longer run and the clicks are still routed into it: every one of
+/// them stalls the whole session's input until the system gives up on the tap and disables it. An app that
+/// enables the tap again from that callback cuts a hole in the only safety net there is, and the Mac stays
+/// unusable until it is powered off (`docs/pitfalls.md` has the log of the day it happened here).
+///
+/// So there are two taps, and they are not alike:
+///
+/// - **The sentinel** is `.listenOnly`: ⇧ Shift going down and up, and plain presses for the anchor. The
+///   window server does not wait for a listener, so nothing that happens to this process can make it hold
+///   anything up. It is on for as long as the app is watching.
+/// - **The click tap** is `.defaultTap`: left button down and up. It is **created disabled and enabled only
+///   while ⇧ Shift is held**, or while a press it swallowed is waiting for its release. With no finger on
+///   the key, no enabled tap of the dangerous kind exists for a revoked grant, a hung thread or a sleeping
+///   Mac to go wrong with.
+///
+/// **This class decides nothing.** `ShiftPickCore.TapLifecycle` decides, from values alone, and hands back
+/// effects; this does what they say, in the order they are given, and reports what the system did. The one
+/// rule it carries itself is in `clickHeard`: a tap the system disabled is reported and **never enabled
+/// there**.
+///
+/// Both taps are served by `TapThread`, which does nothing else, and every tap, timer and lifecycle change
+/// happens on it. **No Accessibility call is ever made on that thread**: the question a click asks goes to
+/// the worker through `Hooks.decidePress`, which comes back within `K.clickBudget + K.commitGrace` whatever
+/// the worker is doing.
+public final class ClickGuard: @unchecked Sendable {
+    public struct Hooks {
+        /// A ⇧ Shift press while armed, with the event still held: true swallows it. Called on the tap's
+        /// thread, which waits for the answer, so it must come back within `K.clickBudget + K.commitGrace`.
+        public var decidePress: (CGPoint, CGEventFlags) -> Bool
+        /// A press without ⇧ Shift, already on its way to whoever it was for. Returns at once.
+        public var plainClick: (CGPoint) -> Void
+        /// Ask another process a real Accessibility question, off the tap's thread, and answer from any.
+        public var probeTrust: (@escaping (TrustVerdict) -> Void) -> Void
+        /// Called on the tap's thread.
+        public var statusChanged: (TapLifecycle.Status) -> Void
+
+        public init(decidePress: @escaping (CGPoint, CGEventFlags) -> Bool,
+                    plainClick: @escaping (CGPoint) -> Void,
+                    probeTrust: @escaping (@escaping (TrustVerdict) -> Void) -> Void,
+                    statusChanged: @escaping (TapLifecycle.Status) -> Void) {
+            self.decidePress = decidePress
+            self.plainClick = plainClick
+            self.probeTrust = probeTrust
+            self.statusChanged = statusChanged
+        }
+    }
+
+    private struct Ports {
+        var sentinel: CFMachPort?
+        var click: CFMachPort?
+    }
+
+    private let hooks: Hooks
+    private let thread = TapThread(name: "\(AppIdentity.bundleIdentifier).taps")
+
+    // Everything below belongs to the tap's thread and is touched nowhere else.
+    private var lifecycle: TapLifecycle
+    private var sentinel: CFMachPort?
+    private var click: CFMachPort?
+    private var sources: [CFRunLoopSource] = []
+    private var watchdog: CFRunLoopTimer?
+    private var rechecks: [CFRunLoopTimer] = []
+
+    /// The same two ports, where a teardown that cannot wait for the tap's thread can reach them.
+    private let ports = OSAllocatedUnfairLock(uncheckedState: Ports())
+
+    public init(userEnabled: Bool, hooks: Hooks) {
+        self.hooks = hooks
+        lifecycle = TapLifecycle(userEnabled: userEnabled)
+    }
+
+    /// The callbacks recover `self` from an unretained pointer, so a tap left behind would call into freed
+    /// memory. The app keeps its guard for the life of the process; this is for everything else.
+    deinit {
+        destroyFromAnyThread()
+        thread.stop()
+    }
+
+    // MARK: - What the app asks for, from any thread
+
+    /// Launch, the grant arriving, a poll that finds the grant in place. Nothing happens when the taps
+    /// already exist, and nothing while the breaker is open.
+    public func start() {
+        let trusted = Permissions.accessibilityGranted
+        thread.perform { [weak self] in self?.feed(.start(trusted: trusted)) }
+    }
+
+    /// The user asking for another try after macOS took the click tap away too often. The only thing that
+    /// closes the breaker, and nothing at all when it is not open.
+    public func tryAgain() {
+        let trusted = Permissions.accessibilityGranted
+        thread.perform { [weak self] in self?.feed(.tryAgain(trusted: trusted)) }
+    }
+
+    /// The Settings switch. Off, the sentinel goes on listening and arms nothing.
+    public func setUserEnabled(_ enabled: Bool) {
+        thread.perform { [weak self] in self?.feed(.userEnabled(enabled)) }
+    }
+
+    /// The Mac is going to sleep, the screen is locking, or another user's session is coming forward.
+    public func suspend() {
+        thread.perform { [weak self] in self?.feed(.suspend) }
+    }
+
+    public func resume() {
+        let trusted = Permissions.accessibilityGranted
+        thread.perform { [weak self] in self?.feed(.resume(trusted: trusted)) }
+    }
+
+    /// The system said the privacy database moved. Disarms first and asks afterwards.
+    public func trustMayHaveChanged() {
+        thread.perform { [weak self] in self?.feed(.trustNotification) }
+    }
+
+    /// An Accessibility call was refused, or the cached answer reads as gone.
+    public func trustWasLost() {
+        thread.perform { [weak self] in self?.feed(.trustLost) }
+    }
+
+    /// **Returns once no tap exists**, and is what runs before anything that takes the grant, the bundle or
+    /// the process away: an uninstall, an update, a quit. It asks the tap's thread and waits
+    /// `K.shutDownWait`; a thread that does not answer by then is not coming back, so the ports are disabled
+    /// and invalidated from here instead, which the window server honours from any thread.
+    public func shutDown() {
+        if thread.performAndWait(timeout: K.shutDownWait, { [weak self] in self?.feed(.terminate) }) { return }
+        Log.click.error("the taps' thread did not answer in \(K.shutDownWait, privacy: .public) s; taps destroyed from the calling thread")
+        destroyFromAnyThread()
+    }
+
+    // MARK: - The lifecycle, on the tap's thread
+
+    private func feed(_ event: TapLifecycle.Event) {
+        assert(thread.isCurrent)
+        for effect in lifecycle.handle(event, now: Self.now()) { run(effect) }
+    }
+
+    /// For an event heard inside a tap's callback that may disable or destroy that very tap. It is fed once
+    /// the callback has returned, which is when the answer about the event in hand is sent: a tap disabled
+    /// with its own event still unanswered leaves it to the window server what becomes of that event, and a
+    /// swallowed release that reaches Finder after all undoes the range. The run loop runs these blocks
+    /// before it looks at another port, so nothing is heard in between.
+    private func feedAfterThisCallback(_ event: TapLifecycle.Event) {
+        thread.perform { [weak self] in self?.feed(event) }
+    }
+
+    /// Seconds that only go forwards. Core never reads a clock, so this is where the time comes from.
+    private static func now() -> TimeInterval {
+        TimeInterval(DispatchTime.now().uptimeNanoseconds) / 1_000_000_000
+    }
+
+    private func run(_ effect: TapLifecycle.Effect) {
+        switch effect {
+        case .createTaps:
+            feed(.tapsCreated(createTaps()))
+        case .destroyTaps:
+            destroyTaps()
+        case .enableClickTap:
+            guard let click else { return }
+            CGEvent.tapEnable(tap: click, enable: true)
+            // A tap that stays disabled when it is asked not to be is what a grant that has just gone looks
+            // like from this side. It counts as one more time the system took it away.
+            if !CGEvent.tapIsEnabled(tap: click) { feed(.tapDisabledBySystem(.click, .wouldNotEnable)) }
+        case .disableClickTap:
+            if let click { CGEvent.tapEnable(tap: click, enable: false) }
+        case .enableSentinel:
+            if let sentinel { CGEvent.tapEnable(tap: sentinel, enable: true) }
+        case .probeTrust(let generation):
+            hooks.probeTrust { [weak self] verdict in
+                self?.thread.perform { self?.feed(.trustProbe(verdict, generation: generation)) }
+            }
+        case .recheckTrustSoon:
+            scheduleRechecks()
+        case .startWatchdog:
+            // `enableClickTap` just before it may have found the tap refusing, and disarmed.
+            if lifecycle.phase == .armed { startWatchdog() }
+        case .stopWatchdog:
+            stopWatchdog()
+        case .report(let status):
+            hooks.statusChanged(status)
+        case .log(let level, let line):
+            switch level {
+            case .debug: Log.click.debug("\(line, privacy: .public)")
+            case .notice: Log.click.notice("\(line, privacy: .public)")
+            case .error: Log.click.error("\(line, privacy: .public)")
+            }
+        }
+    }
+
+    // MARK: - The taps
+
+    private static let sentinelMask: CGEventMask =
+        (1 << CGEventType.flagsChanged.rawValue) | (1 << CGEventType.leftMouseDown.rawValue)
+    private static let clickMask: CGEventMask =
+        (1 << CGEventType.leftMouseDown.rawValue) | (1 << CGEventType.leftMouseUp.rawValue)
+
+    /// Both or neither. False is what a missing grant looks like, and it is the only signal there is.
+    private func createTaps() -> Bool {
+        let owner = Unmanaged.passUnretained(self).toOpaque()
+        guard let sentinel = CGEvent.tapCreate(
+            tap: .cgSessionEventTap, place: .headInsertEventTap,
+            // A listener: the window server does not wait for it, so it can hold nothing up.
+            options: .listenOnly,
+            eventsOfInterest: Self.sentinelMask,
+            callback: { _, type, event, owner in
+                if let owner {
+                    Unmanaged<ClickGuard>.fromOpaque(owner).takeUnretainedValue().sentinelHeard(type, event)
+                }
+                return Unmanaged.passUnretained(event)
+            },
+            userInfo: owner
+        ) else { return false }
+
+        guard let click = CGEvent.tapCreate(
+            tap: .cgSessionEventTap, place: .headInsertEventTap,
+            // Not a listener: swallowing the click is the whole point, and what makes this tap dangerous.
+            options: .defaultTap,
+            eventsOfInterest: Self.clickMask,
+            callback: { _, type, event, owner in
+                guard let owner else { return Unmanaged.passUnretained(event) }
+                return Unmanaged<ClickGuard>.fromOpaque(owner).takeUnretainedValue().clickHeard(type, event)
+            },
+            userInfo: owner
+        ) else {
+            CFMachPortInvalidate(sentinel)
+            return false
+        }
+        // A tap is born enabled. This one is disabled before anything else is done with it, and stays that
+        // way until the lifecycle says ⇧ Shift is down and the grant has just been vouched for.
+        CGEvent.tapEnable(tap: click, enable: false)
+
+        for port in [sentinel, click] {
+            guard let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, port, 0) else { continue }
+            CFRunLoopAddSource(thread.cfRunLoop, source, .commonModes)
+            sources.append(source)
+        }
+        CGEvent.tapEnable(tap: sentinel, enable: true)
+        self.sentinel = sentinel
+        self.click = click
+        ports.withLockUnchecked { $0 = Ports(sentinel: sentinel, click: click) }
+        return true
+    }
+
+    private func destroyTaps() {
+        stopWatchdog()
+        cancelRechecks()
+        // The dangerous one first.
+        for port in [click, sentinel] {
+            guard let port else { continue }
+            CGEvent.tapEnable(tap: port, enable: false)
+        }
+        for source in sources { CFRunLoopRemoveSource(thread.cfRunLoop, source, .commonModes) }
+        for port in [click, sentinel] {
+            guard let port else { continue }
+            CFMachPortInvalidate(port)
+        }
+        sources = []
+        click = nil
+        sentinel = nil
+        ports.withLockUnchecked { $0 = Ports() }
+    }
+
+    /// Disabling and invalidating are messages to the window server and are honoured from any thread. The
+    /// run loop sources are left to die with their ports: they belong to a thread this one does not own.
+    private func destroyFromAnyThread() {
+        let ports = self.ports.withLockUnchecked { ports -> Ports in
+            defer { ports = Ports() }
+            return ports
+        }
+        for port in [ports.click, ports.sentinel] {
+            guard let port else { continue }
+            CGEvent.tapEnable(tap: port, enable: false)
+            CFMachPortInvalidate(port)
+        }
+    }
+
+    // MARK: - What the taps hear
+
+    private func sentinelHeard(_ type: CGEventType, _ event: CGEvent) {
+        switch type {
+        case .tapDisabledByTimeout:
+            feedAfterThisCallback(.tapDisabledBySystem(.sentinel, .timeout))
+        case .tapDisabledByUserInput:
+            feedAfterThisCallback(.tapDisabledBySystem(.sentinel, .userInput))
+        case .flagsChanged:
+            feed(Self.modifiers(event.flags))
+        case .leftMouseDown:
+            let flags = event.flags
+            // A press carries the modifier keys as they are, which covers a key event that was never heard.
+            feed(Self.modifiers(flags))
+            if !flags.contains(.maskShift) { hooks.plainClick(event.location) }
+        default:
+            break
+        }
+    }
+
+    private func clickHeard(_ type: CGEventType, _ event: CGEvent) -> Unmanaged<CGEvent>? {
+        let pass = Unmanaged.passUnretained(event)
+        switch type {
+        case .tapDisabledByTimeout:
+            // **Never enabled again from here.** The system disables a tap that stopped answering, and that
+            // is the net under everything else in this file.
+            feedAfterThisCallback(.tapDisabledBySystem(.click, .timeout))
+            return pass
+        case .tapDisabledByUserInput:
+            feedAfterThisCallback(.tapDisabledBySystem(.click, .userInput))
+            return pass
+        case .leftMouseDown:
+            let flags = event.flags
+            let number = event.getIntegerValueField(.mouseEventNumber)
+            let ours = lifecycle.phase == .armed && flags.contains(.maskShift)
+                // ⌥ Option and ⌃ Control mean something else in Finder. Neither is ours to take.
+                && !flags.contains(.maskAlternate) && !flags.contains(.maskControl)
+            guard ours else {
+                feed(.pressDecided(number: number, swallowed: false))
+                // A press without ⇧ Shift on a tap that is only enabled while it is held: its release was
+                // never heard. The lifecycle disarms on this, once this press has been answered.
+                feedAfterThisCallback(Self.modifiers(flags))
+                return pass
+            }
+            let swallow = hooks.decidePress(event.location, flags)
+            feed(.pressDecided(number: number, swallowed: swallow))
+            return swallow ? nil : pass
+        case .leftMouseUp:
+            // Finder never saw the press that was swallowed, and would apply its own ⇧ Shift toggle to the
+            // clicked file if it were handed the release. Only that release: the two carry the same number.
+            let number = event.getIntegerValueField(.mouseEventNumber)
+            let swallow = lifecycle.shouldSwallowRelease(number)
+            // With ⇧ Shift already up this is what disarms, so it waits for the release to be answered.
+            feedAfterThisCallback(.releaseSeen(number: number))
+            return swallow ? nil : pass
+        default:
+            return pass
+        }
+    }
+
+    private static func modifiers(_ flags: CGEventFlags) -> TapLifecycle.Event {
+        .modifiers(shift: flags.contains(.maskShift),
+                   optionOrControl: flags.contains(.maskAlternate) || flags.contains(.maskControl))
+    }
+
+    // MARK: - The watch kept while armed, and the looks after a notification
+
+    /// A timer that exists only while the click tap is enabled. It asks the hardware, not the event stream,
+    /// whether ⇧ Shift is still down: a stream that has stalled is exactly when the key's release would
+    /// never be heard.
+    private func startWatchdog() {
+        stopWatchdog()
+        let interval = K.armedWatchInterval
+        guard let timer = CFRunLoopTimerCreateWithHandler(
+            kCFAllocatorDefault, CFAbsoluteTimeGetCurrent() + interval, interval, 0, 0, { [weak self] _ in
+            guard let self else { return }
+            let hardware = CGEventSource.flagsState(.hidSystemState)
+            let session = CGEventSource.flagsState(.combinedSessionState)
+            // Either is enough: keys pressed by another Mac through a sharing tool never reach the hardware
+            // state, and a stalled session never updates its own.
+            let shiftDown = hardware.contains(.maskShift) || session.contains(.maskShift)
+            let buttonDown = CGEventSource.buttonState(.hidSystemState, button: .left)
+                || CGEventSource.buttonState(.combinedSessionState, button: .left)
+            self.feed(.watchdog(shiftDown: shiftDown, buttonDown: buttonDown,
+                                trusted: Permissions.accessibilityGranted))
+        }) else { return }
+        CFRunLoopAddTimer(thread.cfRunLoop, timer, .commonModes)
+        watchdog = timer
+    }
+
+    private func stopWatchdog() {
+        if let watchdog { CFRunLoopTimerInvalidate(watchdog) }
+        watchdog = nil
+    }
+
+    /// A few looks after an event, and then nothing: never a poll.
+    private func scheduleRechecks() {
+        cancelRechecks()
+        for delay in K.trustRecheckDelays {
+            guard let timer = CFRunLoopTimerCreateWithHandler(
+                kCFAllocatorDefault, CFAbsoluteTimeGetCurrent() + delay, 0, 0, 0, { [weak self] _ in
+                    self?.hooks.probeTrust { verdict in
+                        self?.thread.perform { self?.feed(.trustRecheck(verdict)) }
+                    }
+                }) else { continue }
+            CFRunLoopAddTimer(thread.cfRunLoop, timer, .commonModes)
+            rechecks.append(timer)
+        }
+    }
+
+    private func cancelRechecks() {
+        for timer in rechecks { CFRunLoopTimerInvalidate(timer) }
+        rechecks = []
+    }
+}

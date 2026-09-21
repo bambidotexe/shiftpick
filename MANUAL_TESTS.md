@@ -135,8 +135,9 @@ checklist with it.
 - [ ] Grant Accessibility in System Settings **without touching the app**: within about two seconds the row
       reads *Granted*, the button turns to *Continue*, **the wizard stays open**, the menu's status line reads
       *Watching for ⇧ Shift clicks*, and the very next ⇧ Shift click is a range. **No relaunch.**
-- [ ] **Take the grant away** while the app runs: the wizard comes back, the menu says it is waiting, and
-      clicks go to Finder. Grant it again: it starts again. With the wizard already up, it is not replaced.
+- [ ] **Taking the grant away while the app runs is §9, and only §9.** It is the one thing that has ever
+      cost this Mac its mouse and keyboard, so it is never tried without the dead-man's switch that section
+      starts first.
 - [ ] Settings › System while all of that happens: the row follows within two seconds, and the button and the
       warning appear and disappear with it.
 
@@ -171,11 +172,63 @@ checklist with it.
 - [ ] **Launch at login** on, wizard never finished, log out and in: the app starts and **opens no window**.
 - [ ] `make install` over a running copy: no window, wizard included.
 
-## 9. The tap
+## 9. The taps, and the safety drill
 
-- [ ] Leave the app running for a day with the log open. `the event tap was disabled by …` lines are
-      expected occasionally; what matters is that a range still works after one.
-- [ ] Hold a ⇧ Shift click while the Mac is busy: the click is either a range or Finder's, never nothing.
+**Watching it work** costs nothing and risks nothing. With the log streaming at `debug`:
+
+- [ ] Press and release ⇧ Shift in any app, hands off the mouse: `armed`, then `disarmed`. **Nothing is armed
+      while the key is up**, which is the whole of the safety model's first layer.
+- [ ] Hold ⇧ Shift with ⌥ Option or ⌃ Control: nothing is armed.
+- [ ] *Enable ShiftPick* off: pressing ⇧ Shift arms nothing. On again: the next press arms.
+- [ ] Hold ⇧ Shift for more than a minute without clicking: `disarmed: ⇧ Shift held with nothing clicked`.
+      Press it again: `armed`.
+- [ ] ⇧ Shift click a file, let go of ⇧ Shift **before** the mouse button, then let go of the button: the
+      range stays exactly as it was set, and `disarmed` comes after the release.
+- [ ] Close the lid for a minute and open it, lock the screen and unlock it: the first ⇧ Shift click
+      afterwards is a range, and no `macOS took the … tap away` line appears.
+- [ ] Open a second copy (`open -n /Applications/ShiftPick.app`): it leaves at once with `already running as
+      pid …`, and the first copy's Settings window comes forward.
+- [ ] Hold a ⇧ Shift click while the Mac is busy: the click is either a range or Finder's, never nothing, and
+      never late by more than a quarter of a second.
+- [ ] Leave the app running for a day. A `macOS took the click tap away` line is worth a look whenever it
+      appears; what matters is that **no line ever says a tap was enabled again because of one**, and that a
+      range still works at the next ⇧ Shift press.
+
+### The drill
+
+**Read `docs/pitfalls.md` 13 first.** This takes the Accessibility grant away from a running ShiftPick on
+purpose. **Never without the switch**:
+
+```sh
+sh scripts/drill.sh        # kills ShiftPick 30 s from now, whatever happens, then follows its log
+```
+
+A process that dies takes its event taps with it, so the worst any step below can cost is thirty seconds of a
+Mac that ignores you. If that happens: **hands off, wait for the switch, and write down which step it was and
+what the log said last.** The switch always fires, so open the app again between steps, check that a
+⇧ Shift click selects a range, and start the switch again.
+
+- [ ] **A. The switch turned off, hands off ⇧ Shift.** System Settings › Privacy & Security › *Device Control
+      and Data Access*, turn ShiftPick off. **Every click and every key keeps working the whole time.** Within
+      about three seconds the log says `the Accessibility grant is gone (…); both taps destroyed`, the wizard
+      comes back, and the menu says it is waiting for the permission.
+- [ ] **B. The minus button**, same place, with the grant back and the app reopened: select ShiftPick and
+      remove it from the list. The same as A. macOS may post no notification for this one: then nothing is
+      logged until the next press of ⇧ Shift, which says `a live Accessibility request was refused` and takes
+      both taps down. Either is a pass; a Mac that stops answering is not.
+- [ ] **C. The switch turned off with ⇧ Shift held.** This is the only moment the dangerous tap is enabled.
+      Hold ⇧ Shift with one hand, turn ShiftPick off with the other, keep the key down, and ⇧ Shift click a
+      file. The worst allowed is **one** click that takes a moment, with `macOS took the click tap away
+      (timeout), 1 of 3` in the log and nothing enabled after it. Let go of the key: everything works.
+- [ ] **D. Uninstall**, with the grant in place: Settings › General › Uninstall, and confirm. `stopped
+      listening; no event tap exists` is logged **before** anything else happens, and the last alert's button
+      takes your click.
+- [ ] **E. Grant it again** after any of them: within about three seconds `listening for ⇧ Shift clicks`, and
+      the very next ⇧ Shift click is a range. No relaunch.
+
+What each step did on this Mac goes into `docs/macOS.md`, *The event taps* and *The permission*, as a
+measurement: which of the four ways noticed the loss first, how long it took, and whether `tccutil` in step D
+reached the running process.
 
 ## 10. Updates
 

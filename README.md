@@ -53,10 +53,11 @@ is no place it does not.
   between the two icons, as if you had dragged one.
 - **A stack is never selected.** A collapsed stack on the Desktop is not a file, so it is never in a range,
   and ⇧ Shift clicking one is left to Finder.
-- **It never gets in the way.** A click without ⇧ Shift never asks Finder anything at all. A ⇧ Shift click
-  on anything that is not a file in an icon view, during a rename, or with ⌥ Option or ⌃ Control held, goes
-  straight to Finder. So does one ShiftPick cannot answer within 150 ms. **Whatever goes wrong, clicking
-  still works.**
+- **It never gets in the way.** With no finger on ⇧ Shift, no click on your Mac passes through ShiftPick at
+  all. A ⇧ Shift click on anything that is not a file in an icon view, during a rename, or with ⌥ Option or
+  ⌃ Control held, goes straight to Finder. So does one ShiftPick cannot answer within 150 ms. **Whatever goes
+  wrong, clicking still works**: take its permission away, force it to quit, put the Mac to sleep under it,
+  and the worst that happens is a ⇧ Shift click that does what Finder always did.
 
 ## Settings
 
@@ -134,11 +135,13 @@ everything ShiftPick knows about icon views came from, and `swift run axdump ran
 
 ## How it works
 
-One event tap on the left mouse button. A click without ⇧ Shift leaves the callback after a single bit test
-and reaches Finder untouched. A click with it is hit-tested through the Accessibility API; if what is under
-the pointer is an icon in a Finder icon view, ShiftPick reads every icon's frame in that view, works out
-which ones lie between the two you clicked, sets Finder's selection itself, brings Finder forward, raises
-the window, and swallows the click so that Finder does not toggle the file on top of it.
+Two event taps. One only listens for ⇧ Shift going down and coming up, and a listener cannot hold anything
+up. The other can swallow a click, and it is switched on only while ⇧ Shift is held, after asking macOS
+whether ShiftPick is still allowed to. A ⇧ Shift click is then hit-tested through the Accessibility API; if
+what is under the pointer is an icon in a Finder icon view, ShiftPick reads every icon's frame in that view,
+works out which ones lie between the two you clicked, sets Finder's selection itself, swallows the click so
+that Finder does not toggle the file on top of it, brings Finder forward and raises the window. None of that
+happens on the thread that holds your click: it waits 150 ms for an answer, and then gives the click back.
 
 Where the icons sit is the whole input. They are clustered into rows and columns, and the layout is read as
 either *arranged*, which has a reading order to slice, or *hand-placed*, which does not and gets the

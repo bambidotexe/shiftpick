@@ -62,4 +62,12 @@ public struct MenuStrings {
         case .fr: "macOS a refusé l'écoute des clics"
         }
     }
+
+    /// macOS took the click listener away `K.breakerTrips` times in a row, and ShiftPick stopped creating it.
+    public var statusStoppedByMacOS: String {
+        switch language {
+        case .en: "Stopped: macOS kept interrupting the click listener"
+        case .fr: "Arrêté : macOS interrompait sans cesse l'écoute des clics"
+        }
+    }
 }
