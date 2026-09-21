@@ -28,6 +28,10 @@ final class ShiftPickEngine: ObservableObject {
     /// macOS kept taking the click tap away, and ShiftPick stopped creating it.
     var breakerIsOpen: Bool { status == .breakerOpen }
 
+    /// ⇧ Shift was pressed while the Mac is said to be away. Whoever keeps count of why it is away looks at
+    /// the session again, and calls `resume` if nothing is.
+    var onShiftHeardWhileAway: (() -> Void)?
+
     private let store: SettingsStore
     private let resolver = ShiftClickResolver()
     private let clickGuard: ClickGuard
@@ -58,10 +62,14 @@ final class ShiftPickEngine: ObservableObject {
             },
             plainClick: { point in resolver.notePlainClick(at: point) },
             probeTrust: { answer in resolver.queue.async { answer(Permissions.liveVerdict()) } },
-            statusChanged: { new in DispatchQueue.main.async { status.deliver(new) } }))
+            statusChanged: { new in DispatchQueue.main.async { status.deliver(new) } },
+            checkStillAway: { DispatchQueue.main.async { status.stillAway() } }))
 
         status.deliver = { [weak self] new in
             MainActor.assumeIsolated { self?.statusChanged(to: new) }
+        }
+        status.stillAway = { [weak self] in
+            MainActor.assumeIsolated { self?.onShiftHeardWhileAway?() }
         }
         resolver.onGrantLost = { [weak clickGuard] in clickGuard?.trustWasLost() }
         resolver.update(store.settings)
@@ -99,8 +107,11 @@ final class ShiftPickEngine: ObservableObject {
     /// **Returns once no event tap exists.** It comes before anything that takes the grant, the bundle or
     /// the process away, and nothing starts again after it.
     func shutDown() {
-        clickGuard.shutDown()
-        Log.app.notice("stopped listening; no event tap exists")
+        if clickGuard.shutDown() {
+            Log.app.notice("stopped listening; no event tap exists")
+        } else {
+            Log.app.error("stopped listening; the taps' own thread did not answer, so they were destroyed from the main thread")
+        }
     }
 
     /// The Mac is going to sleep, the screen is locking, or another user's session is coming forward.
@@ -135,8 +146,9 @@ final class ShiftPickEngine: ObservableObject {
     }
 }
 
-/// How a status reported on the taps' thread reaches an object that belongs to the main actor, without that
-/// object being captured before it exists.
+/// How what the taps' thread reports reaches an object that belongs to the main actor, without that object
+/// being captured before it exists.
 private final class StatusRelay: @unchecked Sendable {
     var deliver: (TapLifecycle.Status) -> Void = { _ in }
+    var stillAway: () -> Void = {}
 }

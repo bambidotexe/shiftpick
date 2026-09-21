@@ -36,7 +36,7 @@ struct SettingsView: View {
 
     @ViewBuilder private var page: some View {
         switch selection.page {
-        case .general: GeneralPage(store: store, status: status)
+        case .general: GeneralPage(store: store, status: status, engine: engine)
         case .selection: SelectionPage(store: store)
         case .system: SystemPage(store: store, status: status, engine: engine)
         case .tip: TipPage()

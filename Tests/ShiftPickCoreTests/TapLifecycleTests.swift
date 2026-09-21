@@ -405,7 +405,7 @@ final class TapLifecycleTests: XCTestCase {
 
     func testAWatchWithEverythingInOrderAsksAboutTheGrant() {
         arm()
-        let effects = send(.watchdog(shiftDown: true, buttonDown: false), after: 0.5)
+        let effects = send(.watchdog(shiftDown: true, optionOrControlDown: false, buttonDown: false), after: 0.5)
         XCTAssertNotNil(generation(in: effects))
         XCTAssertEqual(life.phase, .armed)
     }
@@ -413,7 +413,7 @@ final class TapLifecycleTests: XCTestCase {
     /// A release the sentinel never heard.
     func testTheWatchDisarmsWhenShiftIsNoLongerDown() {
         arm()
-        XCTAssertEqual(send(.watchdog(shiftDown: false, buttonDown: false)),
+        XCTAssertEqual(send(.watchdog(shiftDown: false, optionOrControlDown: false, buttonDown: false)),
                        [.disableClickTap, .stopWatchdog])
         XCTAssertEqual(life.phase, .idle)
     }
@@ -421,7 +421,7 @@ final class TapLifecycleTests: XCTestCase {
     func testTheWatchWaitsForTheReleaseOfASwallowedPress() {
         arm()
         send(.pressDecided(number: 41, swallowed: true))
-        let effects = send(.watchdog(shiftDown: false, buttonDown: true))
+        let effects = send(.watchdog(shiftDown: false, optionOrControlDown: false, buttonDown: true))
         XCTAssertFalse(effects.contains(.disableClickTap))
         XCTAssertEqual(life.phase, .armed)
     }
@@ -429,7 +429,7 @@ final class TapLifecycleTests: XCTestCase {
     func testTheWatchStopsWaitingOnceTheButtonIsUp() {
         arm()
         send(.pressDecided(number: 41, swallowed: true))
-        XCTAssertEqual(send(.watchdog(shiftDown: false, buttonDown: false)),
+        XCTAssertEqual(send(.watchdog(shiftDown: false, optionOrControlDown: false, buttonDown: false)),
                        [.disableClickTap, .stopWatchdog])
         XCTAssertFalse(life.shouldSwallowRelease(41))
     }
@@ -438,7 +438,7 @@ final class TapLifecycleTests: XCTestCase {
     /// the thread the Mac's clicks are waiting on.
     func testTheWatchsQuestionComingBackRefusedTakesEverythingDown() {
         arm()
-        let asked = send(.watchdog(shiftDown: true, buttonDown: false), after: 0.5)
+        let asked = send(.watchdog(shiftDown: true, optionOrControlDown: false, buttonDown: false), after: 0.5)
         XCTAssertEqual(answer(asked, .revoked),
                        [.disableClickTap, .stopWatchdog, .destroyTaps, .report(.needsPermission)])
     }
@@ -446,7 +446,7 @@ final class TapLifecycleTests: XCTestCase {
     /// A key held down by a bag, or latched by Sticky Keys.
     func testTheWatchDisarmsAfterTheIdleLimit() {
         arm()
-        XCTAssertEqual(send(.watchdog(shiftDown: true, buttonDown: false),
+        XCTAssertEqual(send(.watchdog(shiftDown: true, optionOrControlDown: false, buttonDown: false),
                             after: K.armedIdleLimit + 1),
                        [.disableClickTap, .stopWatchdog])
         XCTAssertEqual(life.phase, .idle)
@@ -455,13 +455,13 @@ final class TapLifecycleTests: XCTestCase {
     func testAClickStartsTheIdleLimitOver() {
         arm()
         send(.pressDecided(number: 41, swallowed: false), after: K.armedIdleLimit - 1)
-        send(.watchdog(shiftDown: true, buttonDown: false), after: 2)
+        send(.watchdog(shiftDown: true, optionOrControlDown: false, buttonDown: false), after: 2)
         XCTAssertEqual(life.phase, .armed)
     }
 
     func testAnAnswerThatNeverCameWhileArmedDisarms() {
         arm()
-        let asked = send(.watchdog(shiftDown: true, buttonDown: false), after: 0.5)
+        let asked = send(.watchdog(shiftDown: true, optionOrControlDown: false, buttonDown: false), after: 0.5)
         XCTAssertEqual(answer(asked, .unknown),
                        [.disableClickTap, .stopWatchdog])
         XCTAssertEqual(life.phase, .idle)
@@ -469,7 +469,7 @@ final class TapLifecycleTests: XCTestCase {
 
     func testAStrayWatchStopsItself() {
         startWatching()
-        XCTAssertEqual(send(.watchdog(shiftDown: true, buttonDown: false)), [.stopWatchdog])
+        XCTAssertEqual(send(.watchdog(shiftDown: true, optionOrControlDown: false, buttonDown: false)), [.stopWatchdog])
     }
 
     // MARK: - Sleep, the lock screen, another user's session
@@ -483,8 +483,47 @@ final class TapLifecycleTests: XCTestCase {
     func testNothingArmsWhileSuspended() {
         startWatching()
         send(.suspend)
-        XCTAssertEqual(pressShift(), [])
+        XCTAssertFalse(pressShift().contains(.enableClickTap))
         XCTAssertEqual(life.phase, .suspended)
+    }
+
+    /// Somebody pressing ⇧ Shift is somebody at the keyboard. If the Mac is still said to be away, one of
+    /// the notifications that would have said otherwise was lost, and the session is looked at again rather
+    /// than trusted to send it.
+    func testShiftHeardWhileAwayAsksWhetherTheMacIsStillAway() {
+        startWatching()
+        send(.suspend)
+        XCTAssertEqual(pressShift(), [.checkStillAway])
+        XCTAssertEqual(life.phase, .suspended)
+    }
+
+    /// A password being typed on the lock screen is ⇧ Shift too, and is not a reason to ask at every key.
+    func testTheSessionIsLookedAtAgainNoMoreOftenThanTheInterval() {
+        startWatching()
+        send(.suspend)
+        XCTAssertEqual(pressShift(), [.checkStillAway])
+        _ = releaseShift()
+        XCTAssertEqual(send(.modifiers(shift: true, optionOrControl: false), after: 1), [])
+        _ = releaseShift()
+        XCTAssertEqual(send(.modifiers(shift: true, optionOrControl: false), after: K.awayCheckInterval),
+                       [.checkStillAway])
+    }
+
+    func testGoingAwayAgainStartsTheIntervalOver() {
+        startWatching()
+        send(.suspend)
+        XCTAssertEqual(pressShift(), [.checkStillAway])
+        _ = releaseShift()
+        send(.resume(trusted: true))
+        send(.suspend, after: 1)
+        XCTAssertEqual(pressShift(), [.checkStillAway])
+    }
+
+    func testTurnedOffNothingIsLookedAt() {
+        startWatching()
+        send(.userEnabled(false))
+        send(.suspend)
+        XCTAssertEqual(pressShift(), [])
     }
 
     func testResumingListensAgainAndAsksBeforeTheNextArming() {
@@ -550,7 +589,7 @@ final class TapLifecycleTests: XCTestCase {
     /// the doubt arrived. The watch asks every half second while armed, so there is nearly always one in flight.
     func testAnAnswerAskedBeforeTheNotificationVouchesForNothingAfterIt() {
         arm()
-        guard let inFlight = generation(in: send(.watchdog(shiftDown: true, buttonDown: false), after: 0.5))
+        guard let inFlight = generation(in: send(.watchdog(shiftDown: true, optionOrControlDown: false, buttonDown: false), after: 0.5))
         else { return XCTFail("the watch asked nothing") }
         _ = releaseShift()
         send(.trustNotification)
@@ -562,7 +601,7 @@ final class TapLifecycleTests: XCTestCase {
 
     func testAnAnswerAskedBeforeATripVouchesForNothingAfterIt() {
         arm()
-        guard let inFlight = generation(in: send(.watchdog(shiftDown: true, buttonDown: false), after: 0.5))
+        guard let inFlight = generation(in: send(.watchdog(shiftDown: true, optionOrControlDown: false, buttonDown: false), after: 0.5))
         else { return XCTFail("the watch asked nothing") }
         send(.tapDisabledBySystem(.click, .timeout))
         XCTAssertEqual(send(.trustProbe(.trusted, generation: inFlight)), [])
@@ -660,6 +699,96 @@ final class TapLifecycleTests: XCTestCase {
         XCTAssertEqual(life.phase, .off(.needsPermission))
     }
 
+    // MARK: - Every question gets its answer, and only its answer counts
+
+    /// A start asks a live question. The grant reading as gone while it is on its way makes it an answer to
+    /// a question nobody is asking any more.
+    func testAnAnswerAskedBeforeALossCreatesNothing() {
+        startWatching()
+        send(.trustLost)
+        let asked = send(.start(trusted: true))
+        send(.trustLost)
+        XCTAssertEqual(answer(asked, .trusted), [])
+        XCTAssertEqual(life.phase, .off(.needsPermission))
+    }
+
+    func testAnAnswerAskedBeforeALookAgainFoundNoGrantCreatesNothing() {
+        startWatching()
+        send(.trustLost)
+        let asked = send(.start(trusted: true))
+        send(.trustRecheck(.revoked))
+        XCTAssertEqual(answer(asked, .trusted), [])
+        XCTAssertEqual(life.phase, .off(.needsPermission))
+    }
+
+    /// The wizard's poll asks every two seconds. A question already on its way is the one that answers, or
+    /// a worker slower than the poll would never have one of its answers taken.
+    func testThePollDoesNotReplaceAQuestionStillOnItsWay() {
+        send(.start(trusted: false))
+        guard let first = generation(in: send(.start(trusted: true))) else { return XCTFail("nothing was asked") }
+        XCTAssertEqual(send(.start(trusted: true), after: 2), [])
+        XCTAssertEqual(send(.trustProbe(.trusted, generation: first)), [.createTaps])
+    }
+
+    /// The privacy database moved while another try was waiting for its answer. That answer was asked before
+    /// the move and counts for nothing, so the question is asked again rather than the try being lost.
+    func testANotificationAsksAgainOnBehalfOfATryStillWaiting() {
+        arm()
+        for _ in 0..<K.breakerTrips { send(.tapDisabledBySystem(.click, .timeout), after: 1) }
+        let tried = send(.tryAgain(trusted: true))
+        let moved = send(.trustNotification)
+        XCTAssertNotNil(generation(in: moved))
+        XCTAssertEqual(answer(tried, .trusted), [])
+        XCTAssertEqual(answer(moved, .trusted), [.createTaps])
+    }
+
+    func testANotificationAsksAgainOnBehalfOfAStartStillWaiting() {
+        send(.start(trusted: false))
+        let started = send(.start(trusted: true))
+        let moved = send(.trustNotification)
+        XCTAssertNotNil(generation(in: moved))
+        XCTAssertEqual(answer(started, .trusted), [])
+        XCTAssertEqual(answer(moved, .trusted), [.createTaps])
+    }
+
+    /// An answer that never came says nothing either way, including that the last one still holds.
+    func testAnAnswerThatNeverCameVouchesForNothingAfterwards() {
+        arm()
+        let asked = send(.watchdog(shiftDown: true, optionOrControlDown: false, buttonDown: false), after: 0.5)
+        answer(asked, .unknown)
+        XCTAssertEqual(life.phase, .idle)
+        _ = releaseShift()
+        let effects = send(.modifiers(shift: true, optionOrControl: false), after: 0.2)
+        XCTAssertNotNil(generation(in: effects))
+        XCTAssertFalse(effects.contains(.enableClickTap))
+    }
+
+    /// The watch asks every half second. A question still unanswered at the next look is a worker nobody can
+    /// vouch for the grant through, and the tap does not stay enabled on the strength of an older answer.
+    func testALookWhoseQuestionWentUnansweredDisarms() {
+        arm()
+        send(.watchdog(shiftDown: true, optionOrControlDown: false, buttonDown: false), after: 0.5)
+        let next = send(.watchdog(shiftDown: true, optionOrControlDown: false, buttonDown: false), after: 0.5)
+        XCTAssertEqual(Array(next.prefix(2)), [.disableClickTap, .stopWatchdog])
+        XCTAssertEqual(life.phase, .idle)
+    }
+
+    func testALookWhoseQuestionWasAnsweredAsksAgain() {
+        arm()
+        answer(send(.watchdog(shiftDown: true, optionOrControlDown: false, buttonDown: false), after: 0.5), .trusted)
+        let next = send(.watchdog(shiftDown: true, optionOrControlDown: false, buttonDown: false), after: 0.5)
+        XCTAssertNotNil(generation(in: next))
+        XCTAssertEqual(life.phase, .armed)
+    }
+
+    /// ⌥ Option or ⌃ Control down according to the keyboard itself, although the sentinel never heard it.
+    func testTheWatchDisarmsWhenOptionOrControlIsDown() {
+        arm()
+        XCTAssertEqual(send(.watchdog(shiftDown: true, optionOrControlDown: true, buttonDown: false)),
+                       [.disableClickTap, .stopWatchdog])
+        XCTAssertEqual(life.phase, .idle)
+    }
+
     // MARK: - Away is remembered
 
     func testTapsCreatedWhileTheMacIsAwayArmNothing() {
@@ -668,7 +797,7 @@ final class TapLifecycleTests: XCTestCase {
         answer(send(.start(trusted: true)), .trusted)
         send(.tapsCreated(true))
         XCTAssertEqual(life.phase, .suspended)
-        XCTAssertEqual(pressShift(), [])
+        XCTAssertFalse(pressShift().contains(.enableClickTap))
         XCTAssertEqual(send(.resume(trusted: true)), [.enableSentinel])
         XCTAssertEqual(life.phase, .idle)
     }

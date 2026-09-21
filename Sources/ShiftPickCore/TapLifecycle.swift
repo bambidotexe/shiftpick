@@ -21,6 +21,8 @@ import Foundation
 ///   `K.breakerTrips` of them inside `K.breakerWindow` end it for good.
 /// - **Anything that says the grant is gone destroys both taps**, and anything that says it *may* have moved
 ///   disarms first and asks afterwards.
+/// - **A watch is kept while armed, and it disarms rather than wait**: on the keys no longer asking for it,
+///   on a minute with nothing clicked, and on a question about the grant still unanswered at the next look.
 ///
 /// It is a value: an event and the time go in, the new state and what to do about it come out. The taps, the
 /// threads and the clock are `ShiftPickPlatform.ClickGuard`'s, which does what the effects say and nothing
@@ -83,9 +85,9 @@ public struct TapLifecycle: Equatable, Sendable {
         case pressDecided(number: Int64, swallowed: Bool)
         case releaseSeen(number: Int64)
         case tapDisabledBySystem(Tap, DisableReason)
-        /// The look kept while armed, with what the hardware says about the key and the button. The grant is
-        /// not in it: the live question this asks carries that, from a thread nobody's click is waiting on.
-        case watchdog(shiftDown: Bool, buttonDown: Bool)
+        /// The look kept while armed, with what the keyboard and the mouse say themselves. The grant is not in
+        /// it: the live question this asks carries that, from a thread nobody's click is waiting on.
+        case watchdog(shiftDown: Bool, optionOrControlDown: Bool, buttonDown: Bool)
         case suspend
         case resume(trusted: Bool)
         /// The Settings switch.
@@ -106,6 +108,9 @@ public struct TapLifecycle: Equatable, Sendable {
         case recheckTrustSoon
         case startWatchdog
         case stopWatchdog
+        /// Somebody pressed ⇧ Shift while the Mac is said to be away. Look at the session itself, and resume
+        /// if nothing is away any more: a notification that would have said so may have been lost.
+        case checkStillAway
         case report(Status)
         case log(LogLevel, String)
     }
@@ -127,6 +132,10 @@ public struct TapLifecycle: Equatable, Sendable {
     private var isAway = false
     /// A `start` is waiting for a live answer before it creates anything.
     private var startIsWaiting = false
+    /// The watch's last question about the grant has not been answered yet.
+    private var watchIsWaiting = false
+    /// When ⇧ Shift heard while away last made the session be looked at again.
+    private var lastAwayCheck: TimeInterval?
     /// The event number of a press that was swallowed and whose release has not come. macOS gives a press
     /// and its release the same number, which is what makes the release recognisable.
     private var outstandingPress: Int64?
@@ -185,8 +194,7 @@ public struct TapLifecycle: Equatable, Sendable {
         case .tryAgain(let trusted):
             guard phase == .off(.breakerOpen) else { return [] }
             trips = []
-            return begin(trusted: trusted, justLaunched: false)
-                + [.log(.notice, "another try was asked for; the breaker is closed")]
+            return begin(trusted: trusted, justLaunched: false) + [.log(.notice, "another try was asked for")]
 
         case .tapsCreated(let created):
             guard case .off = phase else { return [] }
@@ -201,6 +209,7 @@ public struct TapLifecycle: Equatable, Sendable {
             // The trips are not forgotten: losing the grant and getting it back is not somebody asking for
             // another try. They lapse on their own after `K.breakerWindow`.
             phase = isAway ? .suspended : .idle
+            lastAwayCheck = nil
             forgetTrust()
             sentinelIsDown = false
             outstandingPress = nil
@@ -221,6 +230,13 @@ public struct TapLifecycle: Equatable, Sendable {
                 return []
             case .armed where !keysAskForIt && outstandingPress == nil:
                 return disarm()
+            case .suspended where keysAskForIt && userEnabled:
+                // Somebody at the keyboard while the Mac is said to be away: a notification that would have
+                // said otherwise may have been lost, so the session is looked at itself, and no more often
+                // than the interval, because a password typed on the lock screen is ⇧ Shift too.
+                if let asked = lastAwayCheck, now - asked < K.awayCheckInterval { return [] }
+                lastAwayCheck = now
+                return [.checkStillAway]
             default:
                 return []
             }
@@ -228,15 +244,10 @@ public struct TapLifecycle: Equatable, Sendable {
         case .trustProbe(let verdict, let generation):
             switch verdict {
             case .revoked:
-                guard tapsExist else {
-                    // Whatever was being waited for, the answer is that there is no grant.
-                    if startIsWaiting || phase == .off(.refused) { phase = .off(.needsPermission) }
-                    startIsWaiting = false
-                    return []
-                }
                 return loseTheGrant("a live Accessibility request was refused")
             case .trusted:
                 guard generation == probeGeneration else { return [] }
+                watchIsWaiting = false
                 guard tapsExist else {
                     guard startIsWaiting else { return [] }
                     startIsWaiting = false
@@ -253,6 +264,9 @@ public struct TapLifecycle: Equatable, Sendable {
                 return effects
             case .unknown:
                 guard generation == probeGeneration else { return [] }
+                // Nobody answered, which says nothing either way: not even that the last answer still holds.
+                trustVerifiedAt = nil
+                watchIsWaiting = false
                 if startIsWaiting {
                     startIsWaiting = false
                     return [.log(.notice, "nothing created: nobody answered the question about the grant")]
@@ -270,12 +284,8 @@ public struct TapLifecycle: Equatable, Sendable {
 
         case .trustRecheck(let verdict):
             switch (verdict, phase) {
-            case (.revoked, _) where tapsExist:
+            case (.revoked, _):
                 return loseTheGrant("the grant read as gone when it was looked at again")
-            case (.revoked, .off(.refused)):
-                // macOS refused the taps with the grant reading as given. It is not given.
-                phase = .off(.needsPermission)
-                return []
             case (.trusted, .off(.needsPermission)), (.trusted, .off(.refused)):
                 return [.createTaps]
             case (.trusted, _) where tapsExist:
@@ -302,8 +312,14 @@ public struct TapLifecycle: Equatable, Sendable {
                 return effects + [.recheckTrustSoon]
             case .arming:
                 return [askAboutTheGrant(), .recheckTrustSoon]
-            case .idle, .suspended, .off(.needsPermission), .off(.refused):
+            case .idle, .suspended:
                 return [.recheckTrustSoon]
+            case .off(.needsPermission), .off(.refused), .off(.breakerOpen):
+                // A start or a try still waiting for its answer is asked again: the answer on its way was
+                // asked before the move, and counts for nothing now.
+                var effects: [Effect] = startIsWaiting ? [askAboutTheGrant()] : []
+                if phase != .off(.breakerOpen) { effects.append(.recheckTrustSoon) }
+                return effects
             case .off:
                 return []
             }
@@ -325,16 +341,23 @@ public struct TapLifecycle: Equatable, Sendable {
             guard tapsExist else { return [] }
             return tripped(tap, reason, now: now)
 
-        case .watchdog(let shiftDown, let buttonDown):
-            // What the hardware says about the key is believed whatever the phase is.
-            if !shiftDown { keysAskForIt = false }
+        case .watchdog(let shiftDown, let optionOrControlDown, let buttonDown):
+            // What the keyboard says about itself is believed whatever the phase is.
+            let keysStopAsking = !shiftDown || optionOrControlDown
+            if keysStopAsking { keysAskForIt = false }
             guard phase == .armed else { return [.stopWatchdog] }
-            if !shiftDown && !(outstandingPress != nil && buttonDown) {
-                return disarm() + [.log(.notice, "disarmed: ⇧ Shift is up and its release was never heard")]
+            if keysStopAsking && !(outstandingPress != nil && buttonDown) {
+                return disarm() + [.log(.notice, "disarmed: the keys stopped asking for it and nothing said so")]
             }
             if now - lastActivity > K.armedIdleLimit {
                 return disarm() + [.log(.notice, "disarmed: ⇧ Shift held with nothing clicked")]
             }
+            // An answer that has not come in a whole look is a worker nobody can vouch for the grant through.
+            // The tap does not stay enabled on an older answer while this one is awaited.
+            if watchIsWaiting {
+                return disarm() + [.log(.notice, "disarmed: the last look's question about the grant went unanswered")]
+            }
+            watchIsWaiting = true
             return [askAboutTheGrant()]
 
         case .suspend:
@@ -343,6 +366,7 @@ public struct TapLifecycle: Equatable, Sendable {
             let effects = phase == .armed ? disarm() : []
             forgetTrust()
             phase = .suspended
+            lastAwayCheck = nil
             return effects
 
         case .resume(let trusted):
@@ -392,6 +416,9 @@ public struct TapLifecycle: Equatable, Sendable {
             return []
         }
         guard !justLaunched else { return [.createTaps] }
+        // A question already on its way is the one that answers. Every question is answered, and asking a
+        // new one would make that answer worthless: a poll faster than the worker would never be heard.
+        guard !startIsWaiting else { return [] }
         startIsWaiting = true
         return [askAboutTheGrant()]
     }
@@ -424,6 +451,7 @@ public struct TapLifecycle: Equatable, Sendable {
         phase = .armed
         lastActivity = now
         outstandingPress = nil
+        watchIsWaiting = false
         // At `debug`, which nobody pays for unless they are streaming it: this happens at every capital letter.
         return [.enableClickTap, .startWatchdog, .log(.debug, "armed")]
     }
@@ -434,11 +462,19 @@ public struct TapLifecycle: Equatable, Sendable {
     private mutating func disarm() -> [Effect] {
         phase = .idle
         outstandingPress = nil
+        watchIsWaiting = false
         return [.disableClickTap, .stopWatchdog, .log(.debug, "disarmed")]
     }
 
     private mutating func loseTheGrant(_ why: String) -> [Effect] {
-        guard tapsExist else { return [] }
+        guard tapsExist else {
+            // Nothing to destroy. Whatever was waiting for an answer has it, and no answer still on its way
+            // counts: it was asked before the grant was known to be gone.
+            if startIsWaiting || phase == .off(.refused) { phase = .off(.needsPermission) }
+            startIsWaiting = false
+            forgetTrust()
+            return []
+        }
         var effects = phase == .armed ? disarm() : []
         effects.append(.destroyTaps)
         phase = .off(.needsPermission)

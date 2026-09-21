@@ -10,6 +10,8 @@ struct GeneralPage: View {
     /// ShiftPick in System Settings › General › Login Items without ever opening this window. The switch
     /// therefore shows the system's answer, re-read on every open and on every poll.
     @ObservedObject var status: SystemStatus
+    /// What the uninstall stops before it takes the grant away.
+    let engine: ShiftPickEngine
     @State private var loginError: String?
 
     var body: some View {
@@ -65,13 +67,9 @@ struct GeneralPage: View {
 
         // **First, and before the grant is touched.** The next line resets the Accessibility grant, and an
         // enabled click tap whose owner has just lost it stalls every click on the Mac, a moment before this
-        // asks for one on its last alert. There is no way back from here, so nothing starts again. **An
-        // uninstall that cannot show the taps are gone does not go on to take the grant away.**
-        guard let app = NSApp.delegate as? AppDelegate else {
-            Log.app.error("the uninstall was abandoned: nothing could be asked to destroy the event taps first")
-            return
-        }
-        app.prepareForRemoval()
+        // asks for one on its last alert. It returns once no tap exists. There is no way back from here, so
+        // nothing starts again.
+        engine.shutDown()
 
         var failures = Uninstall.removeSystemRegistrations()
         Uninstall.moveBundleToTrash { failure in

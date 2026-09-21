@@ -62,17 +62,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         engine.shutDown()
     }
 
-    /// **Before the uninstall resets the Accessibility grant.** An enabled click tap whose owner has just lost
-    /// the grant stalls every click on the Mac, and an uninstall would otherwise be this app doing that to
-    /// itself, a moment before it asks for a click on its last alert. Returns once no event tap exists, and
-    /// nothing starts again after it: there is no way back from an uninstall that has been confirmed.
-    ///
-    /// An update needs none of this. Its helper touches nothing until this process has gone, and the quit
-    /// that gets it there comes through `applicationWillTerminate`.
-    func prepareForRemoval() {
-        engine.shutDown()
-    }
-
     /// The one way back into Settings once the icon is hidden: opening the bundle again from the
     /// Applications folder or Spotlight while the app is already running fires this rather than
     /// `applicationDidFinishLaunching`. **The wizard takes precedence while it is up**, and this asks the same
@@ -214,6 +203,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// wakes the Mac with the lock screen still up. One flag would call that "back" at the wake. Each reason is
     /// put down by its own notification and by no other, and the engine resumes when none is left.
     private func watchTheSession() {
+        engine.onShiftHeardWhileAway = { [weak self] in self?.reconcileAway(because: "⇧ Shift was pressed") }
         let workspace = NSWorkspace.shared.notificationCenter
         let distributed = DistributedNotificationCenter.default()
         let pairs: [(NotificationCenter, Notification.Name, Notification.Name, AwayReason)] = [
@@ -244,8 +234,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// end of would be an app that silently does nothing, so each one is said, and so is its end.
     private func came(backFrom reason: AwayReason) {
         guard awayReasons.remove(reason) != nil else { return }
+        reconcileAway(because: "back (\(reason.rawValue))")
+    }
+
+    /// **The notifications are not trusted to all arrive.** A lost unlock or wake would keep ShiftPick
+    /// suspended for good, with Settings saying it is listening. So whenever there is news of any kind, a
+    /// notification of coming back or somebody pressing ⇧ Shift, the reasons are held against what the session
+    /// says itself: any news at all is a Mac that is awake, the session says whether its screen is locked,
+    /// and whether it is the one on the console.
+    private func reconcileAway(because news: String) {
+        guard !awayReasons.isEmpty else { return }
+        awayReasons.remove(.asleep)
+        let session = CGSessionCopyCurrentDictionary() as? [String: Any]
+        if (session?["CGSSessionScreenIsLocked"] as? Bool) != true { awayReasons.remove(.locked) }
+        if (session?[kCGSessionOnConsoleKey as String] as? Bool) == true { awayReasons.remove(.anotherSession) }
         let left = awayReasons.map(\.rawValue).sorted().joined(separator: ", ")
-        Log.app.notice("back (\(reason.rawValue, privacy: .public))\(left.isEmpty ? "" : "; still away: \(left)", privacy: .public)")
+        Log.app.notice("\(news, privacy: .public)\(left.isEmpty ? "; nothing is away any more" : "; still away: \(left)", privacy: .public)")
         if awayReasons.isEmpty { engine.resume() }
     }
 

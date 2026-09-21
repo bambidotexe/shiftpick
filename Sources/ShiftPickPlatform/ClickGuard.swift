@@ -43,15 +43,20 @@ public final class ClickGuard: @unchecked Sendable {
         public var probeTrust: (@escaping (TrustVerdict) -> Void) -> Void
         /// Called on the tap's thread.
         public var statusChanged: (TapLifecycle.Status) -> Void
+        /// ⇧ Shift was pressed while the Mac is said to be away. Called on the tap's thread; the session is
+        /// looked at elsewhere, and `resume` is the answer when nothing is away any more.
+        public var checkStillAway: () -> Void
 
         public init(decidePress: @escaping (CGPoint, CGEventFlags) -> Bool,
                     plainClick: @escaping (CGPoint) -> Void,
                     probeTrust: @escaping (@escaping (TrustVerdict) -> Void) -> Void,
-                    statusChanged: @escaping (TapLifecycle.Status) -> Void) {
+                    statusChanged: @escaping (TapLifecycle.Status) -> Void,
+                    checkStillAway: @escaping () -> Void) {
             self.decidePress = decidePress
             self.plainClick = plainClick
             self.probeTrust = probeTrust
             self.statusChanged = statusChanged
+            self.checkStillAway = checkStillAway
         }
     }
 
@@ -140,14 +145,18 @@ public final class ClickGuard: @unchecked Sendable {
     /// and invalidated from here instead, which the window server honours from any thread. A block the
     /// thread has already started is waited for to its end, and this one waits on nothing: it disables,
     /// invalidates and stops timers.
-    public func shutDown() {
+    ///
+    /// True when the taps' own thread did it, false when it had to be done from here.
+    @discardableResult
+    public func shutDown() -> Bool {
         isShutDown.withLock { $0 = true }
-        if thread.performAndWait(timeout: K.shutDownWait, { [weak self] in self?.feed(.terminate) }) { return }
+        if thread.performAndWait(timeout: K.shutDownWait, { [weak self] in self?.feed(.terminate) }) { return true }
         Log.click.error("the taps' thread did not answer in \(K.shutDownWait, privacy: .public) s; taps destroyed from the calling thread")
         destroyFromAnyThread()
         // Should that thread come back, the lifecycle still has to hear that it is over. `isShutDown` is what
         // holds until it does, and if it never does.
         thread.perform { [weak self] in self?.feed(.terminate) }
+        return false
     }
 
     // MARK: - The lifecycle, on the tap's thread
@@ -174,7 +183,11 @@ public final class ClickGuard: @unchecked Sendable {
     private func run(_ effect: TapLifecycle.Effect) {
         switch effect {
         case .createTaps:
-            feed(.tapsCreated(createTaps()))
+            // After `shutDown` the lifecycle is told it is over, not that macOS refused: the one would be a
+            // line in the log about a refusal that never happened.
+            guard !isShutDown.withLock({ $0 }) else { feed(.terminate); return }
+            let created = createTaps()
+            feed(!created && isShutDown.withLock({ $0 }) ? .terminate : .tapsCreated(created))
         case .destroyTaps:
             destroyTaps()
         case .enableClickTap:
@@ -202,6 +215,8 @@ public final class ClickGuard: @unchecked Sendable {
             startWatchdog()
         case .stopWatchdog:
             stopWatchdog()
+        case .checkStillAway:
+            hooks.checkStillAway()
         case .report(let status):
             hooks.statusChanged(status)
         case .log(let level, let line):
@@ -255,6 +270,8 @@ public final class ClickGuard: @unchecked Sendable {
         // A tap is born enabled. This one is disabled before anything else is done with it, and stays that
         // way until the lifecycle says ⇧ Shift is down and the grant has just been vouched for.
         CGEvent.tapEnable(tap: click, enable: false)
+        // Reachable from here on by a teardown that cannot wait for this thread.
+        ports.withLockUnchecked { $0 = Ports(sentinel: sentinel, click: click) }
 
         // A tap whose port is on no run loop is a tap nobody answers: every click routed to it would stall
         // until the system's timeout, and the notice that it had been disabled would arrive through the same
@@ -264,10 +281,12 @@ public final class ClickGuard: @unchecked Sendable {
             guard let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, port, 0) else { break }
             made.append(source)
         }
-        guard made.count == 2 else {
+        // And nothing is listened for once `shutDown` has been called, however far this had got.
+        guard made.count == 2, !isShutDown.withLock({ $0 }) else {
             CGEvent.tapEnable(tap: sentinel, enable: false)
             CFMachPortInvalidate(click)
             CFMachPortInvalidate(sentinel)
+            ports.withLockUnchecked { $0 = Ports() }
             return false
         }
         for source in made { CFRunLoopAddSource(thread.cfRunLoop, source, .commonModes) }
@@ -275,7 +294,6 @@ public final class ClickGuard: @unchecked Sendable {
         CGEvent.tapEnable(tap: sentinel, enable: true)
         self.sentinel = sentinel
         self.click = click
-        ports.withLockUnchecked { $0 = Ports(sentinel: sentinel, click: click) }
         return true
     }
 
@@ -379,8 +397,9 @@ public final class ClickGuard: @unchecked Sendable {
 
     // MARK: - The watch kept while armed, and the looks after a notification
 
-    /// A timer that exists only while the click tap is enabled. It asks the system, not the event stream,
-    /// whether ⇧ Shift is still down: a release the sentinel never heard is otherwise a tap left enabled.
+    /// A timer that exists only while the click tap is enabled. It asks the keyboard, not the event stream,
+    /// whether the keys still ask for it: a release, or an ⌥ Option or ⌃ Control press, that the sentinel
+    /// never heard is otherwise a tap left enabled.
     private func startWatchdog() {
         stopWatchdog()
         armedActivity = ProcessInfo.processInfo.beginActivity(
@@ -397,13 +416,18 @@ public final class ClickGuard: @unchecked Sendable {
             // is a session that has stalled and still says down: that case is left to the live question this
             // same look asks, and under it to the system's own timeout.
             let shiftDown = hardware.contains(.maskShift) || session.contains(.maskShift)
+            // Down if either says so as well, and there that is the cautious way round: it disarms.
+            let optionOrControlDown = [hardware, session].contains {
+                $0.contains(.maskAlternate) || $0.contains(.maskControl)
+            }
             let buttonDown = CGEventSource.buttonState(.hidSystemState, button: .left)
                 || CGEventSource.buttonState(.combinedSessionState, button: .left)
-            self.feed(.watchdog(shiftDown: shiftDown, buttonDown: buttonDown))
+            self.feed(.watchdog(shiftDown: shiftDown, optionOrControlDown: optionOrControlDown,
+                                buttonDown: buttonDown))
         }) else {
             // No watch, no armed tap: reported as a key that is up, which is what disarms.
             Log.click.error("the watch over the armed tap could not be created; disarming")
-            feedAfterThisCallback(.watchdog(shiftDown: false, buttonDown: false))
+            feedAfterThisCallback(.watchdog(shiftDown: false, optionOrControlDown: false, buttonDown: false))
             return
         }
         CFRunLoopAddTimer(thread.cfRunLoop, timer, .commonModes)

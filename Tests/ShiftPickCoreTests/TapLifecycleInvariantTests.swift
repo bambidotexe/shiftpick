@@ -32,7 +32,7 @@ final class TapLifecycleInvariantTests: XCTestCase {
                     watchdogRuns = true
                 case .stopWatchdog:
                     watchdogRuns = false
-                case .enableSentinel, .probeTrust, .recheckTrustSoon, .report, .log:
+                case .enableSentinel, .probeTrust, .recheckTrustSoon, .report, .log, .checkStillAway:
                     break
                 }
             }
@@ -108,7 +108,9 @@ final class TapLifecycleInvariantTests: XCTestCase {
             // 8. The click tap is never enabled unless the modifier keys last said so: ⇧ Shift down, and
             //    neither ⌥ Option nor ⌃ Control. A swallowed press keeps it enabled; nothing enables it again.
             if case .modifiers(let shift, let optionOrControl) = event { keysAskForIt = shift && !optionOrControl }
-            if case .watchdog(false, _) = event { keysAskForIt = false }
+            if case .watchdog(let shift, let optionOrControl, _) = event, !shift || optionOrControl {
+                keysAskForIt = false
+            }
             if effects.contains(.enableClickTap) { XCTAssertTrue(keysAskForIt, context) }
             // 9. Taps are created on a live answer, or by a process that has only just started and reads the
             //    grant as it is. Never on the cached answer of one that has been running.
@@ -118,6 +120,11 @@ final class TapLifecycleInvariantTests: XCTestCase {
                 case (.start(trusted: true), .off(.notStarted)): break
                 default: XCTFail("taps created by \(event): \(context)")
                 }
+            }
+            // 10. The session is only looked at again while the Mac is said to be away, and only on ⇧ Shift.
+            if effects.contains(.checkStillAway) {
+                XCTAssertEqual(life.phase, .suspended, context)
+                XCTAssertTrue(keysAskForIt, context)
             }
             // 6. Every change of status is reported, and nothing else is.
             let reported = effects.compactMap { effect -> TapLifecycle.Status? in
@@ -156,7 +163,8 @@ final class TapLifecycleInvariantTests: XCTestCase {
         case 14, 15: return .releaseSeen(number: Int64(random.below(3)))
         case 16: return .tapDisabledBySystem(random.flip() ? .click : .sentinel,
                                              [.timeout, .userInput, .wouldNotEnable][random.below(3)])
-        case 17, 18: return .watchdog(shiftDown: random.flip(), buttonDown: random.flip())
+        case 17, 18: return .watchdog(shiftDown: random.flip(), optionOrControlDown: random.below(6) == 0,
+                                      buttonDown: random.flip())
         case 19: return .suspend
         case 20: return .resume(trusted: random.below(5) > 0)
         case 21: return .userEnabled(random.below(3) > 0)

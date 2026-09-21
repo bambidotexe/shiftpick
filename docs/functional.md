@@ -40,8 +40,9 @@ once in the log, however often it is asked for again.
    no older than **`K.trustFreshness` (2 s)** is reused, so a burst of capital letters asks once. **An answer
    only counts if it was asked after the grant was last put in doubt**: a privacy notification, a tap macOS
    took away and a Mac coming back each make every answer still on its way worthless. A refusal takes both
-   taps down (§7). No answer within **`K.trustProbeTimeout` (50 ms)** arms nothing, and the keys are looked
-   at again when the answer comes: a key let go meanwhile arms nothing.
+   taps down (§7). No answer within **`K.trustProbeTimeout` (50 ms)** arms nothing and takes the last
+   answer's word away too, so the next press asks again. The keys are looked at again when the answer comes:
+   a key let go meanwhile arms nothing.
 4. The click tap is enabled. Releasing ⇧ Shift disables it again.
 
 While it is armed, a click **with ⇧ Shift and without ⌥ Option or ⌃ Control** is a **⇧ Shift click**, and §2
@@ -61,9 +62,11 @@ down** (the grant put in doubt, a trip, the Mac going away), the release reaches
 clicked file: a selection one file short, in a rare moment, and the price of never leaving the tap enabled.
 
 **A watch is kept while the tap is armed, and only then.** Every **`K.armedWatchInterval` (0.5 s)** the
-hardware is asked whether ⇧ Shift is still down, the grant is asked about again, and a tap that has been
-armed for **`K.armedIdleLimit` (60 s)** with nothing clicked is disarmed: a key held down by a bag, or latched
-by Sticky Keys, does not keep it enabled for hours. Most ⇧ Shift clicks are over before the first look.
+keyboard itself is asked whether ⇧ Shift is still down and ⌥ Option and ⌃ Control are not, and the grant is
+asked about again. **It disarms rather than wait**, on any of three: the keys no longer asking for it and
+nothing having said so; **`K.armedIdleLimit` (60 s)** with nothing clicked, so a key held down by a bag, or
+latched by Sticky Keys, does not keep the tap enabled for hours; and the last look's question about the grant
+still unanswered at the next look. Most ⇧ Shift clicks are over before the first look.
 
 **If macOS takes the click tap away** (its two reasons are a callback that ran too long and the system
 interrupting a tap), **it is never enabled again by the event that says so.** macOS disabling a tap that has
@@ -79,7 +82,11 @@ coming back.
 in front. **The reasons are counted**: closing a lid locks and then sleeps, and the wake that follows finds
 the lock screen still up, so each reason is ended by its own notification and nothing arms until none is
 left. Taps created meanwhile arm nothing either. Coming back asks about the grant again before anything
-arms.
+arms. **And no notification is trusted to arrive**: whenever there is news of any kind, a notification of
+coming back or somebody pressing ⇧ Shift while the Mac is said to be away (at most every
+**`K.awayCheckInterval` (5 s)**), the reasons are held against what the session says itself. A lost unlock
+therefore costs that one press, which goes to Finder, and never leaves ShiftPick asleep with Settings
+saying it is listening.
 
 **Both taps are destroyed before anything that takes the grant or the process away**: a quit, which is also
 how an update begins (§8, where the helper touches nothing until the process has gone), and an uninstall,

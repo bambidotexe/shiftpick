@@ -117,7 +117,7 @@ make release     # skill: macos-publish-release. The same, plus tag, push, GitHu
 
 - `swift build` — the three code targets and the probe. **This is the truth**; editor diagnostics are
   frequently stale.
-- `swift test` — two bundles, and **one summary line each: count two.** `ShiftPickCoreTests` (210) runs in
+- `swift test` — two bundles, and **one summary line each: count two.** `ShiftPickCoreTests` (223) runs in
   about three seconds; `ShiftPickPlatformTests` (29) spawns real subprocesses and threads and takes a moment
   longer.
   `swift test --filter <SuiteName>` runs one suite.
@@ -278,11 +278,11 @@ the log.
 
 ## Status
 
-`swift build` is clean and `swift test` is green (210 + 29) at this commit. The app target has no automated
+`swift build` is clean and `swift test` is green (223 + 29) at this commit. The app target has no automated
 tests; `docs/manual-test-checklist.md` is its verification.
 
 **What is proven and what is not, about the safety model.** The rules are proven: `TapLifecycle` is a value,
-and its 77 scenarios and 80,000 seeded events run on every `swift test`, as do the click's deadline and the
+and its 90 scenarios and 80,000 seeded events run on every `swift test`, as do the click's deadline and the
 taps' thread. **The taps themselves have not been exercised since they were rewritten**: `ClickGuard` cannot
 run in a test, because a test runner has no Accessibility grant to create a tap with. Until `docs/manual-test-checklist.md`
 §9 has been walked on an installed build, drill included, that layer is code that compiles and has been
@@ -292,8 +292,9 @@ Known limitations, in plain words:
 
 - **The first ⇧ Shift click can be Finder's.** Arming happens when the key goes down and takes a live answer
   from the Dock, about a millisecond. A click faster than that, a Dock that takes more than 50 ms to answer,
-  or a key press the sentinel never hears (a password field has the keyboard) leaves that one click to Finder,
-  which adds one file; the press itself arms for the next. Never the other way round: nothing is ever
+  a key press the sentinel never hears (a password field has the keyboard), or the first press after a wake or
+  unlock notification that never arrived, leaves that one click to Finder, which adds one file; the press
+  itself arms for the next, or wakes ShiftPick up. Never the other way round: nothing is ever
   swallowed on a guess.
 - **The safety drill has not been run.** `docs/manual-test-checklist.md` §9 takes the grant away from a running app behind a
   dead-man's switch, and what it measures (which of the four ways notices first, how long it takes, whether

@@ -58,6 +58,11 @@ public enum K {
     /// spread over three seconds, and then nothing: this is a burst after an event, never a poll.
     public static let trustRecheckDelays: [TimeInterval] = [0.25, 1, 3]
 
+    /// How often ⇧ Shift heard while the Mac is said to be away makes the session be looked at again. Once is
+    /// what a lost wake or unlock notification needs, and it is the first press of the key; the rest is a
+    /// password being typed on the lock screen, which is not a reason to ask at every capital letter.
+    public static let awayCheckInterval: TimeInterval = 5
+
     /// How long tearing the taps down waits for the tap's own thread before doing it from the calling
     /// thread instead. That thread only ever waits `clickBudget + commitGrace`, so twice that is already a
     /// thread that is not coming back.
