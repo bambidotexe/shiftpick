@@ -4,7 +4,7 @@ import ShiftPickCore
 import ShiftPickPlatform
 import SwiftUI
 
-/// The Settings window's chrome, from `.claude/skills/building-settings-pages/reference/SettingsWindow.swift`.
+/// The Settings window's chrome, from `~/Projects/macos-app-template/template/Sources/ExemplarApp/SettingsWindow.swift`.
 ///
 /// ShiftPick is an accessory app that never activates itself. This window is the one deliberate exception:
 /// the user opens it on purpose, so it may take focus.

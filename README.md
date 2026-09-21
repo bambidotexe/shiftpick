@@ -68,8 +68,8 @@ when the icon is hidden. Every change applies as you make it.
 |---|---|
 | **General** | Launch at login · Show in menu bar · Updates · Quit · Uninstall |
 | **Selection** | Enable ShiftPick · whether ⌘ Command with ⇧ Shift adds the range to the selection |
-| **Tip** | everything is free and stays free · a one-time tip on Ko-fi |
 | **System** | the Accessibility permission, live, with the way to grant it · whether ShiftPick is watching for clicks · the way back to the welcome wizard |
+| **Tip** | everything is free and stays free · a one-time tip on Ko-fi |
 
 The menu-bar item carries the same enable switch, Launch at Login, one line saying what the app is doing
 right now, Settings and Quit.
@@ -171,7 +171,7 @@ window, grouped sections, one row, one column, and five thousand icons. See `doc
 | [docs/architecture.md](docs/architecture.md) | Targets, the click path, threading, the update, the build. |
 | [docs/macOS.md](docs/macOS.md) | The platform boundary, and Finder's Accessibility hierarchy as it was read. |
 | [docs/pitfalls.md](docs/pitfalls.md) | Traps already fallen into, with the measurements. |
-| [MANUAL_TESTS.md](MANUAL_TESTS.md) | What only a person can see. |
+| [docs/manual-test-checklist.md](docs/manual-test-checklist.md) | What only a person can see. |
 
 ## Support
 
@@ -182,6 +182,6 @@ ShiftPick is free and carries no ads. If it saves you trouble, you can leave a t
 
 - Personal build: English and French.
 - `swift test` runs 223 tests across the two library targets (194 + 29); the app target's verification is
-  `MANUAL_TESTS.md`, the log, and `swift run axdump range`.
+  `docs/manual-test-checklist.md`, the log, and `swift run axdump range`.
 - The app icon is a placeholder, generated from the same three-bar mark the menu-bar item draws. See
   `Resources/ICON-NOTES.md`.

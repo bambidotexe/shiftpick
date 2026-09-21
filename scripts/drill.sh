@@ -1,5 +1,5 @@
 #!/bin/sh
-# **The dead-man's switch for the safety drill** (MANUAL_TESTS.md §9). Start it BEFORE touching the grant.
+# **The dead-man's switch for the safety drill** (docs/manual-test-checklist.md §9). Start it BEFORE touching the grant.
 #
 #   sh scripts/drill.sh          # the app is killed 30 s from now, whatever happens
 #   sh scripts/drill.sh 45       # or some other number of seconds

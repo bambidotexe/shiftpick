@@ -103,7 +103,7 @@ touching anything.
 
 ## 8. The permission and the onboarding wizard
 
-The wizard has no automated test at all. Walk the whole of it, and `.claude/skills/building-onboarding`'s own
+The wizard has no automated test at all. Walk the whole of it, and `~/.claude/skills/macos-building-onboarding`'s own
 checklist with it.
 
 **What it looks like**

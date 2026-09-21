@@ -2,7 +2,7 @@ import AppKit
 import ShiftPickCore
 import ShiftPickPlatform
 
-/// The first-run wizard, from `.claude/skills/building-onboarding/reference/OnboardingWindow.swift`. Read
+/// The first-run wizard, from `~/Projects/macos-app-template/template/Sources/ExemplarApp/OnboardingWindow.swift`. Read
 /// that skill whole before changing anything here: most of it is traps, and every one of them shipped once.
 ///
 /// Four pages: the pitch, the one permission the app cannot work without, where the app lives, and

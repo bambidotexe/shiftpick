@@ -181,7 +181,7 @@ List, column and gallery views are untouched: Finder already selects a range in 
 ## 5. Settings
 
 A window of four pages, opened from the menu-bar item (⌘,) or by opening the app again. Its shape, its
-numbers and its copy are the `building-settings-pages` skill's, not this document's.
+numbers and its copy are the `macos-building-settings-pages` skill's, not this document's.
 
 | Page | Group | Rows |
 |---|---|---|
@@ -191,11 +191,11 @@ numbers and its copy are the `building-settings-pages` skill's, not this documen
 | | Quit | one destructive button |
 | | Uninstall | one destructive button, with a warning that never goes away |
 | **Selection** | ⇧ Shift-click | Enable ShiftPick · ⌘ Command with ⇧ Shift adds the range to the selection, under it and disabled with it |
-| **Tip** | the app icon beside one sentence, in a card with no title | every feature is free and stays free, and a coffee is how the project is supported |
-| | One-time tip | the Ko-fi cup, *A cup of coffee*, what it is, and a button naming the smallest tip the page takes (`SupportLink.smallestTip`, 5 €). It opens `https://ko-fi.com/bambidotexe` in the browser; nothing is paid inside the app. |
 | **System** | Accessibility | the permission, live. While it is denied, a button to the pane and a warning naming the switch; once granted both go and the row stays. |
 | | Clicks | whether ShiftPick is watching. Its warning tells *off on purpose* from *macOS refused the taps* and from *macOS kept taking the click tap away* (§1), and that last one names the way back: *Enable ShiftPick* off and on again. |
 | | Start over | one button, *Show Onboarding Again*, which opens a fresh wizard at its first page |
+| **Tip** | the app icon beside one sentence, in a card with no title | every feature is free and stays free, and a coffee is how the project is supported |
+| | One-time tip | the Ko-fi cup, *A cup of coffee*, what it is, and a button naming the smallest tip the page takes (`SupportLink.smallestTip`, 5 €). It opens `https://ko-fi.com/bambidotexe` in the browser; nothing is paid inside the app. |
 
 Defaults: **Enable ShiftPick on**, **⌘ Command adds on**, **Show in menu bar on**. Launch at login is the
 system's answer and is not stored here. `onboardingCompleted` is stored beside the three switches and is not
@@ -229,7 +229,7 @@ is then the way back to the Settings window.
 
 ## 7. The permission, and the onboarding wizard
 
-Its shape, its numbers and every trap it avoids are the `building-onboarding` skill's, not this document's.
+Its shape, its numbers and every trap it avoids are the `macos-building-onboarding` skill's, not this document's.
 
 **The wizard** is a titled, closable, fixed 540 wide window, stepping through four pages with one button at
 the bottom right. Its height follows the page around its **top-left** corner: 440, 440, 440, 400.
@@ -333,7 +333,7 @@ Every sentence the user reads is in **English and French**, picked from the syst
 English the fallback for every other language. They live in `Core/Strings*.swift`, one table per surface,
 one accessor per sentence switching over the language, so a sentence cannot exist in one language alone.
 
-The copy rules are the `building-settings-pages` skill's. The two `LocalizationTests` enforce here: **no
+The copy rules are the `macos-building-settings-pages` skill's. The two `LocalizationTests` enforce here: **no
 dash longer than the one on the keyboard**, anywhere; and **a key is its symbol then its name** at every
 mention, ⇧ Shift, ⌘ Command, ⌥ Option, ⌃ Control. The app's own name is never translated and never spelt
 out in a table: it is read from the bundle, so renaming the app carries through.

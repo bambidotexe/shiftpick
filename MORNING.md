@@ -2,7 +2,7 @@
 
 ## Where it is, and whether it is running
 
-**`/Applications/ShiftPick.app`, version 0.0.1, running now** (installed through the `install-locally`
+**`/Applications/ShiftPick.app`, version 0.0.1, running now** (installed through the `macos-install-locally`
 skill: `sh scripts/install.sh`, which builds the real signed and notarized thing and leaves no `.app` or
 `.dmg` under the repository). It has not crashed; there is no crash report for it.
 
@@ -64,7 +64,7 @@ lines, both passing.
 
 ## What you have to try by hand
 
-`MANUAL_TESTS.md` is the list. The ones I could not reach:
+`docs/manual-test-checklist.md` is the list. The ones I could not reach:
 
 - **Sort By modes other than the two I used**, and a **hand-placed folder** (Sort By None). The maths is
   unit-tested for both, and `swift run axdump views` will tell you which way it read any window, but I did
@@ -99,7 +99,7 @@ lines, both passing.
 ## Before you publish
 
 Nothing in the repository is a placeholder except the icon. There is **no secret in it and none is needed
-at build time**. Three things only you can provide, all named in the `publish-release` skill too:
+at build time**. Three things only you can provide, all named in the `macos-publish-release` skill too:
 
 | What | How |
 |---|---|
@@ -125,5 +125,5 @@ The **app icon is a placeholder** — the same three-bar mark the menu-bar item 
 
 ## Where to start reading
 
-`CLAUDE.md`, then `docs/functional.md`. `CONVENTIONS.md` says what I took from SnappySnap, KoffeeLid and
+`CLAUDE.md`, then `docs/functional.md`. `docs/shared/conventions.md (which replaced CONVENTIONS.md)` says what I took from SnappySnap, KoffeeLid and
 MySidepulse and where each rule came from; `DECISIONS.md` says what I decided without asking and why.

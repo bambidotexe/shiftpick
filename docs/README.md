@@ -11,9 +11,9 @@ SwiftPM, no Xcode project. Accessibility is the only permission it needs.
 | [`architecture.md`](architecture.md) | You need to know how it is built: the three targets, the click path end to end, threading, the update, the build. |
 | [`macOS.md`](macOS.md) | You are about to rely on a platform assumption. **Finder's Accessibility hierarchy as it was actually read**, the two event taps and what macOS does to one whose owner loses its grant, the permission and why its cached answer is not the last word, the coordinate space. |
 | [`pitfalls.md`](pitfalls.md) | Something looks like it should work and does not. The only place that records approaches that failed. |
-| [`../MANUAL_TESTS.md`](../MANUAL_TESTS.md) | You changed something and want to see it work. The app target has no automated tests. |
+| [`manual-test-checklist.md`](manual-test-checklist.md) | You changed something and want to see it work. The app target has no automated tests. |
 | [`../CLAUDE.md`](../CLAUDE.md) | You are an agent working in this tree: commands, rules, traps, status. |
-| [`../CONVENTIONS.md`](../CONVENTIONS.md) | You want to know why this app is shaped the way it is. What the three reference projects agreed on. |
+| [`shared/conventions.md`](shared/conventions.md) | You want to know why this app is shaped the way it is: how every app of the family is built, and where this one differs. |
 | [`../DECISIONS.md`](../DECISIONS.md) | You want to know why a particular call was made. |
 | [`../README.md`](../README.md) | You are a user: what it does, requirements, install, settings. |
 
@@ -43,3 +43,10 @@ Mac in the state it describes. `ShiftPickPlatform` is the only code that talks t
 tap, one file that knows the shape of Finder's icon views, and the update's I/O. `ShiftPickApp` wires the
 two into one behaviour, `ShiftPickEngine`, and puts three windows and a menu around it. `Tools/axdump` is
 how Finder was read in the first place, and how it is read again.
+
+## The shared documents
+
+`shared/` is a byte-for-byte copy of `~/Projects/macos-app-template/docs/shared/`: the workflow every app
+of the family follows, the conventions, the platform facts, the traps and the walks they all share. **It is
+never edited here**; a change goes in the template and `sh ~/Projects/macos-app-template/scripts/sync-shared-docs.sh`
+replicates it. What is this app's own stays in the documents above.

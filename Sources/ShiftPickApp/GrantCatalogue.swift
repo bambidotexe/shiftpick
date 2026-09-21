@@ -3,8 +3,8 @@ import ShiftPickCore
 import ShiftPickPlatform
 
 /// What a grant is, how the front is given back after one, and the two lists the onboarding wizard's pages
-/// are made of. From `.claude/skills/building-onboarding/reference/GrantRow.swift`; read
-/// `.claude/skills/building-onboarding/SKILL.md` before changing any of it.
+/// are made of. From `~/Projects/macos-app-template/template/Sources/ExemplarApp/GrantCatalogue.swift`; read
+/// `~/.claude/skills/macos-building-onboarding/SKILL.md` before changing any of it.
 
 // MARK: - What a grant is
 

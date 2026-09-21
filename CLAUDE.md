@@ -30,6 +30,17 @@ once a week, announces one with a notification, and installs it on a click. **Th
 the repository has to be public for it to see anything**: a private one reads exactly like no release at
 all.
 
+## The family, and the shared documents
+
+This app is one of the macOS apps under `~/Projects` that share one shape; the `macos-map` skill lists
+them and routes a task to the right skill. **`docs/shared/` is a synced copy of
+`~/Projects/macos-app-template/docs/shared/`, and it is never edited here**: a change goes in the template
+and `sh ~/Projects/macos-app-template/scripts/sync-shared-docs.sh` replicates it to every app. A trap, a
+convention or a platform fact that applies to more than this app goes there, not in this app's own
+documents. `docs/shared/workflow.md` is the change workflow every app of the family follows and
+`docs/shared/pitfalls.md` the traps they all share; the sections below are this app's own statement of the
+workflow, with its own file names, and this app's own traps.
+
 ## Read first
 
 | File | What it is |
@@ -39,8 +50,8 @@ all.
 | `docs/architecture.md` | The three targets, the click path end to end, what each layer owns, threading, the update, the build. |
 | `docs/macOS.md` | The platform boundary, and **the Accessibility hierarchy of Finder's icon views as it was actually read**, dumps and all. Read it before designing on a platform assumption. |
 | `docs/pitfalls.md` | What looks right and is not, with the measurements. The only place that records approaches that failed. |
-| `MANUAL_TESTS.md` | What only a person can see. The app target has no automated tests. |
-| `CONVENTIONS.md` | What the three reference projects agreed on, with file references. Why this app is built the way it is. |
+| `docs/manual-test-checklist.md` | What only a person can see. The app target has no automated tests. |
+| `docs/shared/conventions.md` | How every app of the family is built, and where this one differs (its last section). It replaces the `CONVENTIONS.md` this app was written from. |
 | `DECISIONS.md` | Every choice made without asking, with its one-line reason. |
 
 ## Changing behaviour — the workflow
@@ -63,7 +74,7 @@ Every change to what the app does follows these steps, in this order. A change t
    says anything about it.
 5. **Verify.** `swift build`, then `swift test` and **count two summary lines** (see Traps). A pure rule
    gets a test in `ShiftPickCoreTests`; an I/O behaviour gets one in `ShiftPickPlatformTests`. Anything only
-   a person can see gets a line in `MANUAL_TESTS.md`.
+   a person can see gets a line in `docs/manual-test-checklist.md`.
 6. **Commit per task**, conventional commits, files staged by path, with the attribution trailers from the
    session's system reminder.
 
@@ -82,16 +93,16 @@ and the newer of a request and a written rule wins only after the owner has said
 | how Finder is read and written | `Platform/FinderAX.swift`, `Platform/AX.swift` | **`macOS.md` first**, then `functional.md` §4 |
 | what one ⇧ Shift click does, end to end | `App/ShiftClickResolver.shiftClick`, which runs on the worker and answers through its `ClickTicket` | `functional.md` §1–2, `architecture.md` *The click path* |
 | a timing, a budget, a threshold | `Core/Constants.swift`, with its measurement in the comment | the section that states it |
-| a user setting | **Invoke the `building-settings-pages` skill first.** `Core/Settings.swift` + a row on its page + `SettingsTests` | `functional.md` §5 |
-| the Settings window's pages, look or copy | **Invoke the `building-settings-pages` skill first**: it holds every rule of the window's structure, numbers and wording. `App/SettingsKit.swift` (the kit and `SettingsMetrics`), `App/SettingsView.swift` (`SettingsPageID`, `SystemStatus`), `App/SettingsWindow.swift` (the toolbar, the height that follows the page), `App/Settings…Page.swift`. **The words are not in the page files**: they are `Core/Strings<Page>Page.swift` | `functional.md` §5 |
+| a user setting | **Invoke the `macos-building-settings-pages` skill first.** `Core/Settings.swift` + a row on its page + `SettingsTests` | `functional.md` §5 |
+| the Settings window's pages, look or copy | **Invoke the `macos-building-settings-pages` skill first**: it holds every rule of the window's structure, numbers and wording. `App/SettingsKit.swift` (the kit and `SettingsMetrics`), `App/SettingsView.swift` (`SettingsPageID`, `SystemStatus`), `App/SettingsWindow.swift` (the toolbar, the height that follows the page), `App/Settings…Page.swift`. **The words are not in the page files**: they are `Core/Strings<Page>Page.swift` | `functional.md` §5 |
 | the menu-bar item or its menu | `App/MenuBarController.swift`, `Core/StringsMenu.swift` | `functional.md` §6 |
-| onboarding, or what happens when the permission moves | **Invoke the `building-onboarding` skill first**: it holds every rule of the wizard, who is in front, and what a grant button may do. `App/OnboardingWindow.swift` (the controller, the pages, the row, `OnboardingMetrics`), `App/GrantCatalogue.swift` (what a grant is, the two lists), `App/AppDelegate` (`showOnboarding`, `watchTheGrant`, `grantChanged`), `Platform/Permissions.swift`. **The words are not in the page files**: they are `Core/StringsOnboarding.swift` | `functional.md` §7, `macOS.md` *The permission* |
+| onboarding, or what happens when the permission moves | **Invoke the `macos-building-onboarding` skill first**: it holds every rule of the wizard, who is in front, and what a grant button may do. `App/OnboardingWindow.swift` (the controller, the pages, the row, `OnboardingMetrics`), `App/GrantCatalogue.swift` (what a grant is, the two lists), `App/AppDelegate` (`showOnboarding`, `watchTheGrant`, `grantChanged`), `Platform/Permissions.swift`. **The words are not in the page files**: they are `Core/StringsOnboarding.swift` | `functional.md` §7, `macOS.md` *The permission* |
 | updates: the check, its schedule, the notification | `Core/UpdateCheck.swift`, `UpdateSchedule.swift`, `UpdatePanel.swift`, the `update…` numbers in `Core/Constants.swift`; `Platform/UpdateChecker.swift`; `App/UpdateController.swift` (the one owner), `UpdateNotifier.swift` | `functional.md` §8 |
 | updates: the window, the fetch, making it ready, Install and Relaunch | `Core/UpdateSession.swift`, `StagedUpdateCheck.swift`, `UpdateInstallScript.swift` (the helper's text, run under a real `/bin/sh` by `UpdateInstallScriptTests`); `Platform/UpdateStager.swift`, `CodeSignature.swift`, `UpdateInstaller.swift`, `DetachedProcess.swift`; `App/UpdateWindow.swift` | the same, plus `pitfalls.md`. **Read those entries before touching the order of an install** |
 | the uninstall | `Core/UninstallPlan.swift` (the helper's text, why it waits for the pid, **and what it refuses to be pointed at**), `Platform/Uninstall.swift` (the order), the Uninstall group of `App/SettingsGeneralPage.swift` (**the taps go first**), `Core/StringsGeneralPage.swift` | `functional.md` §9 |
 | anything that deletes, renames or runs a shell after the app has quit | `Core/PathRules.swift` holds the questions every such path is asked first; `UninstallPlan.helperScript` answers nil and `UpdateInstallPlan.isSafe` false when one fails. **A new helper, or a new path in an old one, goes through them**, with its refusals in `UninstallPlanTests` or `UpdateInstallPlanTests` | `functional.md` §8 and §9 |
 | **any sentence the user reads**, in either language | `Core/Strings*.swift` (one table per surface; a string is one accessor switching over `Language`, so the two languages are added together or not at all), `Core/Localization.swift` — `LocalizationTests`, which also reads the tables off disk | `functional.md` §10 |
-| the app's name, its identifier or its repository | **`scripts/signing.env` only.** `make-app.sh` writes all three into the built `Info.plist` and `Core/AppIdentity.swift` reads them back | `CONVENTIONS.md` §7 |
+| the app's name, its identifier or its repository | **`scripts/signing.env` only.** `make-app.sh` writes all three into the built `Info.plist` and `Core/AppIdentity.swift` reads them back | `docs/shared/conventions.md` §7 |
 | the icon | `Resources/AppIcon.icon` (re-export from Icon Composer, never hand-edit `icon.json`), `Resources/previews/ShiftPick-preview-1024.png`, `Resources/ICON-NOTES.md` | `architecture.md` *Build and signing* |
 | the signing identity, the build or the release | `scripts/signing.env`, `scripts/make-app.sh`, `Resources/ShiftPick.entitlements`, `scripts/make-dmg.sh`, `scripts/release.sh` | `architecture.md` *Build and signing*, `macOS.md` |
 
@@ -99,8 +110,8 @@ and the newer of a request and a written rule wins only after the owner has said
 
 ```bash
 # ---- the two actions. A build of this app reaches a Mac by one of these and by nothing else. ----
-make install     # skill: install-locally. The production build → /Applications; leaves no .app or .dmg behind
-make release     # skill: publish-release. The same, plus tag, push, GitHub release, and the tree moves on
+make install     # skill: macos-install-locally. The production build → /Applications; leaves no .app or .dmg behind
+make release     # skill: macos-publish-release. The same, plus tag, push, GitHub release, and the tree moves on
 # -------------------------------------------------------------------------------------------------
 ```
 
@@ -140,7 +151,7 @@ make release     # skill: publish-release. The same, plus tag, push, GitHub rele
   nothing on the ordinary path**: a line there is always about a ⇧ Shift click, and at `debug` it says why
   one was let through.
 - `SHIFTPICK_UPDATE_FEED=file:///…/latest.json` in the installed app's environment replaces GitHub's reply
-  with a stand-in, which is how the whole update is walked offline (`MANUAL_TESTS.md` §10).
+  with a stand-in, which is how the whole update is walked offline (`docs/manual-test-checklist.md` §10).
 
 ## Architecture
 
@@ -174,7 +185,7 @@ Three code targets, dependencies pointing one way: Core ← Platform ← App. Fu
   `Settings…Page`, `SettingsView` with `SettingsPageID` and `SystemStatus`).
 - **`Tools/axdump`** — the Accessibility probe. Ships with nothing.
 
-The app target has no automated tests. Its verification is `MANUAL_TESTS.md`, `swift run axdump range`, and
+The app target has no automated tests. Its verification is `docs/manual-test-checklist.md`, `swift run axdump range`, and
 the log.
 
 ## Rules
@@ -228,7 +239,7 @@ the log.
 - **Every permission prompt follows a click of the user's, and the reader is never the asker.** Only the
   onboarding wizard's own button calls `Permissions.requestAccessibility`; nothing at launch, nothing when a
   window opens. `Permissions.accessibilityGranted` is what reads, which is why it may run behind a poll.
-  `.claude/skills/building-onboarding` says why, at length.
+  `~/.claude/skills/macos-building-onboarding` says why, at length.
 - **No user-facing string is written at its point of use.** It goes in a `Core/Strings*.swift` table, where
   one accessor answers for every language, so a string cannot exist in English alone.
 - **Silence is a defect.** Anything that declines to act logs why, once, with the numbers.
@@ -243,7 +254,7 @@ the log.
 0. **An enabled tap that can swallow, a revoked grant, and a callback that enables the tap again: the Mac
    takes no click and no key until the power button.** It happened here, and the log of it is
    `docs/pitfalls.md` 13. What is safe around a `.listenOnly` tap is not safe around a `.defaultTap`. **Never
-   reproduce it by trying it**: `MANUAL_TESTS.md` §9 is the drill, behind a dead-man's switch.
+   reproduce it by trying it**: `docs/manual-test-checklist.md` §9 is the drill, behind a dead-man's switch.
 1. **Finder only builds the icons that are on screen.** A folder of 2,500 files answers with 24 to 30. A
    range is therefore only ever as complete as what is visible, and ShiftPick lets the click through rather
    than making a quietly smaller selection.
@@ -266,18 +277,18 @@ the log.
 ## Status
 
 `swift build` is clean and `swift test` is green (194 + 29) at this commit. The app target has no automated
-tests; `MANUAL_TESTS.md` is its verification.
+tests; `docs/manual-test-checklist.md` is its verification.
 
 **What is proven and what is not, about the safety model.** The rules are proven: `TapLifecycle` is a value,
 and its 61 scenarios and 80,000 seeded events run on every `swift test`, as do the click's deadline and the
 taps' thread. **The taps themselves have not been exercised since they were rewritten**: `ClickGuard` cannot
-run in a test, because a test runner has no Accessibility grant to create a tap with. Until `MANUAL_TESTS.md`
+run in a test, because a test runner has no Accessibility grant to create a tap with. Until `docs/manual-test-checklist.md`
 §9 has been walked on an installed build, drill included, that layer is code that compiles and has been
 read, not code that has been seen working.
 
 Known limitations, in plain words:
 
-- **The safety drill has not been run.** `MANUAL_TESTS.md` §9 takes the grant away from a running app behind a
+- **The safety drill has not been run.** `docs/manual-test-checklist.md` §9 takes the grant away from a running app behind a
   dead-man's switch, and what it measures (which of the four ways notices first, how long it takes, whether
   `tccutil` reaches a running process) is still reported by others rather than read on this Mac.
   `docs/macOS.md` says so wherever it applies.
@@ -290,7 +301,7 @@ Known limitations, in plain words:
   right for what they are, but neither is something Finder states.
 - **The update has never been seen end to end in this app.** Its rules are unit-tested and the install
   helper has installed and rolled back a stand-in app for real; the notification, the update window and
-  ShiftPick installing over itself are `MANUAL_TESTS.md` §10. Nothing is published, so every check answers
+  ShiftPick installing over itself are `docs/manual-test-checklist.md` §10. Nothing is published, so every check answers
   **No release published yet** until the repository is public and carries a release.
 - **The uninstall has not been walked.** Its two halves are tested apart (`UninstallPlanTests`, and the
   helper's quoting), and the order is `snappy-snap`'s, which has been walked.

@@ -1,7 +1,7 @@
 import AppKit
 
 /// A closure target for any `NSControl`, so a button's action can be written where the button is built.
-/// From `.claude/skills/building-onboarding/reference/ControlActionHandler.swift`.
+/// From `~/Projects/macos-app-template/template/Sources/ExemplarApp/ControlActionHandler.swift`.
 ///
 /// The one hand-built AppKit window in this app is the onboarding wizard; everything else is SwiftUI, where
 /// a button already carries its action.

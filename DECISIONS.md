@@ -15,7 +15,7 @@ the rule was **follow the most recently committed one**, which is `my-sidepulse`
 | Three code targets: `ShiftPickCore`, `ShiftPickPlatform`, `ShiftPickApp`, plus `Tools/axdump` | The family's layering, minus the CLI target: ShiftPick has no command line, because it has no state to ask about and nothing to drive from a key binding. |
 | Bundle id `dev.rubens.ShiftPick` | snappy-snap and koffeelid use `dev.rubens.*`; my-sidepulse uses `io.mysidepulse.app` because that app has a domain of its own. ShiftPick has none. |
 | The version lives in `VERSION="…"` in `scripts/make-app.sh` | my-sidepulse **(most recent)**; snappy-snap keeps a tracked `Info.plist` instead, and ShiftPick's `Info.plist` is generated. |
-| The app's name, bundle id and repository are written **once**, in `scripts/signing.env` | The brief asked for one place. `make-app.sh` writes all three into the built `Info.plist`, including a private `SPUpdateRepository` key, and `Core/AppIdentity.swift` reads them back. Renaming is that file plus four names SwiftPM cannot read from it, listed in `CONVENTIONS.md`. |
+| The app's name, bundle id and repository are written **once**, in `scripts/signing.env` | The brief asked for one place. `make-app.sh` writes all three into the built `Info.plist`, including a private `SPUpdateRepository` key, and `Core/AppIdentity.swift` reads them back. Renaming is that file plus four names SwiftPM cannot read from it, listed in `docs/shared/conventions.md`. |
 
 ## Behaviour
 
@@ -37,7 +37,7 @@ the rule was **follow the most recently committed one**, which is `my-sidepulse`
 | The `com.apple.accessibility.api` notification is **a hint, and what it triggers is: disarm, ask, look again three times** | The brief asks for zero idle cost, and the notification has it. But it is posted for any app's grant, it arrives before the answer changes, and a handler that read the grant once and left is how a revocation went unnoticed here. The 2 s poll runs only while the onboarding wizard is up, which the brief allows. |
 | **No idle poll of the grant**, although every other app with a tap of this kind has one | They need it because their tap is always enabled. Here nothing dangerous exists while idle, a revocation is caught by the live question at the next ⇧ Shift press, and the only timer is the watch kept while the key is down. |
 | The onboarding is a four-page wizard, copied from KoffeeLid's along with its skill | The owner asked for the same experience. The skill it came with is the record of a window that had already been got wrong four ways, so copying the window without it would have been copying the look and none of the reasons. |
-| Nothing asks for Accessibility at launch any more; only the wizard's own button does | The `building-onboarding` skill's hardest rule, and the owner overruled the old §7 for it: a prompt nobody clicked for arrives with no explanation beside it, and macOS remembers a refusal for good. |
+| Nothing asks for Accessibility at launch any more; only the wizard's own button does | The `macos-building-onboarding` skill's hardest rule, and the owner overruled the old §7 for it: a prompt nobody clicked for arrives with no explanation beside it, and macOS remembers a refusal for good. |
 | The wizard stays open when the grant arrives, instead of closing itself | The run on which the permission is granted was the one run where the pitch and *All set* were never read. The row ticking over to *Granted* says the same thing and lets the user finish. |
 | The wizard's row is titled *Device Control and Data Access*, not *Accessibility* | That is what the Privacy & Security pane's own strings call it on macOS 27, and the user has to find it in that list. The word they came looking for is in the line under it. `docs/pitfalls.md` 10. |
 | One poll, owned by the wizard, replacing the app's own permission timer | Two timers watched the same grant, and the app's was started when the window opened and stopped only when the grant arrived, so a window closed first left it running for the life of the process. |
@@ -47,9 +47,9 @@ the rule was **follow the most recently committed one**, which is `my-sidepulse`
 
 | Decision | Why |
 |---|---|
-| Four pages: General, Selection, Tip, System | The skill's rule: General first, then the features in the order a user meets them, then Tip, then System last. ShiftPick has one feature, so it has one feature page. |
+| Four pages: General, Selection, System, Tip | The skill's rule: General first, then the features in the order a user meets them, then System, then Tip last. ShiftPick has one feature, so it has one feature page. |
 | "About" is the app icon at the top of General and the version row in Updates | That is what the three reference projects do; none of them has an About window or an About group. |
-| The **Open Accessibility Settings** button and its warning show only while the permission is missing | `building-settings-pages` states it: "once green, button and warning go and **the row stays**". snappy-snap's own System page keeps the button always; the skill is the authority and it is the newer statement of the rule. |
+| The **Open Accessibility Settings** button and its warning show only while the permission is missing | `macos-building-settings-pages` states it: "once green, button and warning go and **the row stays**". snappy-snap's own System page keeps the button always; the skill is the authority and it is the newer statement of the rule. |
 | A second group, **Clicks**, reports whether the tap is up | It is the one failure that is otherwise completely silent: the permission granted, the app on, and macOS refusing the tap anyway. Silence is a defect. |
 | No control was invented for anything | Two switches, two status rows, buttons. Nothing needed a control the skill has not chosen. |
 
@@ -62,7 +62,7 @@ the rule was **follow the most recently committed one**, which is `my-sidepulse`
 | The app icon is a placeholder generated by `scripts/make-icon-preview.swift` | The brief allows a placeholder icon. It is the same three-bar mark the menu-bar item draws, so the two agree; `Resources/ICON-NOTES.md` says what replacing it means. |
 | A `LICENSE` file, MIT | The brief asked for one. **None of the three reference projects carries a licence**, and my-sidepulse's README says "Personal build: no licensing", so there was no house style to follow; MIT is the least surprising choice for a free personal tool with a Ko-fi link, and the owner can replace or delete it. |
 | A `CHANGELOG.md` | The brief asked for one. No reference project has one either; its style is the commit titles', which is the only changelog those projects keep. |
-| `MANUAL_TESTS.md` at the root | The brief named that file and that place. The reference projects call it `docs/manual-test-checklist.md`; `docs/README.md` points at the root file so the index still works. |
+| `docs/manual-test-checklist.md` at the root | The brief named that file and that place. The reference projects call it `docs/manual-test-checklist.md`; `docs/README.md` points at the root file so the index still works. |
 
 ## Open and Save panels (the stretch goal)
 

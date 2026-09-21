@@ -11,7 +11,7 @@ import ShiftPickCore
 public enum UpdateChecker {
     /// `SHIFTPICK_UPDATE_FEED` points a build at a stand-in for GitHub's reply: a `file://` or `http://`
     /// URL of a latest-release JSON, whose `browser_download_url` may be a `file://` URL too. It is how the
-    /// whole update is walked without publishing a release (`MANUAL_TESTS.md`).
+    /// whole update is walked without publishing a release (`docs/manual-test-checklist.md`).
     public static var feedURL: URL {
         ProcessInfo.processInfo.environment["SHIFTPICK_UPDATE_FEED"].flatMap(URL.init(string:))
             ?? UpdateCheck.latestReleaseAPI

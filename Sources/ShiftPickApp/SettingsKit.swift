@@ -1,5 +1,5 @@
 // The kit every settings page is built from: SwiftUI only, nothing app-specific. Copied as it is from
-// `.claude/skills/building-settings-pages/reference/SettingsKit.swift`, which is the owner's; the numbers
+// `~/Projects/macos-app-template/template/Sources/ExemplarApp/SettingsKit.swift`, which is the owner's; the numbers
 // in `SettingsMetrics` were fitted by eye, round after round, and are not mine to retune.
 //
 // A page is a column of groups. A group is a title, a card of rows, and under the card, OUTSIDE it, a hint,
