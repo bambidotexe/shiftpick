@@ -199,9 +199,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// session in front. Coming back asks about the grant again before anything arms, because a Mac that has
     /// been away is the one place a grant can have moved with no notification heard.
     ///
-    /// **The reasons are counted, not flagged.** Closing a lid locks the screen and then sleeps; opening it
-    /// wakes the Mac with the lock screen still up. One flag would call that "back" at the wake. Each reason is
-    /// put down by its own notification and by no other, and the engine resumes when none is left.
+    /// **The reasons are counted, not flagged.** Closing a lid both sleeps and locks, and the way back can wake
+    /// the Mac with the lock screen still up: one flag would call that "back" at the wake. Each reason is put
+    /// down by its own notification, or by the session itself at the next news (`reconcileAway`), and the
+    /// engine resumes when none is left. The order is not relied on: `docs/macOS.md` has the one measured.
     private func watchTheSession() {
         engine.onShiftHeardWhileAway = { [weak self] in self?.reconcileAway(because: "⇧ Shift was pressed") }
         let workspace = NSWorkspace.shared.notificationCenter

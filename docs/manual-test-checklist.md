@@ -189,10 +189,11 @@ checklist with it.
       Press it again: `armed`.
 - [ ] ⇧ Shift click a file, let go of ⇧ Shift **before** the mouse button, then let go of the button: the
       range stays exactly as it was set, and `disarmed` comes after the release.
-- [ ] Close the lid for a minute and open it, lock the screen and unlock it: `away (locked)`, `away
-      (asleep)`, then `back (asleep); still away: locked` while the lock screen is up, and `back (locked);
-      nothing is away any more` once it is not. The first ⇧ Shift click afterwards is a range, and no
-      `macOS took the … tap away` line appears.
+- [ ] Close the lid for a minute and open it, lock the screen and unlock it: an `away (asleep)` and an
+      `away (locked)` line when the lid closes, in either order, and **one line ending `nothing is away any
+      more`** once the screen is unlocked, never before. A `back (asleep); still away: locked` line may come
+      in between, or not: on the Mac this was walked on the unlock arrived first and cleared both. The first
+      ⇧ Shift click afterwards is a range, and no `macOS took the … tap away` line appears.
 - [ ] Open a second copy (`open -n /Applications/ShiftPick.app`): it leaves at once with `already running as
       pid …`, and the first copy's Settings window comes forward.
 - [ ] Hold a ⇧ Shift click while the Mac is busy: the click is either a range or Finder's, never nothing, and

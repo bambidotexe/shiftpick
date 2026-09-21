@@ -268,6 +268,19 @@ converted anywhere, and no Cocoa rectangle ever reaches the click path.
   can start the app, and the first launch that finds it opens nothing (`Core/QuietLaunch`). It lapses after
   two minutes, so one left behind by an install that died cannot silence a launch by hand.
 
+## Sleep and the lock screen
+
+- **The notifications come in an order nothing promises, and one of them may not come at all.** Measured on
+  a MacBook with the lid closed for a minute and a half: `NSWorkspace.willSleepNotification` 0.19 s **before**
+  `com.apple.screenIsLocked`, the Mac asleep five seconds later; on opening, `com.apple.screenIsUnlocked`
+  reached the app **before any wake notice did**, a second before `pmset` recorded the wake. A design that
+  waited for `didWake` to end the sleep would have waited for a notification that was not coming first, and
+  might not have come at all. `com.apple.screenIsLocked` and `com.apple.screenIsUnlocked` are not documented.
+- So the reasons are held against the session itself at any news (`AppDelegate.reconcileAway`):
+  `CGSessionCopyCurrentDictionary()` says whether the screen is locked (`CGSSessionScreenIsLocked`, present
+  and true only while it is) and whether this session is the one on the console (`kCGSessionOnConsoleKey`),
+  and any news at all is a Mac that is awake.
+
 ## The uninstall
 
 - `tccutil reset Accessibility <bundle id>` gives the grant back, and it has to run **while the bundle it

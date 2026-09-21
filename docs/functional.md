@@ -85,8 +85,8 @@ reasons, and they are not alike:
   would be heard back in turn.
 
 **Nothing is armed while nobody can be clicking**: the Mac asleep, the screen locked, another user's session
-in front. **The reasons are counted**: closing a lid locks and then sleeps, and the wake that follows finds
-the lock screen still up, so each reason is ended by its own notification and nothing arms until none is
+in front. **The reasons are counted**: closing a lid both sleeps and locks, and the way back can wake the Mac
+with the lock screen still up, so each reason is ended by its own notification and nothing arms until none is
 left. Taps created meanwhile arm nothing either. Coming back asks about the grant again before anything
 arms. **And no notification is trusted to arrive**: whenever there is news of any kind, a notification of
 coming back or somebody pressing ⇧ Shift while the Mac is said to be away (at most every
