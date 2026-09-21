@@ -18,7 +18,7 @@
   <img alt="No dependencies" src="https://img.shields.io/badge/dependencies-none-1f6feb">
   <img alt="One permission" src="https://img.shields.io/badge/permissions-Accessibility-8250df">
   <img alt="English and French" src="https://img.shields.io/badge/languages-English%20%C2%B7%20Fran%C3%A7ais-333333">
-  <img alt="Unit tests" src="https://img.shields.io/badge/tests-132%20passing-2ea44f">
+  <img alt="Unit tests" src="https://img.shields.io/badge/tests-282%20passing-2ea44f">
 </p>
 
 ## The problem
@@ -181,7 +181,7 @@ ShiftPick is free and carries no ads. If it saves you trouble, you can leave a t
 ## Notes
 
 - Personal build: English and French.
-- `swift test` runs 265 tests across the two library targets (229 + 36); the app target's verification is
+- `swift test` runs 282 tests across the two library targets (246 + 36); the app target's verification is
   `docs/manual-test-checklist.md`, the log, and `swift run axdump range`.
 - The app icon is a placeholder, generated from the same three-bar mark the menu-bar item draws. See
   `Resources/ICON-NOTES.md`.

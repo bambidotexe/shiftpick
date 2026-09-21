@@ -233,8 +233,6 @@ caller's run loop fires while they wait.
 - **The update has never been walked end to end in this app.** Its rules are unit-tested and the install
   helper has installed and rolled back a stand-in app under a real `/bin/sh`; the notification, the window
   and ShiftPick installing over itself are `manual-test-checklist.md` §10.
-- **The uninstall has not been walked.** Its two halves are tested apart, and the order is the one
-  `snappy-snap` has walked.
 - **Open and Save panels are covered, and only lightly walked.** A panel's icon view was read, its
   selection was set through Accessibility, and its own ⇧ Shift click was measured toggling one item; the
   live gesture in a panel is `manual-test-checklist.md` §5. A panel that allows only one file is left alone by the

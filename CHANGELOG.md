@@ -20,10 +20,10 @@ The first build. Nothing is published yet, so every update check answers *No rel
 - **Every other click reaches Finder untouched.** With no finger on ⇧ Shift, no click passes through
   ShiftPick at all, and a ⇧ Shift click it cannot answer within 150 ms goes to Finder. Taking its permission
   away while it runs, putting the Mac to sleep under it or forcing it to quit never costs a click.
-- **Accessibility is the only permission**, asked for at the first launch and picked up the moment it is
-  granted, with no relaunch.
+- **Accessibility is the only permission**, asked for by the welcome wizard's own button on the first
+  launch and picked up the moment it is granted, with no relaunch.
 - A menu-bar item with the enable switch, Launch at Login, what the app is doing right now, Settings and
-  Quit. A four-page Settings window: General, Selection, Tip, System.
+  Quit. A four-page Settings window: General, Selection, System, Tip.
 - Updates from GitHub releases: checked at launch and weekly, announced by one notification, fetched and
   installed from a window of their own, and rolled back if the new version does not start.
 - A **Tip** page: everything is free and stays free, and a one-time tip on Ko-fi if you want to offer a
