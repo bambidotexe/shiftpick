@@ -6,16 +6,20 @@ import ShiftPickCore
 @MainActor
 final class SettingsStoreTests: XCTestCase {
     private var defaults: UserDefaults!
-    private var suite: String!
+
+    /// One domain, always the same, emptied before and after every test. A domain of its own per test left its
+    /// emptied file behind in `~/Library/Preferences` at every run, because `cfprefsd` keeps an emptied
+    /// domain's plist; with one name there is at most one such file, and the next run reuses it.
+    private static let suite = "shiftpick.tests.settingsstore"
 
     override func setUp() {
         super.setUp()
-        suite = "shiftpick.tests.\(UUID().uuidString)"
-        defaults = UserDefaults(suiteName: suite)
+        defaults = UserDefaults(suiteName: Self.suite)
+        defaults.removePersistentDomain(forName: Self.suite)
     }
 
     override func tearDown() {
-        defaults.removePersistentDomain(forName: suite)
+        defaults.removePersistentDomain(forName: Self.suite)
         super.tearDown()
     }
 
