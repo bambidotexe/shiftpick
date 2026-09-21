@@ -151,9 +151,17 @@ role descriptions beside them.
   only signal there is; the app says so on the System page rather than going quiet.
 - The callbacks run on **a thread of their own** (`TapThread`), because a tap is answered by whichever run
   loop its source was added to, and on the main run loop every stall of the interface is a stall of the mouse.
-- The system disables a tap for two reasons, `tapDisabledByTimeout` (the callback was not answered in time:
-  a bug here, or a grant that has gone) and `tapDisabledByUserInput` (the system interrupting). **Neither is
-  ever answered by enabling the tap**: both are counted, logged apart, and left to the next ⇧ Shift press.
+- The callback is told a tap was disabled for one of two reasons, and **neither is ever answered by enabling
+  the tap**. `tapDisabledByTimeout`: the callback was not answered in time, a bug here or a grant that has
+  gone. `tapDisabledByUserInput`: **also what a tap is told when its own app disables it.** The SDK's
+  `CGEventTapEnable` says so ("if … a user requests taps be disabled, an appropriate `kCGEventTapDisabled…`
+  event is passed to the registered `CGEventTapCallBack`"), the user there being the program calling it, and
+  the first install measured it: one is delivered for **every** `CGEventTapEnable(tap, false)`, even on a tap
+  that is already disabled. So only timeouts are counted (`pitfalls.md` 15).
+- **Whether `CGEvent.tapIsEnabled` answers for an enable made a moment before is not known.** It is asked
+  once after every enable of the click tap and a `false` is only logged (`the click tap did not take the
+  enable`), never acted on: the live question about the grant already covers the one case where it would
+  matter.
 - **`CGEventSource.flagsState(.hidSystemState)` is the keyboard as the hardware sees it**, and it goes on
   being right while the event stream is stalled, which is exactly when a key's release would never be heard.
   `.combinedSessionState` also counts keys pressed by another Mac through a sharing tool, which never reach

@@ -18,7 +18,8 @@ import Foundation
 /// - **A tap macOS disabled is never enabled again by the event that says so.** macOS disables a tap that
 ///   stopped answering; that is the system's own safety net, and enabling the tap again from the callback
 ///   cuts a hole in it. The next ⇧ Shift press arms again, through the same question as any other, and
-///   `K.breakerTrips` of them inside `K.breakerWindow` end it for good.
+///   `K.breakerTrips` timeouts inside `K.breakerWindow` end it for good. **A tap disabled "for user input"
+///   is not counted**: that is also what macOS says back to a tap the app disables itself.
 /// - **Anything that says the grant is gone destroys both taps**, and anything that says it *may* have moved
 ///   disarms first and asks afterwards.
 /// - **A watch is kept while armed, and it disarms rather than wait**: on the keys no longer asking for it,
@@ -55,9 +56,10 @@ public struct TapLifecycle: Equatable, Sendable {
 
     public enum Tap: Equatable, Sendable { case sentinel, click }
 
-    /// Why a tap stopped. The first two are the system's own; the third is a tap that stayed disabled when
-    /// it was asked to be enabled, which is what a grant that has just gone looks like from this side.
-    public enum DisableReason: String, Equatable, Sendable { case timeout, userInput, wouldNotEnable }
+    /// Why macOS says a tap stopped. **A timeout** is a callback the window server gave up waiting for, which
+    /// is what a revoked grant under an enabled tap looks like, and it is counted. **User input** is what
+    /// macOS also sends back to a tap the app disables itself, at creation and at every disarm, so it is not.
+    public enum DisableReason: String, Equatable, Sendable { case timeout, userInput }
 
     public enum LogLevel: Equatable, Sendable { case debug, notice, error }
 
@@ -339,7 +341,7 @@ public struct TapLifecycle: Equatable, Sendable {
 
         case .tapDisabledBySystem(let tap, let reason):
             guard tapsExist else { return [] }
-            return tripped(tap, reason, now: now)
+            return reason == .userInput ? disabledForUserInput(tap) : tripped(tap, reason, now: now)
 
         case .watchdog(let shiftDown, let optionOrControlDown, let buttonDown):
             // What the keyboard says about itself is believed whatever the phase is.
@@ -485,8 +487,29 @@ public struct TapLifecycle: Equatable, Sendable {
         return effects
     }
 
-    /// macOS took a tap away. **Nothing here enables one**: what comes back is the next ⇧ Shift press, asked
-    /// about like any other, and after `K.breakerTrips` of these not even that.
+    /// macOS says a tap was disabled for user input. **Most of the time that is this app's own disable heard
+    /// back**, and it arrives with the lifecycle already disarmed: nothing to do, and above all no second
+    /// disable, which would be heard back in turn. Otherwise the tap is off all the same, so nothing stays
+    /// armed on it. It is never counted, and nothing here enables anything.
+    private mutating func disabledForUserInput(_ tap: Tap) -> [Effect] {
+        switch tap {
+        case .click:
+            guard phase == .armed else { return [] }
+            return disarm() + [.log(.notice, "disarmed: macOS disabled the click tap for user input")]
+        case .sentinel:
+            // Without the listener the release of ⇧ Shift would not be heard, so nothing stays armed on it,
+            // and it is enabled again once the grant has been answered for.
+            var effects = phase == .armed ? disarm() : []
+            if phase == .arming { phase = .idle }
+            sentinelIsDown = true
+            effects += [askAboutTheGrant(), .recheckTrustSoon,
+                        .log(.notice, "macOS disabled the listener for user input; it comes back once the grant is answered for")]
+            return effects
+        }
+    }
+
+    /// macOS gave up waiting for a tap. **Nothing here enables one**: what comes back is the next ⇧ Shift
+    /// press, asked about like any other, and after `K.breakerTrips` of these not even that.
     private mutating func tripped(_ tap: Tap, _ reason: DisableReason, now: TimeInterval) -> [Effect] {
         trips = trips.filter { (0..<K.breakerWindow).contains(now - $0) } + [now]
         // A tap that stopped answering is what a revoked grant looks like from the inside.

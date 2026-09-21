@@ -176,11 +176,12 @@ checklist with it.
 
 **Watching it work** costs nothing and risks nothing. With the log streaming at `debug`:
 
-- [ ] Press and release ⇧ Shift in any app, hands off the mouse: `armed`, then `disarmed`. **Nothing is armed
-      while the key is up**, which is the whole of the safety model's first layer. **A `macOS took the click
-      tap away (wouldNotEnable)` line here, with the grant in place, is a stop**: macOS is answering the
-      tap's state before it has taken the change, three of those open the breaker after three capital
-      letters, and it has to be fixed before anything else in this section is worth walking.
+- [ ] Press and release ⇧ Shift in any app, hands off the mouse: `armed`, then `disarmed`, and **no `macOS
+      took the click tap away` line at all**: the disarm's own disable comes back as "user input" and is not
+      one. **Nothing is armed while the key is up**, which is the whole of the safety model's first layer.
+      Write down whether `the click tap did not take the enable` appears after `armed`, and whether the
+      ⇧ Shift click that follows still selects a range: together they say whether `tapIsEnabled` answers
+      for an enable made a moment before, which is measured nowhere else.
 - [ ] Hold ⇧ Shift with ⌥ Option or ⌃ Control: nothing is armed. Hold ⇧ Shift alone, then add ⌥ Option:
       `disarmed`. Let go of ⌥ Option with ⇧ Shift still down: `armed`.
 - [ ] *Enable ShiftPick* off: pressing ⇧ Shift arms nothing. On again: the next press arms.

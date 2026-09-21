@@ -169,7 +169,7 @@ final class TapLifecycleTests: XCTestCase {
     /// again from that event cuts it (`docs/pitfalls.md` 13). Whatever else this event does, it never
     /// enables anything.
     func testATapMacOSDisabledIsNeverReEnabledByThatEvent() {
-        for reason in [TapLifecycle.DisableReason.timeout, .userInput, .wouldNotEnable] {
+        for reason in [TapLifecycle.DisableReason.timeout, .userInput] {
             life = TapLifecycle(userEnabled: true)
             arm()
             let effects = send(.tapDisabledBySystem(.click, reason))
@@ -177,6 +177,53 @@ final class TapLifecycleTests: XCTestCase {
             XCTAssertTrue(effects.contains(.stopWatchdog), "\(reason)")
             XCTAssertEqual(life.phase, .idle, "\(reason)")
         }
+    }
+
+    // MARK: - Disabled for user input: the app's own disable, heard back
+
+    /// macOS tells a tap it was disabled "for user input" when the app disables it itself, which it does
+    /// right after creating it and at every disarm. That is the tap's own action heard back: never a trip,
+    /// and never answered with another disable, which would be heard back in turn.
+    func testTheClickTapsOwnDisableHeardBackIsNothing() {
+        startWatching()
+        for _ in 0..<(K.breakerTrips + 2) {
+            XCTAssertEqual(send(.tapDisabledBySystem(.click, .userInput)), [])
+        }
+        XCTAssertEqual(life.phase, .idle)
+        XCTAssertEqual(life.status, .watching)
+    }
+
+    func testNoNumberOfDisarmsHeardBackOpensTheBreaker() {
+        startWatching()
+        for _ in 0..<10 {
+            answer(send(.modifiers(shift: true, optionOrControl: false), after: K.trustFreshness + 1), .trusted)
+            XCTAssertEqual(life.phase, .armed)
+            _ = releaseShift()
+            XCTAssertEqual(send(.tapDisabledBySystem(.click, .userInput)), [])
+        }
+        XCTAssertEqual(life.status, .watching)
+    }
+
+    /// Disabled for user input while armed, which is not an echo: the tap is off, so the lifecycle says so,
+    /// and it is still not counted.
+    func testTheClickTapDisabledForUserInputWhileArmedDisarmsAndIsNotCounted() {
+        startWatching()
+        for _ in 0..<(K.breakerTrips + 1) {
+            answer(send(.modifiers(shift: true, optionOrControl: false), after: K.trustFreshness + 1), .trusted)
+            XCTAssertEqual(send(.tapDisabledBySystem(.click, .userInput)), [.disableClickTap, .stopWatchdog])
+            XCTAssertEqual(life.phase, .idle)
+            _ = releaseShift()
+        }
+        XCTAssertEqual(life.status, .watching)
+    }
+
+    func testTheListenerDisabledForUserInputComesBackAndIsNotCounted() {
+        startWatching()
+        for _ in 0..<(K.breakerTrips + 1) {
+            let asked = send(.tapDisabledBySystem(.sentinel, .userInput))
+            XCTAssertEqual(answer(asked, .trusted), [.enableSentinel])
+        }
+        XCTAssertEqual(life.status, .watching)
     }
 
     /// A timeout is what a revoked grant looks like from the inside, so it is looked into.

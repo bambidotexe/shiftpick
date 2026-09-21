@@ -68,15 +68,21 @@ nothing having said so; **`K.armedIdleLimit` (60 s)** with nothing clicked, so a
 latched by Sticky Keys, does not keep the tap enabled for hours; and the last look's question about the grant
 still unanswered at the next look. Most ⇧ Shift clicks are over before the first look.
 
-**If macOS takes the click tap away** (its two reasons are a callback that ran too long and the system
-interrupting a tap), **it is never enabled again by the event that says so.** macOS disabling a tap that has
-stopped answering is the system's own safety net, and it is left whole. The tap stays disabled, the log says
-which reason it was, the grant is looked at again, and the next press of ⇧ Shift arms it through the same
-questions as any other. **`K.breakerTrips` (3) of these inside `K.breakerWindow` (60 s)** and ShiftPick
-destroys both taps and stops creating them: the menu and Settings › System say so, and turning *Enable
-ShiftPick* off and on again is what asks for another try, which still asks the live question first. Nothing
-else closes it and nothing else starts the count over: not a launch of the wizard, not the grant going and
-coming back.
+**If macOS takes the click tap away, it is never enabled again by the event that says so.** macOS gives two
+reasons, and they are not alike:
+
+- **A timeout** is a callback the window server gave up waiting for, which is what a revoked grant under an
+  enabled tap looks like. macOS disabling that tap is the system's own safety net, and it is left whole. The
+  tap stays disabled, the log says so, the grant is looked at again, and the next press of ⇧ Shift arms it
+  through the same questions as any other. **`K.breakerTrips` (3) timeouts inside `K.breakerWindow` (60 s)**
+  and ShiftPick destroys both taps and stops creating them: the menu and Settings › System say so, and turning
+  *Enable ShiftPick* off and on again is what asks for another try, which still asks the live question first.
+  Nothing else closes it and nothing else starts the count over: not a launch of the wizard, not the grant
+  going and coming back.
+- **User input** is also what macOS says back to a tap ShiftPick disables itself, which it does right after
+  creating the click tap and at every disarm. **It is never counted.** Heard with the tap armed, it disarms;
+  heard otherwise, it is the tap's own disable and nothing is done, above all not a second disable, which
+  would be heard back in turn.
 
 **Nothing is armed while nobody can be clicking**: the Mac asleep, the screen locked, another user's session
 in front. **The reasons are counted**: closing a lid locks and then sleeps, and the wake that follows finds

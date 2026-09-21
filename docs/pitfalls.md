@@ -148,8 +148,7 @@ waited for a click on an alert.
 while ⇧ Shift is held; a tap macOS disabled is never enabled by the event that says so; arming asks a live
 question first; the notification disarms before it asks; both taps are destroyed before the uninstall touches
 the grant. `TapLifecycleTests.testATapMacOSDisabledIsNeverReEnabledByThatEvent` is this incident as a test,
-and putting the line back fails three of its scenarios and 11,077 assertions of
-`TapLifecycleInvariantTests`.
+and putting the line back fails it and 6,137 assertions of `TapLifecycleInvariantTests`.
 
 **Do not measure this by trying it.** `manual-test-checklist.md` §9 is the drill, and it starts a dead-man's switch
 first: `scripts/drill.sh` kills the app after thirty seconds whatever happens to the mouse, and a process
@@ -165,6 +164,32 @@ reads one frame per icon checked nothing. A Finder stuck on a network volume wou
 **What holds.** The thread that holds the click does no work and waits with a timeout (`DeadlineGate`); the
 work happens elsewhere and is told when nobody is waiting any more. `K.axTimeout` sits under `K.clickBudget`.
 The same stuck Finder now costs a click its range, 150 ms later, and nothing else.
+
+## 15. A tap disabled by its own app is told it was disabled for user input
+
+**Symptom.** The first install of the rewritten taps, on the owner's Mac, with nobody touching anything:
+
+```
+21:29:41.042 [click] listening for ⇧ Shift; the click tap exists and is disabled
+21:29:41.042 [click] macOS took the click tap away (userInput), 1 of 3 inside 60 s; …
+21:29:41.042 [click] macOS took the click tap away (userInput), 2 of 3 inside 60 s; …
+21:29:41.042 [click] macOS took the click tap away (userInput) 3 times in 60 s; both taps destroyed …
+21:29:41.042 [app]   not listening: macOS kept taking the click tap away, so it is no longer created
+```
+
+**Why.** `CGEventTapEnable(tap, false)` makes macOS deliver `kCGEventTapDisabledByUserInput` to that tap's
+own callback, for every call, even on a tap already disabled. The SDK's own comment on `CGEventTapEnable` says
+it ("a user requests taps be disabled"), the user being the program. The click tap is born enabled and was
+disabled in the next line; that came back as a trip, the trip disabled the tap again, which came back as the
+next one, and the third opened the breaker, all in one millisecond. It failed the safe way (no tap, every click
+to Finder), and it would have happened again at every disarm: three ⇧ Shift releases a minute and ShiftPick
+turned itself off.
+
+**What holds.** Only a timeout is a trip. A disable for user input disarms if the tap is armed and is nothing
+otherwise, and is never answered with another disable. `TapLifecycleTests` has the launch as a scenario, and
+the invariant run treats the event as the tap being off, so a lifecycle that stayed armed through one fails it.
+The lesson is the one entry 13 already names, from the other side: **the tap API's pseudo-events are not what
+their names say**, and a rule built on one needs the event measured, not read.
 
 ---
 

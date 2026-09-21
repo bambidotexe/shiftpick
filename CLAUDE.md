@@ -117,7 +117,7 @@ make release     # skill: macos-publish-release. The same, plus tag, push, GitHu
 
 - `swift build` — the three code targets and the probe. **This is the truth**; editor diagnostics are
   frequently stale.
-- `swift test` — two bundles, and **one summary line each: count two.** `ShiftPickCoreTests` (223) runs in
+- `swift test` — two bundles, and **one summary line each: count two.** `ShiftPickCoreTests` (227) runs in
   about three seconds; `ShiftPickPlatformTests` (29) spawns real subprocesses and threads and takes a moment
   longer.
   `swift test --filter <SuiteName>` runs one suite.
@@ -278,15 +278,16 @@ the log.
 
 ## Status
 
-`swift build` is clean and `swift test` is green (223 + 29) at this commit. The app target has no automated
+`swift build` is clean and `swift test` is green (227 + 29) at this commit. The app target has no automated
 tests; `docs/manual-test-checklist.md` is its verification.
 
 **What is proven and what is not, about the safety model.** The rules are proven: `TapLifecycle` is a value,
-and its 90 scenarios and 80,000 seeded events run on every `swift test`, as do the click's deadline and the
-taps' thread. **The taps themselves have not been exercised since they were rewritten**: `ClickGuard` cannot
-run in a test, because a test runner has no Accessibility grant to create a tap with. Until `docs/manual-test-checklist.md`
-§9 has been walked on an installed build, drill included, that layer is code that compiles and has been
-read, not code that has been seen working.
+and its 94 scenarios and 80,000 seeded events run on every `swift test`, as do the click's deadline and the
+taps' thread. **The taps themselves have been seen once**: `ClickGuard` cannot run in a test, because a test
+runner has no Accessibility grant to create a tap with, and the first install on the owner's Mac is the only
+run there has been. It created both taps and found `docs/pitfalls.md` 15 within the millisecond. Until
+`docs/manual-test-checklist.md` §9 has been walked on an installed build, drill included, the rest of that
+layer is code that compiles and has been read, not code that has been seen working.
 
 Known limitations, in plain words:
 

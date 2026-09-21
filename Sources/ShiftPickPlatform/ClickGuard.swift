@@ -199,7 +199,7 @@ public final class ClickGuard: @unchecked Sendable {
             // this callback has returned: the third of them destroys both taps, and arming can come out of the
             // sentinel's own callback.
             if !CGEvent.tapIsEnabled(tap: click) {
-                feedAfterThisCallback(.tapDisabledBySystem(.click, .wouldNotEnable))
+                Log.click.error("the click tap did not take the enable")
             }
         case .disableClickTap:
             if let click { CGEvent.tapEnable(tap: click, enable: false) }

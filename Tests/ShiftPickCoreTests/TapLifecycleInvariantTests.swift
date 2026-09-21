@@ -76,6 +76,8 @@ final class TapLifecycleInvariantTests: XCTestCase {
             var effects = life.handle(event, now: now)
             for case .probeTrust(let generation) in effects { lastGeneration = generation }
 
+            // The event itself is macOS saying the click tap is off now, whatever the lifecycle makes of it.
+            if case .tapDisabledBySystem(.click, _) = event { world.clickTapEnabled = false }
             // The executor answers `createTaps` at once, as the real one does, so what that answer causes
             // belongs to the same step.
             world.apply(effects, seed: seed, step: step)
@@ -162,7 +164,7 @@ final class TapLifecycleInvariantTests: XCTestCase {
         case 12, 13: return .pressDecided(number: Int64(random.below(3)), swallowed: random.flip())
         case 14, 15: return .releaseSeen(number: Int64(random.below(3)))
         case 16: return .tapDisabledBySystem(random.flip() ? .click : .sentinel,
-                                             [.timeout, .userInput, .wouldNotEnable][random.below(3)])
+                                             random.flip() ? .timeout : .userInput)
         case 17, 18: return .watchdog(shiftDown: random.flip(), optionOrControlDown: random.below(6) == 0,
                                       buttonDown: random.flip())
         case 19: return .suspend
