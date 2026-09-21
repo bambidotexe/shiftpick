@@ -19,13 +19,16 @@ dmg:
 	sh scripts/make-dmg.sh
 
 # The real, signed, notarized, stapled bundle — never build/ShiftPick.app — replacing /Applications and
-# leaving nothing launchable behind. scripts/install.sh has the sequence and why each step is not optional.
+# leaving nothing launchable behind. Refuses a tree whose tests fail, and fails when the launch it reads back
+# from the app's log is not sound (scripts/safety-gates.sh). scripts/install.sh has the sequence and why
+# each step is not optional.
 install:
 	sh scripts/install.sh
 
 # The same install, plus a tagged, pushed GitHub release carrying the disk image, at the version the given
-# LEVEL bumps to (patch, minor or major — required). Only run when the owner has asked for a release.
-# scripts/publish.sh has the sequence.
+# LEVEL bumps to (patch, minor or major — required). Only run when the owner has asked for a release. When
+# the safety layer changed since the last release it also needs DRILL=walked or DRILL=waived, which only the
+# owner can say (docs/manual-test-checklist.md §9). scripts/publish.sh has the sequence.
 release:
 	sh scripts/publish.sh $(LEVEL)
 

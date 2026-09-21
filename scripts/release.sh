@@ -1,7 +1,8 @@
 #!/bin/sh
-# The shippable build, in the order Apple's checks need: release build signed with the team's Developer ID →
-# notarize the app → staple it → wrap it in the disk image → sign and notarize the image → staple that too →
-# prove Gatekeeper accepts what came out. Prints the image's path, and nothing else, on stdout.
+# The shippable build, in the order Apple's checks need: the tests, both bundles and the suites that pin the
+# safety nets among them → release build signed with the team's Developer ID → notarize the app → staple
+# it → wrap it in the disk image → sign and notarize the image → staple that too → prove Gatekeeper accepts
+# what came out. Prints the image's path, and nothing else, on stdout.
 #
 #   scripts/release.sh
 #
@@ -16,6 +17,7 @@ set -eu
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 . "$ROOT/scripts/signing.env"
 . "$ROOT/scripts/no-leftovers.sh"
+. "$ROOT/scripts/safety-gates.sh"
 
 BUILD="$ROOT/build"
 APP="$BUILD/$APP_NAME.app"
@@ -32,6 +34,10 @@ xcrun notarytool history --keychain-profile "$NOTARY_PROFILE" >/dev/null 2>&1 ||
     exit 1
 }
 [ -z "$(git -C "$ROOT" status --porcelain)" ] || echo "warning: the working tree is dirty" >&2
+
+# Nothing is built, for this Mac or anybody's, from a tree whose tests say a safety net is gone. This is
+# how both install.sh and publish.sh get it: each reaches a build only through this script.
+tests_pass "$ROOT" || exit 1
 
 # A signed bundle sits in build/ for the whole run below. Spotlight must not see it while it is going.
 never_indexed "$BUILD"

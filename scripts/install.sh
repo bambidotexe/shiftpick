@@ -4,7 +4,9 @@
 #   scripts/install.sh
 #
 # Builds the same signed, notarized, stapled production bundle a release ships, at the version the rule in
-# scripts/version.sh gives, puts it in /Applications and opens it. Leaves nothing behind: when this script
+# scripts/version.sh gives and only from a tree whose tests pass, puts it in /Applications, opens it, and
+# reads its launch back from its log: a launch on which macOS took a tap away, would not create them, or
+# the breaker opened fails the install (scripts/safety-gates.sh). Leaves nothing behind: when this script
 # returns there is no .app and no .dmg anywhere under the repository, so nothing but /Applications can be
 # launched by Spotlight, opened by the Finder, or started at login.
 #
@@ -18,6 +20,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 . "$ROOT/scripts/signing.env"
 . "$ROOT/scripts/version.sh"
 . "$ROOT/scripts/no-leftovers.sh"
+. "$ROOT/scripts/safety-gates.sh"
 
 DEST="/Applications/$APP_NAME.app"
 MOUNT=""
@@ -82,7 +85,13 @@ xcrun stapler validate "$DEST" >/dev/null 2>&1 || echo "warning: the installed b
 
 # A stable Developer ID identity keeps the same code signature across installs, so the Accessibility grant
 # in System Settings survives this reinstall; an ad-hoc build would lose it every time.
+SINCE="$(/bin/date '+%Y-%m-%d %H:%M:%S')"
 open "$DEST"
 echo "installed $DEST ($INSTALLED)" >&2
+
+# What the installed app did when it met this Mac, read back from its own log (scripts/safety-gates.sh).
+launch_is_sound "$APP_NAME" "$BUNDLE_ID" "$SINCE" "$INSTALLED" || exit 1
+OWED="$(drill_owed "$ROOT")"
+[ -z "$OWED" ] || echo "the safety layer differs from the last release: docs/manual-test-checklist.md §9 is owed on this build before it is published" >&2
 
 echo "$DEST"

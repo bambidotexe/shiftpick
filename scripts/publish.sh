@@ -3,6 +3,9 @@
 #
 #   scripts/publish.sh <patch|minor|major> [--no-install]
 #
+# Refuses first: on a dirty tree, on a failing test, and when the safety layer changed since the last
+# release without the owner saying DRILL=walked or DRILL=waived (scripts/safety-gates.sh).
+#
 # Bumps the version by the given level, commits and pushes that alone, then tags the commit, attaches the
 # signed and notarized disk image to a GitHub release, and installs the same bundle in /Applications. The
 # tree is left exactly at the version just published — nothing bumps it further, so a later local install
@@ -18,6 +21,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 . "$ROOT/scripts/signing.env"
 . "$ROOT/scripts/version.sh"
 . "$ROOT/scripts/no-leftovers.sh"
+. "$ROOT/scripts/safety-gates.sh"
 
 LEVEL=""
 INSTALL=1
@@ -48,6 +52,12 @@ trap cleanup EXIT INT TERM
 # script's to resolve, and none of what follows is worth five minutes of notarizing to discover it was.
 # --------------------------------------------------------------------------------------------------------
 [ -z "$(git -C "$ROOT" status --porcelain)" ] || { echo "refusing: the working tree is dirty. Commit first — a release names a commit." >&2; exit 1; }
+
+# Before the bump, which is pushed: a release whose tests fail, or whose safety layer changed without the
+# owner's drill, must not leave a version commit on the branch behind it (scripts/safety-gates.sh).
+# release.sh runs the tests again on the bumped tree; only the version differs.
+tests_pass "$ROOT" || exit 1
+drill_gate "$ROOT" || exit 1
 
 VERSION="$(version_bump "$LEVEL" "$(version_tree)")"
 TAG="v$VERSION"
@@ -107,8 +117,13 @@ if [ "$INSTALL" -eq 1 ]; then
   [ "$INSTALLED" = "$VERSION" ] || { echo "installed $INSTALLED, expected $VERSION" >&2; exit 1; }
   xcrun stapler validate "$DEST" >/dev/null 2>&1 || echo "warning: the installed bundle carries no stapled ticket" >&2
 
+  SINCE="$(/bin/date '+%Y-%m-%d %H:%M:%S')"
   open "$DEST"
   echo "installed $DEST ($VERSION)" >&2
+  launch_is_sound "$APP_NAME" "$BUNDLE_ID" "$SINCE" "$VERSION" || {
+    echo "the release is published; the launch of it on this Mac is what failed." >&2
+    exit 1
+  }
 else
   echo "/Applications is untouched: the copy running there is what this release is offered to." >&2
 fi
