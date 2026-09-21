@@ -9,7 +9,7 @@ SwiftPM, no Xcode project. Accessibility is the only permission it needs.
 |---|---|
 | [`functional.md`](functional.md) | You need to know what the app does: every rule of the click, the range, the anchor, the window, with the numbers. **The authority on behaviour.** |
 | [`architecture.md`](architecture.md) | You need to know how it is built: the three targets, the click path end to end, threading, the update, the build. |
-| [`macOS.md`](macOS.md) | You are about to rely on a platform assumption. **Finder's Accessibility hierarchy as it was actually read**, the event tap, the permission, the coordinate space. |
+| [`macOS.md`](macOS.md) | You are about to rely on a platform assumption. **Finder's Accessibility hierarchy as it was actually read**, the two event taps and what macOS does to one whose owner loses its grant, the permission and why its cached answer is not the last word, the coordinate space. |
 | [`pitfalls.md`](pitfalls.md) | Something looks like it should work and does not. The only place that records approaches that failed. |
 | [`../MANUAL_TESTS.md`](../MANUAL_TESTS.md) | You changed something and want to see it work. The app target has no automated tests. |
 | [`../CLAUDE.md`](../CLAUDE.md) | You are an agent working in this tree: commands, rules, traps, status. |

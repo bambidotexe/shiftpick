@@ -106,8 +106,9 @@ make release     # skill: publish-release. The same, plus tag, push, GitHub rele
 
 - `swift build` — the three code targets and the probe. **This is the truth**; editor diagnostics are
   frequently stale.
-- `swift test` — two bundles, and **one summary line each: count two.** `ShiftPickCoreTests` (119) runs in
-  under three seconds; `ShiftPickPlatformTests` (13) spawns real subprocesses and takes a moment longer.
+- `swift test` — two bundles, and **one summary line each: count two.** `ShiftPickCoreTests` (194) runs in
+  about three seconds; `ShiftPickPlatformTests` (29) spawns real subprocesses and threads and takes a moment
+  longer.
   `swift test --filter <SuiteName>` runs one suite.
 - `swift run axdump <command>` — the Accessibility probe (`Tools/axdump`, never shipped). `trust`, `views`,
   `at <x> <y>`, `range <x> <y>`, `tree [depth]`. **A command-line tool inherits the Accessibility grant of
@@ -264,11 +265,22 @@ the log.
 
 ## Status
 
-`swift build` is clean and `swift test` is green (119 + 13) at this commit. The app target has no automated
+`swift build` is clean and `swift test` is green (194 + 29) at this commit. The app target has no automated
 tests; `MANUAL_TESTS.md` is its verification.
+
+**What is proven and what is not, about the safety model.** The rules are proven: `TapLifecycle` is a value,
+and its 61 scenarios and 80,000 seeded events run on every `swift test`, as do the click's deadline and the
+taps' thread. **The taps themselves have not been exercised since they were rewritten**: `ClickGuard` cannot
+run in a test, because a test runner has no Accessibility grant to create a tap with. Until `MANUAL_TESTS.md`
+§9 has been walked on an installed build, drill included, that layer is code that compiles and has been
+read, not code that has been seen working.
 
 Known limitations, in plain words:
 
+- **The safety drill has not been run.** `MANUAL_TESTS.md` §9 takes the grant away from a running app behind a
+  dead-man's switch, and what it measures (which of the four ways notices first, how long it takes, whether
+  `tccutil` reaches a running process) is still reported by others rather than read on this Mac.
+  `docs/macOS.md` says so wherever it applies.
 - **A range is bounded by what Finder has built.** Both ends have to be on screen. Click a file, scroll
   three screens, ⇧ Shift click another, and the click goes to Finder untouched, because the first file is
   no longer something Accessibility can name. Everything between two icons that are both visible is

@@ -17,7 +17,9 @@ The first build. Nothing is published yet, so every update check answers *No rel
 - The range is worked out from where the icons are: rows and columns clustered out of their frames, a
   layout read as arranged or hand-placed, the fill direction inferred, and either a slice of the reading
   order or a rubber band between the two icons. A collapsed Desktop stack is never in a range.
-- Every other click reaches Finder untouched, and so does a ⇧ Shift click ShiftPick cannot answer.
+- **Every other click reaches Finder untouched.** With no finger on ⇧ Shift, no click passes through
+  ShiftPick at all, and a ⇧ Shift click it cannot answer within 150 ms goes to Finder. Taking its permission
+  away while it runs, putting the Mac to sleep under it or forcing it to quit never costs a click.
 - **Accessibility is the only permission**, asked for at the first launch and picked up the moment it is
   granted, with no relaunch.
 - A menu-bar item with the enable switch, Launch at Login, what the app is doing right now, Settings and
@@ -27,5 +29,6 @@ The first build. Nothing is published yet, so every update check answers *No rel
 - A **Tip** page: everything is free and stays free, and a one-time tip on Ko-fi if you want to offer a
   coffee. Nothing is ever asked for and nothing is paid inside the app.
 - Uninstall from Settings › General, which gives the Accessibility permission back, removes the Login
-  Items entry and the preferences, and moves the app to the Trash.
+  Items entry and the preferences, and moves the app to the Trash. It touches nothing that is not
+  ShiftPick's own.
 - English and French.

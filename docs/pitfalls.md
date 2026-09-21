@@ -70,8 +70,8 @@ there only because their repositories exist.
 ## 4. `swift test` prints one summary line per bundle
 
 ```
-Test Suite 'ShiftPickPlatformTests.xctest' passed …  Executed 13 tests
-Test Suite 'ShiftPickCoreTests.xctest' passed …      Executed 119 tests
+Test Suite 'ShiftPickPlatformTests.xctest' passed …  Executed 29 tests
+Test Suite 'ShiftPickCoreTests.xctest' passed …      Executed 194 tests
 ```
 
 **Count two.** A bundle that crashes prints none, so grepping for one green line reads a crash as a pass.
