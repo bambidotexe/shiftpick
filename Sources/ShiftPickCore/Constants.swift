@@ -16,6 +16,50 @@ public enum K {
     /// order of magnitude of headroom and still far below the ~1 s at which the system takes a tap away.
     public static let clickBudget: TimeInterval = 0.15
 
+    /// How much longer a click is held when the budget runs out **while the selection is already being
+    /// set**. Letting the click through at that instant would have Finder toggle the clicked file on top of
+    /// the range, so the one call in flight is waited for, and for no longer than `axTimeout` lets it take.
+    public static let commitGrace: TimeInterval = 0.1
+
+    // MARK: - The click tap's lifecycle
+
+    /// How long a live answer about the grant stays good enough to arm on. Taking the grant away means
+    /// finding the switch in System Settings and flipping it, which no hand does within two seconds of a
+    /// ⇧ Shift press that was answered; and it keeps a burst of capital letters from asking the Dock the same
+    /// question at every one of them.
+    public static let trustFreshness: TimeInterval = 2
+
+    /// How long the live question is given. It is asked of the Dock, which answers one attribute in well
+    /// under a millisecond; past this the answer is `unknown` and nothing is armed.
+    public static let trustProbeTimeout: TimeInterval = 0.05
+
+    /// How often the armed state is looked at, **and only while it is armed**: is ⇧ Shift still down, is the
+    /// grant still there, has anything been clicked. Most ⇧ Shift clicks are over before the first tick.
+    public static let armedWatchInterval: TimeInterval = 0.5
+
+    /// How long the click tap stays armed with nothing clicked. A ⇧ Shift key held down by a bag or latched
+    /// by Sticky Keys would otherwise keep the one dangerous object in the app enabled for hours; the next
+    /// press of the key arms it again.
+    public static let armedIdleLimit: TimeInterval = 60
+
+    /// How many times macOS may take the click tap away inside `breakerWindow` before ShiftPick stops
+    /// creating it. Measured, the day the grant was revoked under a tap that re-enabled itself: three
+    /// timeouts in thirteen seconds, every one of them a click that stalled the whole Mac. Each trip costs
+    /// the user one stalled click, so three is the most this app will ever spend before it turns itself off
+    /// and says so.
+    public static let breakerTrips = 3
+    public static let breakerWindow: TimeInterval = 60
+
+    /// When the grant is asked about again after the system says the privacy database moved. The
+    /// notification has been seen to arrive before the answer changes, so one look is not enough; three,
+    /// spread over three seconds, and then nothing: this is a burst after an event, never a poll.
+    public static let trustRecheckDelays: [TimeInterval] = [0.25, 1, 3]
+
+    /// How long tearing the taps down waits for the tap's own thread before doing it from the calling
+    /// thread instead. That thread only ever waits `clickBudget + commitGrace`, so twice that is already a
+    /// thread that is not coming back.
+    public static let shutDownWait: TimeInterval = 0.5
+
     /// How long after a plain or ⌘ Command click the anchor is looked for. The click is returned to the
     /// system untouched first and this runs afterwards, so an ordinary click gains no latency at all; the
     /// wait is only there to let Finder finish selecting before it is asked what is under the pointer.
