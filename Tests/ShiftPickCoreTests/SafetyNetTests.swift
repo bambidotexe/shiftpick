@@ -157,11 +157,12 @@ final class SafetyNetTests: XCTestCase {
 
     // MARK: - Waiting
 
-    func testEveryWaitHasADeadline() throws {
+    /// The waits with no deadline are known, and none is where a click or the main thread waits on it.
+    func testWaitsWithoutADeadlineStayWhereTheyAre() throws {
         let sources = try swiftFiles(under: ["Sources"])
         // TapThread's two: its own start, and a block that has already started running on it.
         XCTAssertEqual(Set(occurrences(of: ".wait()", in: sources)), ["Sources/ShiftPickPlatform/TapThread.swift"],
-                       "A wait with no deadline. Nothing here blocks without a timeout (CLAUDE.md, Rules).")
+                       "A new wait with no deadline. Nothing here blocks without a timeout (CLAUDE.md, Rules).")
         // The update's staging runs on a queue of its own, never the main thread.
         XCTAssertEqual(occurrences(of: "waitUntilExit", in: sources), ["Sources/ShiftPickPlatform/UpdateStager.swift"], """
             Process.waitUntilExit() runs the calling thread's run loop and has no deadline; on the main thread it \

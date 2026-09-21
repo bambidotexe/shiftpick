@@ -9,6 +9,36 @@ in the code is the one that counts.
 
 ---
 
+## 0. The guarantees
+
+**A bug in this app must never be able to break clicking.** The sections below are the rules the app
+follows; these are the rules every other one is held to. **A request that would loosen one is a conflict**
+under step 2 of the workflow in `CLAUDE.md`: the rule is quoted to the owner, and nothing changes until the
+owner has said so for that rule. `SafetyNetTests` and the `TapLifecycle` tests pin each of them, and the
+`shiftpick-safety-nets` skill says where each one lives in the code.
+
+1. **One tap can swallow a click, and it is enabled only while ⇧ Shift is held**, or while a press it
+   swallowed waits for its release. The other only listens. §1.
+2. **A tap macOS disabled is never enabled by the event that says so**, and after **`K.breakerTrips` (3)**
+   timeouts inside **`K.breakerWindow` (60 s)** no tap exists until the user asks for another try. §1.
+3. **Nothing arms the click tap or creates the taps on the cached answer about the grant**, the launch alone
+   excepted. Arming asks a live question; a grant put in doubt disarms first and asks afterwards. §1, §7.
+4. **A held click waits at most `K.clickBudget` (150 ms)**, and **`K.commitGrace` (100 ms)** more only while
+   its range is being selected, whatever the worker is doing. A click never queues behind another. §2.
+5. **A click is swallowed only once its range has been selected.** Every other path returns it unmodified,
+   and its release goes with it. §1, §2.
+6. **Nothing a window does can delay a click.** The taps are served on a thread of their own, which never
+   calls Accessibility and never waits without a deadline. §2, and `docs/architecture.md` *Threading*.
+7. **Nothing is armed while nobody can be clicking**: the Mac asleep, the screen locked, another user's
+   session in front. §1.
+8. **Both taps are destroyed before anything takes the grant or the process away**: a quit, an update, an
+   uninstall. §1, §8, §9.
+9. **Nothing waits on another process on the main thread**, and every step of the uninstall has a deadline.
+   §9.
+10. **One ShiftPick at a time.** §1.
+11. **Every permission prompt follows a click of the user's.** §7.
+12. **Nothing is deleted that is not provably ShiftPick's own.** §8, §9.
+
 ## 1. Which clicks ShiftPick looks at
 
 ShiftPick holds **two session event taps**, and they are not alike.
