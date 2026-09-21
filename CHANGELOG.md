@@ -1,8 +1,8 @@
 # Changelog
 
-Every released version, newest first. The tree is always one patch ahead of the newest release
-(`scripts/version.sh`), so the version at the top of this file is the one being prepared unless a release
-carries its tag.
+Every released version, newest first. `scripts/version.sh` holds the tree's version; a local install always
+builds exactly that version, and publishing is what moves it, then raises the tree to the next patch. The
+version at the top of this file is the one being prepared unless a release carries its tag.
 
 ## 0.0.1
 

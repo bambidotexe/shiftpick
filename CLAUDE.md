@@ -120,8 +120,9 @@ make release     # skill: publish-release. The same, plus tag, push, GitHub rele
 - **There is no third way.** A bundle left in `build/` is a complete application that Spotlight offers;
   launching it by accident gives a second ShiftPick with a second event tap on the same clicks.
   `scripts/no-leftovers.sh` holds that rule.
-- `scripts/version.sh` — the version rule, and the only thing that writes the version: **the tree is always
-  one patch ahead of the newest GitHub release.** No releases yet → the tree is `0.0.1`.
+- `scripts/version.sh` — the version rule, and the only thing that writes the version: **a local install
+  always builds and installs exactly the tree's own version.** Publishing is the only thing that moves it,
+  and raises the tree to the next patch once it has. No releases yet → the tree is `0.0.1`.
 - `/usr/bin/log stream --predicate 'subsystem == "dev.rubens.ShiftPick"' --level debug` — the app's log
   (`log` alone is a zsh builtin, hence the full path). Categories: `app`, `click`, `update`. **`click` says
   nothing on the ordinary path**: a line there is always about a ⇧ Shift click, and at `debug` it says why
@@ -208,9 +209,9 @@ the log.
    crash reads as a pass if you grep for one green line.
 4. **A Finder window element's `AXRole` can read as `AXApplication`** for a second after Finder relaunches.
    Walk **up** from the hit test, never down from the application, and never index into children.
-5. **`set -e` reaches inside command substitutions.** `version_published` has to end its `gh` call with
-   `|| true`, or a repository that does not exist yet takes the function's own fallback with it and every
-   script that sources it exits 1 with no output at all.
+5. **`set -e` reaches inside command substitutions.** A bare assignment from a command that can fail —
+   `gh` with no repository yet, no login, no network — takes the assignment down with it under `set -e`
+   unless the command ends in `|| true`; the full incident is in `docs/pitfalls.md` §3.
 
 ## Status
 
