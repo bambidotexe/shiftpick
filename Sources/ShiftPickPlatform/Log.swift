@@ -14,4 +14,8 @@ public enum Log {
     public static let click = Logger(subsystem: AppIdentity.logSubsystem, category: "click")
     /// Every check, what it found, the fetch, the unpacking and the hand-over to the install helper.
     public static let update = Logger(subsystem: AppIdentity.logSubsystem, category: "update")
+    /// The onboarding wizard: the poll, the stepping button's word, and at `debug` where that button
+    /// actually is. A button drawn in one place and hit-tested in another says nothing on its own, and this
+    /// is the line that shows it (`docs/pitfalls.md` 11).
+    public static let onboarding = Logger(subsystem: AppIdentity.logSubsystem, category: "onboarding")
 }

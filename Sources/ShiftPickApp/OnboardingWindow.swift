@@ -156,6 +156,7 @@ final class OnboardingWindowController: NSWindowController, NSWindowDelegate {
             view.topAnchor.constraint(equalTo: content.topAnchor),
             view.bottomAnchor.constraint(equalTo: content.bottomAnchor),
         ])
+        reportButtonGeometry("on render")
     }
 
     private func hero(title: String, accent: String?, body: String, pills: [Pill],
@@ -242,11 +243,32 @@ final class OnboardingWindowController: NSWindowController, NSWindowDelegate {
         primary.keyEquivalent = "\r"
         primary.actionHandler = { [weak self] in self?.advance() }
         primaryButton = primary
-        let spacer = NSView()
-        spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        let footer = NSStackView(views: [spacer, primary])
 
-        let stack = NSStackView(views: [headerLabel, introLabel, list, footer])
+        // The footer is a plain view with the button pinned to its trailing edge and to **both** its top
+        // and bottom, which is what fixes the footer's height to the button's.
+        //
+        // An `NSStackView` holding an invisible spacer is the trap: a spacer has no intrinsic height, so
+        // nothing decides the footer's own height, and the vertical stack hands it every point of slack the
+        // page is not using. Granting a permission swaps that row's 26 pt button for an 18 pt "Granted"
+        // label; the list shrinks, the footer grows to absorb it, and the button sits wherever the slack
+        // put it rather than at the bottom of the page. It is still drawn, `AXFrame` still names a plausible
+        // rectangle, no constraint breaks, and a press on it does not land.
+        let footer = NSView()
+        primary.translatesAutoresizingMaskIntoConstraints = false
+        footer.addSubview(primary)
+        NSLayoutConstraint.activate([
+            primary.trailingAnchor.constraint(equalTo: footer.trailingAnchor),
+            primary.topAnchor.constraint(equalTo: footer.topAnchor),
+            primary.bottomAnchor.constraint(equalTo: footer.bottomAnchor),
+        ])
+
+        // The slack goes here, deliberately, and into nothing else: above the footer, so the stepping button
+        // stays at the bottom right of the page however tall the rows happen to be.
+        let slack = NSView()
+        slack.setContentHuggingPriority(.init(1), for: .vertical)
+        slack.setContentCompressionResistancePriority(.init(1), for: .vertical)
+
+        let stack = NSStackView(views: [headerLabel, introLabel, list, slack, footer])
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = OnboardingMetrics.listSpacing
@@ -268,7 +290,27 @@ final class OnboardingWindowController: NSWindowController, NSWindowDelegate {
               case let .list(_, _, items, advanceWhen, _) = pages[step] else { return }
         let words = Loc.onboarding
         let title = advanceWhen(items) ? words.continueButton : words.skipButton
-        if primaryButton.title != title { primaryButton.title = title }
+        guard primaryButton.title != title else { return }
+        Log.onboarding.info("stepping button on page \(self.step, privacy: .public) now reads \(title, privacy: .public)")
+        primaryButton.title = title
+    }
+
+    /// Where the stepping button actually is once the page has settled, and whether every view between it
+    /// and the window still contains it. A button drawn in one place and hit-tested in another is what a
+    /// ballooning footer looks like from the outside, and this is the line that shows it.
+    private func reportButtonGeometry(_ when: String) {
+        guard let primaryButton, let content = window?.contentView else { return }
+        content.layoutSubtreeIfNeeded()
+        var chain = ""
+        var view: NSView = primaryButton
+        while let parent = view.superview {
+            let contains = parent.bounds.contains(view.frame) ? "" : " DOES NOT CONTAIN"
+            chain += " \(type(of: parent))(\(parent.bounds.height)\(contains))"
+            view = parent
+            if parent == content { break }
+        }
+        let inWindow = primaryButton.convert(primaryButton.bounds, to: nil)
+        Log.onboarding.debug("\(when, privacy: .public): button \(String(describing: inWindow), privacy: .public) chain:\(chain, privacy: .public)")
     }
 
     // MARK: - Following the system
@@ -279,6 +321,7 @@ final class OnboardingWindowController: NSWindowController, NSWindowDelegate {
     private func refreshGrants() {
         for row in rows.values { row.refresh() }
         updatePrimaryButton()
+        reportButtonGeometry("after a poll tick")
         grantMayHaveChanged()
     }
 

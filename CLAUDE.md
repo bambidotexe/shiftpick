@@ -128,7 +128,8 @@ make release     # skill: publish-release. The same, plus tag, push, GitHub rele
   anything, then releases exactly that version. Nothing bumps it again afterward. No releases yet → the tree
   is `0.0.1`.
 - `/usr/bin/log stream --predicate 'subsystem == "dev.rubens.ShiftPick"' --level debug` — the app's log
-  (`log` alone is a zsh builtin, hence the full path). Categories: `app`, `click`, `update`. **`click` says
+  (`log` alone is a zsh builtin, hence the full path). Categories: `app`, `click`, `update`, `onboarding`
+  (the wizard's poll, the stepping button's word, and at `debug` where that button actually is). **`click` says
   nothing on the ordinary path**: a line there is always about a ⇧ Shift click, and at `debug` it says why
   one was let through.
 - `SHIFTPICK_UPDATE_FEED=file:///…/latest.json` in the installed app's environment replaces GitHub's reply
@@ -207,7 +208,7 @@ the log.
 
 ## Traps
 
-`docs/pitfalls.md` is the full list, with the measurements. The five that cost the most:
+`docs/pitfalls.md` is the full list, with the measurements. The six that cost the most:
 
 1. **Finder only builds the icons that are on screen.** A folder of 2,500 files answers with 24 to 30. A
    range is therefore only ever as complete as what is visible, and ShiftPick lets the click through rather
@@ -222,6 +223,11 @@ the log.
 5. **`set -e` reaches inside command substitutions.** A bare assignment from a command that can fail —
    `gh` with no repository yet, no login, no network — takes the assignment down with it under `set -e`
    unless the command ends in `|| true`; the full incident is in `docs/pitfalls.md` §3.
+6. **An `NSStackView` spacer with no intrinsic height absorbs every point of a page's slack**, which left
+   the onboarding wizard's stepping button drawn at the bottom right of the page and unclickable for ever
+   from the moment the permission was granted. No constraint breaks and `AXFrame` keeps naming a plausible
+   rectangle, so only a real hit test shows it. It shipped in four apps at once because the skill's reference
+   file carried it: `docs/pitfalls.md` 11.
 
 ## Status
 

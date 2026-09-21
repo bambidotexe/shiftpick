@@ -126,7 +126,49 @@ is wrong the moment Apple renames a section. Both places that name it quote the 
 (`docs/macOS.md`, *The permission*, has the command), and `LocalizationTests` holds a two-entry exemption so
 that the "Control" in the quoted name is not read as the ⌃ Control key.
 
-## 11. A file panel's collection list has no `AXWindow`
+## 11. An `NSStackView` spacer with no intrinsic height absorbs every point of a page's slack
+
+**Symptom.** The onboarding wizard's stepping button, drawn at the bottom right of the permission page,
+looking perfectly ordinary, and **unclickable for ever, however many times it is pressed**. It starts the
+moment the Accessibility permission is granted.
+
+**Why.** The footer was `NSStackView(views: [spacer, primary])` with a width constraint and no height
+constraint. A bare `NSView` has no intrinsic size, so nothing decided the footer's own height, and the
+enclosing vertical stack handed it every point the page was not using. Granting the permission swaps the
+row's 26 pt button for an 18 pt "Granted" label; the list shrinks by 36 pt, and that slack goes into the
+footer. Measured in snappy-snap, which had the same footer:
+
+```
+before the swap   footer bounds 460 x 24     button frame (381, 0,  79, 24)
+after the swap    footer bounds 460 x 186    button frame (381, 81, 79, 24)
+```
+
+The button is still inside the footer, so **no constraint breaks and `AXFrame` keeps naming a plausible
+rectangle**. `AXPress` works. Every other element of the page hit-tests correctly. The button has simply
+stopped being where the page drew it.
+
+**What holds.** The footer is a plain `NSView` with the button pinned to its trailing edge **and to both its
+top and bottom**, which fixes the footer's height to the button's, and the slack is given to a view of its
+own between the list and the footer, with vertical hugging and compression resistance at **priority 1**. The
+rule behind it: **`OnboardingMetrics` decides sizes, and a stack view left free to decide one will.**
+
+**How it travelled.** snappy-snap found it and fixed its own window, but the `building-onboarding` skill's
+`reference/OnboardingWindow.swift` kept the spacer, so koffeelid copied it and this app copied koffeelid.
+All four references now carry the fix; a trap fixed in a window and not in the reference is a trap that ships
+again.
+
+**The instrument.** `swift run axdump tree $(pgrep -x ShiftPick) 8` prints the frames and `swift run axdump
+at <x> <y>` says what a real hit test finds there: a frame that names a rectangle where a hit test finds
+nothing is this class of bug. The app says it too, on every render and every poll tick:
+
+```sh
+/usr/bin/log stream --predicate 'subsystem == "dev.rubens.ShiftPick"' --level debug   # category: onboarding
+```
+
+prints the button's frame in window coordinates and, up the chain, each superview's height and whether it
+still contains it (`DOES NOT CONTAIN` is the answer you are looking for).
+
+## 12. A file panel's collection list has no `AXWindow`
 
 Finder's `AXList/AXCollectionList` answers `AXWindow` with the window it is in. **An Open or Save panel's
 does not**: it answers `kAXErrorNoValue`. Since the window's `AXIdentifier` is the only thing that tells a

@@ -115,6 +115,11 @@ checklist with it.
       edge does. No page is stretched or crowded.
 - [ ] The button reads **Skip** on page 2 until the permission is granted, and on page 3 until either row is
       on. It turns to **Continue** without the page being redrawn: the header and the other row do not move.
+- [ ] **Press it after a row has changed.** On page 2, press **Skip** before granting: it advances. Come back,
+      grant the permission, and press **Continue** **without closing the window**: it advances on the **first**
+      click. Same on page 3 after turning a row on. A button that does nothing here is `docs/pitfalls.md` 11,
+      whatever it looks like: `swift run axdump at <x> <y>` over it finds the window rather than the button,
+      and the `onboarding` log category at `--level debug` says `DOES NOT CONTAIN`.
 - [ ] Return presses the button on every page.
 - [ ] The whole wizard in **French** and in **English**, and the two quoted names word for word against
       System Settings: *Device Control and Data Access* in Privacy & Security, *Open at Login* in Login Items
