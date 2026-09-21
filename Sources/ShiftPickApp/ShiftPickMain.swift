@@ -37,15 +37,18 @@ enum ShiftPickMain {
     /// again normally never gets this far, because macOS hands that to the copy already running.
     ///
     /// The copy that is running is asked for its window, which is what opening the app again means, and this
-    /// one leaves before it has created anything.
+    /// one leaves before it has created anything. **It is asked directly**, by a notification that copy
+    /// listens for: opening the bundle instead hands the request to Launch Services and returns, and one made
+    /// by a process on its way out was measured never to arrive.
     @MainActor private static func leaveIfAlreadyRunning() {
         let mine = ProcessInfo.processInfo.processIdentifier
         guard let running = NSRunningApplication
             .runningApplications(withBundleIdentifier: AppIdentity.bundleIdentifier)
             .first(where: { $0.processIdentifier != mine && !$0.isTerminated })
         else { return }
-        Log.app.error("already running as pid \(running.processIdentifier, privacy: .public); this copy leaves")
-        if let bundle = running.bundleURL { NSWorkspace.shared.open(bundle) }
+        Log.app.error("already running as pid \(running.processIdentifier, privacy: .public); this copy leaves and asks it for its window")
+        DistributedNotificationCenter.default().postNotificationName(
+            AppDelegate.openedAgain, object: nil, userInfo: nil, deliverImmediately: true)
         exit(0)
     }
 }

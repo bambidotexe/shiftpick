@@ -5,6 +5,10 @@ import ShiftPickPlatform
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    /// What a second copy of the app posts before it leaves: the running one shows what opening the app again
+    /// shows. Named after the bundle, so only a copy of this app has any reason to post it.
+    static let openedAgain = Notification.Name("\(AppIdentity.bundleIdentifier).openedAgain")
+
     let store = SettingsStore()
     private lazy var engine = ShiftPickEngine(store: store)
     private let menuBar = MenuBarController()
@@ -12,6 +16,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var settingsWindow: SettingsWindow?
     private var onboarding: OnboardingWindowController?
     private var trustObserver: NSObjectProtocol?
+    private var openedAgainObserver: NSObjectProtocol?
     private var sessionObservers: [(NotificationCenter, NSObjectProtocol)] = []
     /// Why nobody can be clicking right now. The engine is suspended while this holds anything.
     private var awayReasons: Set<AwayReason> = []
@@ -51,6 +56,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         watchTheGrant()
         watchTheSession()
+        watchForASecondCopy()
         startUpdates()
         Log.app.notice("\(AppIdentity.name, privacy: .public) \(AppIdentity.version, privacy: .public) launched")
     }
@@ -71,6 +77,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// user fetches a window back. A login item cannot arrive here: it launches a process that is not running
     /// yet.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
+        showWhatOpeningTheAppShows()
+        return true
+    }
+
+    private func showWhatOpeningTheAppShows() {
         if onboarding?.isUp == true {
             onboarding?.show()
         } else if Permissions.accessibilityGranted && store.settings.onboardingCompleted {
@@ -78,7 +89,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             showOnboarding()
         }
-        return true
+    }
+
+    /// A second copy started while this one runs, by `open -n` or from another folder, leaves before it creates
+    /// anything (`ShiftPickMain`) and asks for this one's window with `openedAgain`. It is answered exactly as
+    /// opening the app again is.
+    private func watchForASecondCopy() {
+        openedAgainObserver = DistributedNotificationCenter.default().addObserver(
+            forName: Self.openedAgain, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                Log.app.notice("a second copy asked for the window")
+                self?.showWhatOpeningTheAppShows()
+            }
+        }
     }
 
     // MARK: - Windows

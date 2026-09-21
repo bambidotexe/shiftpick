@@ -195,7 +195,8 @@ checklist with it.
       in between, or not: on the Mac this was walked on the unlock arrived first and cleared both. The first
       ⇧ Shift click afterwards is a range, and no `macOS took the … tap away` line appears.
 - [ ] Open a second copy (`open -n /Applications/ShiftPick.app`): it leaves at once with `already running as
-      pid …`, and the first copy's Settings window comes forward.
+      pid …; this copy leaves and asks it for its window`, the first copy logs `a second copy asked for the
+      window`, and its Settings window comes forward.
 - [ ] Hold a ⇧ Shift click while the Mac is busy: the click is either a range or Finder's, never nothing, and
       never late by more than a quarter of a second.
 - [ ] Leave the app running for a day. A `macOS took the click tap away` line is worth a look whenever it

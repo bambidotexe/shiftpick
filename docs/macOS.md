@@ -259,6 +259,12 @@ converted anywhere, and no Cocoa rectangle ever reaches the click path.
 
 ## Launch, login and reinstall
 
+- **A process on its way out cannot open an app for somebody else.** `NSWorkspace.open` hands the request to
+  Launch Services (`LAUNCH: Asking CSUI to launch 1 items` in the log) and returns; measured with `open -n`, a
+  second copy that opened the running copy's bundle and exited at once never got that copy's window to come
+  forward, twice. So a second copy posts a distributed notification the running one listens for, with
+  `deliverImmediately`, and leaves.
+
 - **Launch at login** is `SMAppService.mainApp`. Its state lives there and nowhere else: the user can remove
   the app in System Settings without opening it, so a copy kept in the settings file could only disagree.
 - **A login-item launch** is told from a person's by the open-application Apple event: it carries
