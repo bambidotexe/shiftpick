@@ -263,7 +263,8 @@ converted anywhere, and no Cocoa rectangle ever reaches the click path.
   Launch Services (`LAUNCH: Asking CSUI to launch 1 items` in the log) and returns; measured with `open -n`, a
   second copy that opened the running copy's bundle and exited at once never got that copy's window to come
   forward, twice. So a second copy posts a distributed notification the running one listens for, with
-  `deliverImmediately`, and leaves.
+  `deliverImmediately`, and leaves. Measured: it reached the running copy within the same millisecond, and
+  the Settings window came forward.
 
 - **Launch at login** is `SMAppService.mainApp`. Its state lives there and nowhere else: the user can remove
   the app in System Settings without opening it, so a copy kept in the settings file could only disagree.
@@ -276,10 +277,11 @@ converted anywhere, and no Cocoa rectangle ever reaches the click path.
 
 ## Sleep and the lock screen
 
-- **The notifications come in an order nothing promises, and one of them may not come at all.** Measured on
-  a MacBook with the lid closed for a minute and a half: `NSWorkspace.willSleepNotification` 0.19 s **before**
-  `com.apple.screenIsLocked`, the Mac asleep five seconds later; on opening, `com.apple.screenIsUnlocked`
-  reached the app **before any wake notice did**, a second before `pmset` recorded the wake. A design that
+- **The notifications come in an order nothing promises, and one of them may not come at all.** Measured
+  twice on a MacBook, the lid closed for about a minute and a half: `NSWorkspace.willSleepNotification` 0.19 s
+  and 0.14 s **before** `com.apple.screenIsLocked`, the Mac asleep a few seconds later; on opening,
+  `com.apple.screenIsUnlocked` reached the app **before any wake notice did** both times, the first time a
+  second before `pmset` recorded the wake. A design that
   waited for `didWake` to end the sleep would have waited for a notification that was not coming first, and
   might not have come at all. `com.apple.screenIsLocked` and `com.apple.screenIsUnlocked` are not documented.
 - So the reasons are held against the session itself at any news (`AppDelegate.reconcileAway`):

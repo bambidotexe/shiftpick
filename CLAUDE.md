@@ -285,8 +285,9 @@ tests; `docs/manual-test-checklist.md` is its verification.
 and its 94 scenarios and 80,000 seeded events run on every `swift test`, as do the click's deadline and the
 taps' thread. **The taps have been seen on the owner's Mac**, which is the only place they can be:
 `ClickGuard` cannot run in a test, because a test runner has no Accessibility grant to create a tap with. The
-first install found `docs/pitfalls.md` 15 within the millisecond; the build after it passed the Finder gesture
-and drill steps A, B, C and E of `docs/manual-test-checklist.md` §9. The grant was taken away with the switch
+first install found `docs/pitfalls.md` 15 within the millisecond; the builds after it passed the Finder
+gesture, the lid closed and opened twice, a second copy started with `open -n`, and drill steps A, B, C and E
+of `docs/manual-test-checklist.md` §9. The grant was taken away with the switch
 and with the minus button, the loss was caught before anything was enabled every time, and no click or key
 was ever held up. `docs/macOS.md` has what the walk measured.
 
