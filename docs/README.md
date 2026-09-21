@@ -7,7 +7,8 @@ SwiftPM, no Xcode project. Accessibility is the only permission it needs.
 
 | Document | Read it when |
 |---|---|
-| [`functional.md`](functional.md) | You need to know what the app does: every rule of the click, the range, the anchor, the window, with the numbers. **The authority on behaviour.** |
+| [`functional.md`](functional.md) | You need to know what the app does: **§0, the guarantees every other rule is held to**, then every rule of the click, the range, the anchor, the window, with the numbers. **The authority on behaviour.** |
+| [`../.claude/skills/shiftpick-safety-nets/SKILL.md`](../.claude/skills/shiftpick-safety-nets/SKILL.md) | You are about to touch the taps, the click path, the grant, sleep and the lock screen, the teardown, a wait, or anything that handles input. **Every safety net, where it lives and what pins it.** |
 | [`architecture.md`](architecture.md) | You need to know how it is built: the three targets, the click path end to end, threading, the update, the build. |
 | [`macOS.md`](macOS.md) | You are about to rely on a platform assumption. **Finder's Accessibility hierarchy as it was actually read**, the two event taps and what macOS does to one whose owner loses its grant, the permission and why its cached answer is not the last word, the coordinate space. |
 | [`pitfalls.md`](pitfalls.md) | Something looks like it should work and does not. The only place that records approaches that failed. |
@@ -36,13 +37,16 @@ Accessibility grant.
 
 ## The shape in one paragraph
 
-`ShiftPickCore` decides everything that can be decided from rectangles: where the rows and columns are,
-whether a layout is arranged or hand-placed, which way it is filled, and which icons lie between two
-others. It imports Foundation and CoreGraphics and nothing else, so every rule in it is testable without a
-Mac in the state it describes. `ShiftPickPlatform` is the only code that talks to the system: one event
-tap, one file that knows the shape of Finder's icon views, and the update's I/O. `ShiftPickApp` wires the
-two into one behaviour, `ShiftPickEngine`, and puts three windows and a menu around it. `Tools/axdump` is
-how Finder was read in the first place, and how it is read again.
+`ShiftPickCore` decides everything that can be decided from values: from rectangles, where the rows and
+columns are, whether a layout is arranged or hand-placed, which way it is filled, and which icons lie between
+two others; from events and the time, **when the one tap that can swallow a click may be enabled**
+(`TapLifecycle`). It imports Foundation and CoreGraphics and nothing else, so every rule in it is testable
+without a Mac in the state it describes. `ShiftPickPlatform` is the only code that talks to the system: two
+event taps on a thread of their own, a listener and the click tap, with a deadline between them and the
+worker (`ClickGuard`, `TapThread`, `DeadlineGate`); one file that knows the shape of Finder's icon views; the
+grant; the update's I/O. `ShiftPickApp` wires them: `ShiftPickEngine` holds the guard, the gate and
+`ShiftClickResolver`, which decides one ⇧ Shift click on its worker, and three windows and a menu go around
+it. `Tools/axdump` is how Finder was read in the first place, and how it is read again.
 
 ## The shared documents
 

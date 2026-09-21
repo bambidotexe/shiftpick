@@ -3,6 +3,10 @@
 `ShiftPickApp` has no automated tests. This is its verification. Work down it after any change to the click
 path, and note anything that surprises you in `docs/pitfalls.md`.
 
+**§9 is owed after any change to a file of the safety layer** (`SAFETY_FILES` in `scripts/safety-gates.sh`),
+on an installed build of that tree and before it is published: `make release` refuses until the owner says
+`DRILL=walked` or `DRILL=waived`. Its watching steps are anybody's; **its drill is the owner's alone.**
+
 Two things make it quicker:
 
 ```sh

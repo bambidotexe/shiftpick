@@ -71,6 +71,16 @@ are only ever created on a live answer. `Platform/ClickGuard` executes what it s
 carries itself is what only it can see: which press is ShiftPick's to decide, that the callback never enables
 a tap, and that nothing is created once it has been shut down.
 
+**The code around the value is pinned where it stands.** `ClickGuard` cannot run in a test, because a test
+runner has no Accessibility grant to create a tap with, so `SafetyNetTests` reads the source instead: one
+tap that can swallow and one line that enables it, no enable in a callback, the taps on their own thread and
+never asking anything that can block, a held click only through the deadline and swallowed only after its
+selection, the taps down before the grant or the process goes, one copy at a time, and the numbers above in
+their order. Each check was shown to fail against a copy of the code with its net removed.
+**And a build that lost a net reaches no Mac**: `scripts/safety-gates.sh` (below) holds the gates. The
+guarantees themselves are `functional.md` §0, and the `shiftpick-safety-nets` skill says where each lives and
+what pins it; it comes before any change near one.
+
 ## The click path
 
 **Three execution contexts, and nothing shared between them without a lock.**
@@ -179,12 +189,26 @@ directories so the app appears in Language & Region's per-app list, a generated 
 private `SPUpdateRepository` key — and `Core/AppIdentity` reads them back, so the running app never spells
 its own name out.
 
-`scripts/release.sh` is the shippable build in the order Apple's checks need: build → verify the signature,
-the runtime flag and the entitlements → notarize the app → staple → disk image → sign and notarize the
-image → staple → `spctl` on both. It publishes nothing.
+`scripts/release.sh` is the shippable build in the order Apple's checks need: the tests → build → verify the
+signature, the runtime flag and the entitlements → notarize the app → staple → disk image → sign and notarize
+the image → staple → `spctl` on both. It publishes nothing.
 
 `scripts/install.sh` and `scripts/publish.sh` are **the only two ways a build reaches a Mac**, and neither
 leaves an `.app` or a `.dmg` anywhere under the repository on any exit path.
+
+**`scripts/safety-gates.sh` holds the three gates both pass through.**
+
+- `tests_pass`, run by `release.sh` before it builds: `swift test`, both bundles' summary lines, and every
+  suite that pins a net (`SAFETY_SUITES`) among the green. Neither way builds anything from a tree whose
+  tests say a net is gone.
+- `drill_gate`, run by `publish.sh` before it bumps and pushes the version: when a file of the safety layer
+  (`SAFETY_FILES`) differs from the last release tag, it refuses until the owner says `DRILL=walked` (the
+  drill of `manual-test-checklist.md` §9, walked on an installed build of that tree) or `DRILL=waived`.
+- `launch_is_sound`, run by both after they open the app: the app's own log from the moment it was opened.
+  The launch passes when it names the version installed and then says *listening* or *waiting for the
+  permission*; it fails on a tap macOS took away, taps it would not create, an open breaker, a second copy, or
+  twenty seconds of silence, which is how the first install of the rewritten taps would have been caught
+  (`pitfalls.md` 15).
 
 ## The update, end to end
 
