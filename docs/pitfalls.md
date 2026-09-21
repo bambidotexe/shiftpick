@@ -3,6 +3,9 @@
 What looks right on macOS and is not, with the measurement that settled it. **This is the only place that
 records approaches that failed.** Nothing here is a rule; the rules are in `functional.md`.
 
+The traps every app of the family shares are `shared/pitfalls.md`. Entries 13, 15 and 16 below are this
+app's own record, logs and all, of what is there as E1, E2 and X4.
+
 ---
 
 ## 1. Finder only builds the icons that are on screen

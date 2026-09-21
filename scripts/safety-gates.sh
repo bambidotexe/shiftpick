@@ -117,7 +117,13 @@ launch_is_sound() {
     i=$((i + 1))
   done
   problem=""
+  # Every line read here is a notice or an error, which the log keeps. `log show` has still been seen to
+  # return nothing where `log stream` did (docs/shared/pitfalls.md T6), and that is not the app's silence.
   case "$said" in
+    *"[$bundle:"*) ;;
+    *) problem="the log shows nothing from the app since it was opened; watch /usr/bin/log stream by hand (docs/shared/pitfalls.md T6)" ;;
+  esac
+  [ -n "$problem" ] || case "$said" in
     *"kept taking the click tap away"*|*"times in "*"both taps destroyed"*) problem="the breaker opened while the app was starting" ;;
     *"macOS took the "*" tap away"*) problem="macOS took a tap away while the app was starting" ;;
     *"would not create the event taps"*) problem="macOS would not create the event taps although the grant reads as given" ;;
