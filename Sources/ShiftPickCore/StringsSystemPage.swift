@@ -1,6 +1,6 @@
 import Foundation
 
-/// The System page: what ShiftPick needs from macOS, and whether it has it.
+/// The System page: what ShiftPick needs from macOS, and the way to give it.
 public struct SystemPageStrings {
     private let language: Language
     init(_ language: Language) { self.language = language }
@@ -50,61 +50,6 @@ public struct SystemPageStrings {
         switch language {
         case .en: "Open Accessibility Settings"
         case .fr: "Ouvrir les réglages d'accessibilité"
-        }
-    }
-
-    // MARK: Clicks
-
-    public var clicksTitle: String {
-        switch language {
-        case .en: "Clicks"
-        case .fr: "Clics"
-        }
-    }
-
-    public var clicksHint: String {
-        switch language {
-        case .en: "\(AppIdentity.name) watches for a click with ⇧ Shift held and lets every other "
-            + "click through untouched."
-        case .fr: "\(AppIdentity.name) surveille les clics avec ⇧ Majuscule enfoncée et laisse passer "
-            + "tous les autres clics tels quels."
-        }
-    }
-
-    public var clicksRow: String {
-        switch language {
-        case .en: "Watching for clicks"
-        case .fr: "Surveillance des clics"
-        }
-    }
-
-    public var clicksWarningNoTap: String {
-        switch language {
-        case .en: "macOS would not let \(AppIdentity.name) listen for clicks. Quit it and open it "
-            + "again; if that does not help, turn the Accessibility switch off and on."
-        case .fr: "macOS n'a pas autorisé \(AppIdentity.name) à écouter les clics. Quittez-le puis "
-            + "rouvrez-le ; si cela ne suffit pas, désactivez puis réactivez l'interrupteur "
-            + "d'accessibilité."
-        }
-    }
-
-    /// The way back is the one switch the user already knows: turning it on again is what asks for another
-    /// try.
-    public var clicksWarningStoppedByMacOS: String {
-        switch language {
-        case .en: "macOS interrupted \(AppIdentity.name) \(K.breakerTrips) times in "
-            + "\(Int(K.breakerWindow)) seconds, so it stopped listening for clicks. Turn "
-            + "\(AppIdentity.name) off and on again on the Selection page."
-        case .fr: "macOS a interrompu \(AppIdentity.name) \(K.breakerTrips) fois en "
-            + "\(Int(K.breakerWindow)) secondes, il a donc cessé d'écouter les clics. Désactivez puis "
-            + "réactivez \(AppIdentity.name) sur la page Sélection."
-        }
-    }
-
-    public var clicksWarningDisabled: String {
-        switch language {
-        case .en: "\(AppIdentity.name) is off. Turn it on again on the Selection page."
-        case .fr: "\(AppIdentity.name) est désactivé. Réactivez-le sur la page Sélection."
         }
     }
 

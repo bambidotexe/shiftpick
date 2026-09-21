@@ -24,7 +24,8 @@ final class LocalizationTests: XCTestCase {
                      ("menu.settings", menu.settings), ("menu.quit", menu.quit),
                      ("menu.statusWatching", menu.statusWatching), ("menu.statusOff", menu.statusOff),
                      ("menu.statusNeedsPermission", menu.statusNeedsPermission),
-                     ("menu.statusNoTap", menu.statusNoTap)] { add(pair.0, pair.1) }
+                     ("menu.statusNoTap", menu.statusNoTap),
+                     ("menu.statusStoppedByMacOS", menu.statusStoppedByMacOS)] { add(pair.0, pair.1) }
 
         let main = Loc.mainMenu
         for pair in [("mainMenu.window", main.window), ("mainMenu.close", main.close),
@@ -60,7 +61,8 @@ final class LocalizationTests: XCTestCase {
         for pair in [("settings.pageGeneral", settings.pageGeneral),
                      ("settings.pageSelection", settings.pageSelection),
                      ("settings.pageTip", settings.pageTip),
-                     ("settings.pageSystem", settings.pageSystem)] { add(pair.0, pair.1) }
+                     ("settings.pageSystem", settings.pageSystem),
+                     ("settings.pageHealth", settings.pageHealth)] { add(pair.0, pair.1) }
 
         let words = settings.words
         for pair in [("words.granted", words.granted), ("words.denied", words.denied),
@@ -124,12 +126,47 @@ final class LocalizationTests: XCTestCase {
                      ("system.accessibilityWarning", system.accessibilityWarning),
                      ("system.accessibilityRow", system.accessibilityRow),
                      ("system.openAccessibilityButton", system.openAccessibilityButton),
-                     ("system.clicksTitle", system.clicksTitle),
-                     ("system.clicksHint", system.clicksHint), ("system.clicksRow", system.clicksRow),
-                     ("system.clicksWarningNoTap", system.clicksWarningNoTap),
-                     ("system.clicksWarningDisabled", system.clicksWarningDisabled),
                      ("system.startOverTitle", system.startOverTitle),
                      ("system.showOnboardingButton", system.showOnboardingButton)] { add(pair.0, pair.1) }
+
+        let health = settings.health
+        for pair in [("health.overviewTitle", health.overviewTitle),
+                     ("health.everythingWorks", health.everythingWorks),
+                     ("health.toLookAt.1", health.toLookAt(1)), ("health.toLookAt.2", health.toLookAt(2)),
+                     ("health.notWorking.1", health.notWorking(problems: 1)),
+                     ("health.notWorking.2", health.notWorking(problems: 2)),
+                     ("health.checking", health.checking),
+                     ("health.checkAgainButton", health.checkAgainButton),
+                     ("health.permissionsTitle", health.permissionsTitle),
+                     ("health.grantFoundGoneDetail", health.grantFoundGoneDetail),
+                     ("health.clicksTitle", health.clicksTitle), ("health.clicksHint", health.clicksHint),
+                     ("health.clicksRow", health.clicksRow),
+                     ("health.waiting", health.waiting),
+                     ("health.listenerRefusedFix", health.listenerRefusedFix),
+                     ("health.listenerStoppedFix", health.listenerStoppedFix),
+                     ("health.stopped", health.stopped),
+                     ("health.compatibilityTitle", health.compatibilityTitle),
+                     ("health.macOSLabel", health.macOSLabel), ("health.finderLabel", health.finderLabel),
+                     ("health.running", health.running), ("health.finderStoppedFix", health.finderStoppedFix),
+                     ("health.appTitle", health.appTitle),
+                     ("health.launchAtLoginLabel", health.launchAtLoginLabel),
+                     ("health.loginItemNeedsApprovalFix", health.loginItemNeedsApprovalFix),
+                     ("health.runningForLabel", health.runningForLabel),
+                     ("health.duration.seconds", health.duration(seconds: 12)),
+                     ("health.duration.minutes", health.duration(seconds: 720)),
+                     ("health.duration.hours", health.duration(seconds: 11_520)),
+                     ("health.duration.days", health.duration(seconds: 190_000)),
+                     ("health.memoryLabel", health.memoryLabel), ("health.megabytes", health.megabytes(48)),
+                     ("health.crashesLabel", health.crashesLabel(days: 7)), ("health.none", health.none),
+                     ("health.lastCrash", health.lastCrash("2026-09-21 10:10")),
+                     ("health.crashesFix", health.crashesFix),
+                     ("health.locationLabel", health.locationLabel),
+                     ("health.locationWord.applications", health.locationWord(.applications)),
+                     ("health.locationWord.diskImage", health.locationWord(.diskImage)),
+                     ("health.locationWord.temporaryCopy", health.locationWord(.temporaryCopy)),
+                     ("health.locationFix", health.locationFix),
+                     ("health.reportTitle", health.reportTitle), ("health.reportHint", health.reportHint),
+                     ("health.copyReportButton", health.copyReportButton)] { add(pair.0, pair.1) }
 
         let update = Loc.update
         for pair in [("update.httpStatus", update.httpStatus(503)),

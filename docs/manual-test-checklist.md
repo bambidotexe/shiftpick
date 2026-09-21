@@ -143,7 +143,8 @@ checklist with it.
       cost this Mac its mouse and keyboard, so it is never tried without the dead-man's switch that section
       starts first.
 - [ ] Settings › System while all of that happens: the row follows within two seconds, and the button and the
-      warning appear and disappear with it.
+      warning appear and disappear with it. Settings › Health too: *Accessibility permission* and *Watching for
+      clicks* turn green together, and the overview stops reading *Not working*.
 
 **Where it lives**
 
@@ -303,6 +304,22 @@ SHIFTPICK_UPDATE_FEED=file:///tmp/latest.json /Applications/ShiftPick.app/Conten
       Applications folder: the Settings window comes back.
 - [ ] `make install` over a running copy: the app is replaced and **opens no window** (the quiet-launch
       marker), and the Accessibility grant survives.
+- [ ] **Settings › Health**, the stethoscope between System and Tip, with everything in place: the overview
+      row, named after the app, reads *Everything works*, then **Check Again**. *Accessibility permission*
+      *Granted*; *Watching for clicks* *Enabled* (its tooltip `watching`); *macOS* in blue with its version
+      (the build in its tooltip) and *Finder* *Running*; *Launch at login*, *Running for* and *Memory used* in
+      blue or green, *Crashes in the last 7 days* *None*, *Installed in* *Applications* (the path in its
+      tooltip). No version and no update anywhere on the page. **Check Again**: *Checking* with a spinner for
+      about half a second, then the summary. **Copy Report**, paste it anywhere: `ShiftPick <version>, macOS
+      <version>`, the summary, then every group with one line per row, `[OK]`, `[INFO]`, `[WARN]` or `[FAIL]`
+      first. Turn *Enable ShiftPick* off on the Selection page: the row goes blue *Disabled* and the overview
+      stays *Everything works*; on again, green. Turn *Launch at login* off on General: blue *Disabled*.
+      **The red row** (the stop sign, *Not working: 1 problem*, *Accessibility permission* red *Denied* with
+      the switch named under it, and *Watching for clicks* blue *Waiting* below it) is seen on a Mac
+      where the grant has not been given yet, or with the window open during §9's step A. **Never take the
+      grant away to see them outside §9**: here, the shared checklist's *break a required one* is that grant,
+      and it reads two problems, not one, because the listener cannot listen without it. ShiftPick has no
+      optional permission, so the shared *break one optional thing* has nothing to break.
 - [ ] **Settings › Tip**: the toolbar's mug, the app icon beside the sentence, the Ko-fi cup on its red
       wash, and *Tip €5*. The button opens `ko-fi.com/bambidotexe` in the browser and the window stays put.
 - [ ] The whole window in **French** and in **English** (System Settings › General › Language & Region, the

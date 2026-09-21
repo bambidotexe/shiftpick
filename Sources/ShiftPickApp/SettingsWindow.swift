@@ -21,6 +21,7 @@ import SwiftUI
 final class SettingsWindow: NSObject, NSWindowDelegate, NSToolbarDelegate {
     private let window: NSWindow
     private let status = SystemStatus()
+    private let health = HealthCheck()
     private let selection = SettingsSelection()
     private let hosting: NSHostingController<SettingsView>
     /// Whether closing may hand focus back. Injected rather than inferred from `NSApp.windows`: the windows
@@ -51,7 +52,7 @@ final class SettingsWindow: NSObject, NSWindowDelegate, NSToolbarDelegate {
         window.title = selection.page.title
         window.isReleasedWhenClosed = false
         hosting = NSHostingController(rootView: SettingsView(selection: selection, store: store,
-                                                             status: status, engine: engine))
+                                                             status: status, engine: engine, health: health))
         // The height is this class's to animate. A hosting controller that also constrains the window to
         // its content fights every resize.
         hosting.sizingOptions = []
@@ -83,6 +84,7 @@ final class SettingsWindow: NSObject, NSWindowDelegate, NSToolbarDelegate {
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
         status.startPolling()
+        if selection.page == .health { health.read() }
     }
 
     // MARK: Height
@@ -188,6 +190,8 @@ final class SettingsWindow: NSObject, NSWindowDelegate, NSToolbarDelegate {
         guard let page = SettingsPageID(rawValue: sender.itemIdentifier.rawValue) else { return }
         selection.page = page
         window.title = page.title
+        // The Health page's own readings are taken when it is shown, never on a timer.
+        if page == .health { health.read() }
     }
 
     // MARK: Going away

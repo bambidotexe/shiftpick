@@ -61,14 +61,15 @@ is no place it does not.
 
 ## Settings
 
-A four-page window, opened from the menu-bar item (⌘,) or by opening the app again, which is the way in
+A five-page window, opened from the menu-bar item (⌘,) or by opening the app again, which is the way in
 when the icon is hidden. Every change applies as you make it.
 
 | Page | What is on it |
 |---|---|
 | **General** | Launch at login · Show in menu bar · Updates · Quit · Uninstall |
 | **Selection** | Enable ShiftPick · whether ⌘ Command with ⇧ Shift adds the range to the selection |
-| **System** | the Accessibility permission, live, with the way to grant it · whether ShiftPick is watching for clicks · the way back to the welcome wizard |
+| **System** | the Accessibility permission, live, with the way to grant it · the way back to the welcome wizard |
+| **Health** | whether ShiftPick is doing its job, at a glance: the permission, whether it is watching for ⇧ Shift clicks, macOS and Finder, launch at login, how long it has run, its memory, its crashes this week and where it is installed, each in green, blue, orange or red with what to do about it · Check Again · Copy Report |
 | **Tip** | everything is free and stays free · a one-time tip on Ko-fi |
 
 The menu-bar item carries the same enable switch, Launch at Login, one line saying what the app is doing
@@ -181,7 +182,7 @@ ShiftPick is free and carries no ads. If it saves you trouble, you can leave a t
 ## Notes
 
 - Personal build: English and French.
-- `swift test` runs 283 tests across the two library targets (247 + 36); the app target's verification is
+- `swift test` runs 310 tests across the two library targets (272 + 38); the app target's verification is
   `docs/manual-test-checklist.md`, the log, and `swift run axdump range`.
 - The app icon is a placeholder, generated from the same three-bar mark the menu-bar item draws. See
   `Resources/ICON-NOTES.md`.

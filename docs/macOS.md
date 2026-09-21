@@ -148,7 +148,7 @@ role descriptions beside them.
   off.** `ClickGuard` holds a `latencyCritical` activity for exactly as long as the click tap is enabled,
   which is the one stretch in which a timer of this app matters to anybody else.
 - Creating them needs the Accessibility grant. When it is missing, `tapCreate` returns nil, which is the
-  only signal there is; the app says so on the System page rather than going quiet.
+  only signal there is; the app says so on the Health page rather than going quiet.
 - The callbacks run on **a thread of their own** (`TapThread`), because a tap is answered by whichever run
   loop its source was added to, and on the main run loop every stall of the interface is a stall of the mouse.
 - The callback is told a tap was disabled for one of two reasons, and **neither is ever answered by enabling

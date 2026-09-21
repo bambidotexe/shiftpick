@@ -14,6 +14,7 @@ struct SettingsView: View {
     @ObservedObject var store: SettingsStore
     @ObservedObject var status: SystemStatus
     @ObservedObject var engine: ShiftPickEngine
+    let health: HealthCheck
 
     var body: some View {
         // The page scrolls because the window's height is capped to what fits on the screen: on a short
@@ -38,7 +39,8 @@ struct SettingsView: View {
         switch selection.page {
         case .general: GeneralPage(store: store, status: status, engine: engine)
         case .selection: SelectionPage(store: store)
-        case .system: SystemPage(store: store, status: status, engine: engine)
+        case .system: SystemPage(status: status, engine: engine)
+        case .health: HealthPage(store: store, status: status, engine: engine, health: health)
         case .tip: TipPage()
         }
     }
@@ -47,9 +49,10 @@ struct SettingsView: View {
 /// The pages, in toolbar order. The raw value is the toolbar item's identifier, so the toolbar and the
 /// selection cannot disagree about which page a click means.
 ///
-/// General first, then the one feature, then what the app needs from the system, then the tip jar.
+/// General first, then the one feature, then what the app needs from the system, then its health, then the
+/// tip jar.
 enum SettingsPageID: String, CaseIterable, Sendable {
-    case general, selection, system, tip
+    case general, selection, system, health, tip
 
     /// The toolbar item's label, and the window's title while the page is shown.
     var title: String {
@@ -57,6 +60,7 @@ enum SettingsPageID: String, CaseIterable, Sendable {
         case .general: Loc.settings.pageGeneral
         case .selection: Loc.settings.pageSelection
         case .system: Loc.settings.pageSystem
+        case .health: Loc.settings.pageHealth
         case .tip: Loc.settings.pageTip
         }
     }
@@ -67,6 +71,7 @@ enum SettingsPageID: String, CaseIterable, Sendable {
         case .general: "gearshape"
         case .selection: "square.stack.3d.up"
         case .system: "checkmark.shield"
+        case .health: "stethoscope"
         case .tip: "mug"
         }
     }
@@ -94,7 +99,7 @@ struct SettingsPageHeight: PreferenceKey {
 
 /// The two facts this window reports but does not own: whether Accessibility is granted, and whether
 /// ShiftPick is registered as a login item. Both can change while the window is shut, and neither lives in
-/// `Settings`.
+/// `Settings`. The System, General and Health pages all read them from here.
 ///
 /// **The window drives this, not a view.** `.onAppear` fires once per hosting view, and this window is
 /// built once and re-shown, so a view-lifecycle hook would read the system exactly one time in the life of
@@ -106,14 +111,25 @@ struct SettingsPageHeight: PreferenceKey {
 /// costs two reads every two seconds and no SwiftUI invalidation at all.
 @MainActor
 final class SystemStatus: ObservableObject {
+    /// macOS's cached answer, and only that. **Never shown alone**: every page shows it through
+    /// `TapLifecycle.Status.showsGrant`, which knows when ShiftPick has found the grant gone itself.
     @Published private(set) var accessibilityGranted: Bool
-    @Published private(set) var launchAtLogin: Bool
+    /// What `SMAppService` says, including the one state the General page's switch cannot show: registered,
+    /// then switched off in System Settings. The Health page reports that one.
+    @Published private(set) var loginItem: LoginItemState
+
+    /// The General page's switch: on only while the system would open the app at login.
+    var launchAtLogin: Bool { loginItem == .enabled }
 
     private var timer: Timer?
 
+    /// Whether the window is following the system. Paused while the window is away, and by an uninstall
+    /// while it takes the grant and the login item away.
+    var isPolling: Bool { timer != nil }
+
     init() {
         accessibilityGranted = Permissions.accessibilityGranted
-        launchAtLogin = LoginItem.isEnabled
+        loginItem = LoginItem.state
     }
 
     func startPolling() {
@@ -136,11 +152,12 @@ final class SystemStatus: ObservableObject {
     /// `register()` can fail, and a switch showing what the click asked for over a system that refused it
     /// is the worse of the two lies.
     func refreshLoginItem() {
-        let enabled = LoginItem.isEnabled
-        if enabled != launchAtLogin { launchAtLogin = enabled }
+        let state = LoginItem.state
+        if state != loginItem { loginItem = state }
     }
 
-    private func refresh() {
+    /// Everything, now, rather than at the next tick: the poll's own tick, and the Health page's Check Again.
+    func refresh() {
         let granted = Permissions.accessibilityGranted
         if granted != accessibilityGranted { accessibilityGranted = granted }
         refreshLoginItem()

@@ -248,7 +248,7 @@ final class SafetyNetTests: XCTestCase {
             the grant had gone. Rows show TapLifecycle.Status.showsGrant (docs/macOS.md, The permission).
             """)
         for window in ["Sources/ShiftPickApp/AppDelegate.swift", "Sources/ShiftPickApp/SettingsSystemPage.swift",
-                       "Sources/ShiftPickApp/MenuBarController.swift"] {
+                       "Sources/ShiftPickApp/SettingsHealthPage.swift", "Sources/ShiftPickApp/MenuBarController.swift"] {
             XCTAssertTrue(try code(window).contains("showsGrant(systemSays:"), "\(window) shows the grant through showsGrant.")
         }
     }

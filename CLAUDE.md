@@ -123,7 +123,8 @@ and the newer of a request and a written rule wins only after the owner has said
 | what one ⇧ Shift click does, end to end | **Invoke `shiftpick-safety-nets` first.** `App/ShiftClickResolver.shiftClick`, which runs on the worker and answers through its `ClickTicket`; the one line that swallows and its order behind `commit()` and `FinderAX.select` are pinned by `SafetyNetTests`, and the file is in the safety layer | `functional.md` §1–2, `architecture.md` *The click path* |
 | a timing, a budget, a threshold | **Invoke `shiftpick-safety-nets` first.** `Core/Constants.swift`, with its measurement in the comment. **The order of the safety numbers is pinned** (`SafetyNetTests.testTheSafetyNumbersKeepTheirOrder`), and a value that moves them is the owner's call | the section that states it |
 | a user setting | **Invoke the `macos-building-settings-pages` skill first.** `Core/Settings.swift` + a row on its page + `SettingsTests` | `functional.md` §5 |
-| the Settings window's pages, look or copy | **Invoke the `macos-building-settings-pages` skill first**: it holds every rule of the window's structure, numbers and wording. `App/SettingsKit.swift` (the kit and `SettingsMetrics`), `App/SettingsView.swift` (`SettingsPageID`, `SystemStatus`), `App/SettingsWindow.swift` (the toolbar, the height that follows the page), `App/Settings…Page.swift`. Two nets live in these pages and `SafetyNetTests` pins both: the System page's permission row shows the grant through `TapLifecycle.Status.showsGrant`, and the Uninstall group of the General page destroys the taps before anything else. **The words are not in the page files**: they are `Core/Strings<Page>Page.swift` | `functional.md` §5 |
+| the Settings window's pages, look or copy | **Invoke the `macos-building-settings-pages` skill first**: it holds every rule of the window's structure, numbers and wording. `App/SettingsKit.swift` (the kit and `SettingsMetrics`), `App/SettingsView.swift` (`SettingsPageID`, `SystemStatus`), `App/SettingsWindow.swift` (the toolbar, the height that follows the page), `App/Settings…Page.swift`. Two nets live in these pages and `SafetyNetTests` pins both: the System and Health pages' permission rows show the grant through `TapLifecycle.Status.showsGrant`, and the Uninstall group of the General page destroys the taps before anything else. **The words are not in the page files**: they are `Core/Strings<Page>Page.swift` | `functional.md` §5 |
+| the Health page: a row, its colour, its sentence, a reading | **Invoke the `macos-building-settings-pages` skill first** (*The Health page*). The rows are built from plain facts in `Core/HealthReport.swift` (`HealthFacts` → `groups(for:)`), coloured by `Core/HealthRules.swift` (which also colours the System page's permission row) and pinned by `HealthTests`; the words are `Core/StringsHealthPage.swift`. The page's own readings are `App/HealthCheck.swift`, read when the page is shown and on Check Again, never on a timer, from `Platform/CrashReports`, `ProcessStats`, `InstallLocation`, `FinderProcess`, `LoginItem+State`; the view is `App/SettingsHealthPage.swift`. **A reading comes from what the engine already publishes on the main actor, or from a read that cannot block**: never an Accessibility call, never the taps' thread, never a request API. A reading that needs a file of `SAFETY_FILES` (the last ⇧ Shift click, the breaker's trips) is a change to the safety layer: `shiftpick-safety-nets` first, and the drill before the next release | `functional.md` §5 |
 | the menu-bar item or its menu | `App/MenuBarController.swift`, `Core/StringsMenu.swift`. Its status line shows the grant through `TapLifecycle.Status.showsGrant`, never the cached answer alone, which `SafetyNetTests` pins | `functional.md` §6 |
 | onboarding, or what happens when the permission moves | **Invoke the `macos-building-onboarding` skill first**: it holds every rule of the wizard, who is in front, and what a grant button may do. `App/OnboardingWindow.swift` (the controller, the pages, the row, `OnboardingMetrics`), `App/GrantCatalogue.swift` (what a grant is, the two lists), `App/AppDelegate` (`showOnboarding`, `watchTheGrant`, `grantChanged`), `Platform/Permissions.swift`. **`AppDelegate` and `Permissions.swift` are files of the safety layer**: invoke `shiftpick-safety-nets` as well, and a change to either owes §9 of the checklist before the next release. **The words are not in the page files**: they are `Core/StringsOnboarding.swift` | `functional.md` §7, `macOS.md` *The permission* |
 | updates: the check, its schedule, the notification | `Core/UpdateCheck.swift`, `UpdateSchedule.swift`, `UpdatePanel.swift`, the `update…` numbers in `Core/Constants.swift`; `Platform/UpdateChecker.swift`; `App/UpdateController.swift` (the one owner), `UpdateNotifier.swift` | `functional.md` §8 |
@@ -147,8 +148,8 @@ make release     # skill: macos-publish-release. The same, plus tag, push, GitHu
 
 - `swift build` — the three code targets and the probe. **This is the truth**; editor diagnostics are
   frequently stale.
-- `swift test` — two bundles, and **one summary line each: count two.** `ShiftPickCoreTests` (247) runs in
-  about three seconds; `ShiftPickPlatformTests` (36) spawns real subprocesses and threads and takes a moment
+- `swift test` — two bundles, and **one summary line each: count two.** `ShiftPickCoreTests` (272) runs in
+  about three seconds; `ShiftPickPlatformTests` (38) spawns real subprocesses and threads and takes a moment
   longer.
   `swift test --filter <SuiteName>` runs one suite; `swift test --filter SafetyNetTests` is the quick look
   after any change near a net.
@@ -200,7 +201,8 @@ Three code targets, dependencies pointing one way: Core ← Platform ← App. Fu
   the selection maths: classify a set of icon frames, order them, and answer with a range) · `Settings` ·
   `Constants` (`K`, every number with its measurement) · `AppIdentity` + `Paths` · `QuietLaunch` ·
   `PathRules` + `UninstallPlan` · the update's rules (`UpdateCheck`, `UpdateSchedule`, `UpdatePanel`, `UpdateSession`,
-  `StagedUpdateCheck`, `UpdateInstallScript`) · **`TapLifecycle`** + `TrustVerdict` (when the click tap may be
+  `StagedUpdateCheck`, `UpdateInstallScript`) · the Health page's rules (`Health`, `HealthRules`, `HealthReport`,
+  and `HealthConstants`, its two numbers as an extension of `K` kept out of the safety layer's `Constants.swift`) · **`TapLifecycle`** + `TrustVerdict` (when the click tap may be
   enabled, as a value: an event and the time in, the new state and what to do about it out) · `Localization` (`Language`, `Loc`) + `Strings*` (every
   user-facing string, English and French side by side, one table per surface).
 - **`Sources/ShiftPickPlatform`** — the only code that talks to the system. **`ClickGuard`** (the two event
@@ -210,7 +212,8 @@ Three code targets, dependencies pointing one way: Core ← Platform ← App. Fu
   Finder's icon views: find the view under a point, read its items, read and set its selection) · `AX` (the
   C Accessibility API, one round trip per call) · `Permissions` · `LoginItem` · `SettingsStore` · `Log` ·
   `BoundedWait` (the one way to wait on another process: with a deadline, never on the main thread) ·
-  the update's I/O (`UpdateChecker` + `UpdateDownload`, the only network code; `UpdateStager`,
+  the Health page's readers (`CrashReports`, `ProcessStats`, `InstallLocation`, `FinderProcess`,
+  `LoginItem+State`, each a read that answers at once) · the update's I/O (`UpdateChecker` + `UpdateDownload`, the only network code; `UpdateStager`,
   `CodeSignature`, `UpdateInstaller`, `DetachedProcess`) · `Uninstall`.
 - **`Sources/ShiftPickApp`** — `AppDelegate` wires everything, including what happens when the Mac sleeps,
   locks or quits. **`ShiftPickEngine`** wires the guard, the gate and the resolver and publishes one status;
@@ -219,8 +222,9 @@ Three code targets, dependencies pointing one way: Core ← Platform ← App. Fu
   (`OnboardingWindow` the controller, the pages, the row and `OnboardingMetrics`; `GrantCatalogue` what a
   grant is and the two lists; `ControlActionHandler`) ·
   `UpdateController` (the update's one owner) + `UpdateNotifier` + `UpdateWindow` · the settings window
-  (`SettingsKit` the kit, `SettingsWindow` the toolbar window whose height follows the page, three
-  `Settings…Page`, `SettingsView` with `SettingsPageID` and `SystemStatus`).
+  (`SettingsKit` the kit, `SettingsWindow` the toolbar window whose height follows the page, five
+  `Settings…Page`, `SettingsView` with `SettingsPageID` and `SystemStatus`, `HealthCheck` the Health page's
+  own readings).
 - **`Tools/axdump`** — the Accessibility probe. Ships with nothing.
 
 The app target has no automated tests. Its verification is `docs/manual-test-checklist.md`, `swift run axdump range`, and
@@ -333,13 +337,13 @@ the log.
 
 ## Status
 
-`swift build` is clean and `swift test` is green (247 + 36) at this commit. The app target has no automated
+`swift build` is clean and `swift test` is green (272 + 38) at this commit. The app target has no automated
 tests; `docs/manual-test-checklist.md` is its verification.
 
 **What is proven and what is not, about the safety model.** The rules are proven: `TapLifecycle` is a value,
 and its 96 scenarios and 80,000 seeded events run on every `swift test`, as do the click's deadline and the
 taps' thread. **The code no test can run is pinned where it stands**: `SafetyNetTests` holds 18 checks over
-it, and each was shown to fail against a copy of the code with its net removed (23 such copies, 23 caught).
+it, and each was shown to fail against a copy of the code with its net removed (24 such copies, 24 caught).
 **The taps have been seen on the owner's Mac**, which is the only place they can be:
 `ClickGuard` cannot run in a test, because a test runner has no Accessibility grant to create a tap with. The
 first install found `docs/pitfalls.md` 15 within the millisecond; the builds after it passed the Finder
