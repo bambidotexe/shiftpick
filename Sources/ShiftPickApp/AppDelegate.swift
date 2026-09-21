@@ -55,14 +55,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// The one way back into Settings once the icon is hidden: opening the bundle again from the
     /// Applications folder or Spotlight while the app is already running fires this rather than
-    /// `applicationDidFinishLaunching`. **The wizard takes precedence while it is up**, and again while the
-    /// permission is missing, so a fresh install never shows two windows at once: with no Dock icon,
-    /// `open -b` is the only way the user fetches a window back. A login item cannot arrive here: it launches
-    /// a process that is not running yet.
+    /// `applicationDidFinishLaunching`. **The wizard takes precedence while it is up**, and this asks the same
+    /// question a launch does, so a wizard that has not been walked is what opening the app brings up. A
+    /// reinstall launches quietly and opens no window, so this is the first thing a person does afterwards,
+    /// and it must not be the one path that skips the wizard. With no Dock icon, `open -b` is the only way the
+    /// user fetches a window back. A login item cannot arrive here: it launches a process that is not running
+    /// yet.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
         if onboarding?.isUp == true {
             onboarding?.show()
-        } else if Permissions.accessibilityGranted {
+        } else if Permissions.accessibilityGranted && store.settings.onboardingCompleted {
             showSettings()
         } else {
             showOnboarding()

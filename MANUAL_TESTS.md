@@ -158,8 +158,10 @@ checklist with it.
 
 **When it opens**
 
-- [ ] Finish it once, quit, launch again by hand: **no wizard**, the Settings window instead.
-- [ ] Close it with the × **before** *All set*, quit, launch again: the wizard is back, at page one.
+- [ ] Finish it once, quit, launch again by hand: **no wizard**, the Settings window instead. Open the app
+      again while it runs: the Settings window, not the wizard.
+- [ ] Close it with the × **before** *All set*, quit, launch again: the wizard is back, at page one. Close it
+      again and open the app from the Applications folder while it still runs: the wizard, not Settings.
 - [ ] **Settings › System › Start over**: a fresh wizard at page one, with every row re-read.
 - [ ] **Launch at login** on, wizard never finished, log out and in: the app starts and **opens no window**.
 - [ ] `make install` over a running copy: no window, wizard included.

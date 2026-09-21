@@ -200,9 +200,11 @@ the bottom right. Its height follows the page around its **top-left** corner: 44
 
 - **It opens on a first run the person started**, whatever the grants are, and on **any** launch that finds
   Accessibility missing, however the app was launched. A login item whose wizard was simply never finished
-  opens no window. **Settings › System › Start over** opens it again, and so does opening the app again while
-  it is up. It is a **fresh controller every time**: every row re-reads the system and the walk starts at
-  page one.
+  opens no window. **Opening the app again asks the same question**, so while the wizard is unwalked that is
+  what comes up rather than the Settings window, and while it is already up it is simply brought forward; a
+  reinstall opens no window at all, so that is the first thing a person does afterwards.
+  **Settings › System › Start over** opens it whenever it is wanted. It is a **fresh controller every time**:
+  every row re-reads the system and the walk starts at page one.
 - **Finish records that it was walked**; a window closed before that button keeps the flag false, so the
   wizard returns at the next launch.
 - **The row's button is the only thing in the whole app that asks macOS for the permission.** Nothing at
