@@ -32,8 +32,10 @@ pid="$(/usr/bin/pgrep -x "$name" | /usr/bin/head -1)"
 [ -n "$pid" ] || { echo "$name is not running: open it, check that a ⇧ Shift click selects a range, then run this again." >&2; exit 1; }
 
 # In a session of its own and tied to nothing: it has to fire even if this terminal is closed, and it needs
-# no click and no key to do so.
-/usr/bin/nohup /bin/sh -c "/bin/sleep $seconds; /bin/kill -9 $pid" >/dev/null 2>&1 &
+# no click and no key to do so. By pid, and then by name as well: a copy opened again during the drill has
+# another pid, and the switch is for whichever copy is holding the Mac up.
+/usr/bin/nohup /bin/sh -c '/bin/sleep "$1"; /bin/kill -9 "$2"; /usr/bin/pkill -9 -x "$3"' \
+  drill "$seconds" "$pid" "$name" >/dev/null 2>&1 &
 
 echo "dead-man's switch armed: $name (pid $pid) is killed in $seconds s, whatever happens." >&2
 echo "do the drill now. If the Mac stops answering, take your hands off and wait for the switch." >&2

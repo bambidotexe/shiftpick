@@ -92,10 +92,12 @@ public struct SystemPageStrings {
     /// try.
     public var clicksWarningStoppedByMacOS: String {
         switch language {
-        case .en: "macOS interrupted \(AppIdentity.name) \(K.breakerTrips) times in a row, so it stopped "
-            + "listening for clicks. Turn \(AppIdentity.name) off and on again on the Selection page."
-        case .fr: "macOS a interrompu \(AppIdentity.name) \(K.breakerTrips) fois de suite, il a donc cessé "
-            + "d'écouter les clics. Désactivez puis réactivez \(AppIdentity.name) sur la page Sélection."
+        case .en: "macOS interrupted \(AppIdentity.name) \(K.breakerTrips) times in "
+            + "\(Int(K.breakerWindow)) seconds, so it stopped listening for clicks. Turn "
+            + "\(AppIdentity.name) off and on again on the Selection page."
+        case .fr: "macOS a interrompu \(AppIdentity.name) \(K.breakerTrips) fois en "
+            + "\(Int(K.breakerWindow)) secondes, il a donc cessé d'écouter les clics. Désactivez puis "
+            + "réactivez \(AppIdentity.name) sur la page Sélection."
         }
     }
 

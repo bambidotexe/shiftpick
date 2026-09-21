@@ -12,8 +12,9 @@ import Foundation
 /// - **It is enabled only while ⇧ Shift is held**, or while a press it swallowed is still waiting for its
 ///   release. With no finger on the key there is no enabled click tap for a revoked grant, a hung thread or a
 ///   sleeping Mac to go wrong with.
-/// - **Arming asks first.** A live answer about the grant, no older than `K.trustFreshness`, or nothing is
-///   enabled.
+/// - **Arming asks first.** A live answer about the grant, no older than `K.trustFreshness` and asked after
+///   the grant was last put in doubt, or nothing is enabled. **So does creating the taps**, except in a
+///   process that has only just started, which reads the grant as it is.
 /// - **A tap macOS disabled is never enabled again by the event that says so.** macOS disables a tap that
 ///   stopped answering; that is the system's own safety net, and enabling the tap again from the callback
 ///   cuts a hole in it. The next ⇧ Shift press arms again, through the same question as any other, and
@@ -59,8 +60,10 @@ public struct TapLifecycle: Equatable, Sendable {
     public enum LogLevel: Equatable, Sendable { case debug, notice, error }
 
     public enum Event: Equatable, Sendable {
-        /// Launch, the grant arriving, a poll that finds the grant in place. Does nothing while the taps exist,
-        /// **and nothing while the breaker is open**: none of those is somebody asking for another try.
+        /// Launch, the grant arriving, a poll that finds the grant in place. `trusted` is the cached answer,
+        /// which only a process that has just started may create taps on: after that it asks a live question
+        /// first. Does nothing while the taps exist, **and nothing while the breaker is open**: none of those
+        /// is somebody asking for another try.
         case start(trusted: Bool)
         /// The user asking for another try after the breaker opened, and the only thing that closes it.
         case tryAgain(trusted: Bool)
@@ -80,8 +83,9 @@ public struct TapLifecycle: Equatable, Sendable {
         case pressDecided(number: Int64, swallowed: Bool)
         case releaseSeen(number: Int64)
         case tapDisabledBySystem(Tap, DisableReason)
-        /// The look kept while armed, with what the executor read for it.
-        case watchdog(shiftDown: Bool, buttonDown: Bool, trusted: Bool)
+        /// The look kept while armed, with what the hardware says about the key and the button. The grant is
+        /// not in it: the live question this asks carries that, from a thread nobody's click is waiting on.
+        case watchdog(shiftDown: Bool, buttonDown: Bool)
         case suspend
         case resume(trusted: Bool)
         /// The Settings switch.
@@ -115,7 +119,14 @@ public struct TapLifecycle: Equatable, Sendable {
     public private(set) var phase: Phase = .off(.notStarted)
 
     private var userEnabled: Bool
-    private var shiftIsDown = false
+    /// ⇧ Shift is down with neither ⌥ Option nor ⌃ Control: the one state of the modifier keys in which the
+    /// click tap has any business being enabled.
+    private var keysAskForIt = false
+    /// The Mac is asleep, locked, or showing another user's session. Remembered whatever the phase is, so
+    /// that taps created meanwhile arm nothing either.
+    private var isAway = false
+    /// A `start` is waiting for a live answer before it creates anything.
+    private var startIsWaiting = false
     /// The event number of a press that was swallowed and whose release has not come. macOS gives a press
     /// and its release the same number, which is what makes the release recognisable.
     private var outstandingPress: Int64?
@@ -169,39 +180,46 @@ public struct TapLifecycle: Equatable, Sendable {
         case .start(let trusted):
             // An open breaker is not something a launch, a grant or a poll gets to close: `tryAgain` does.
             guard case .off(let reason) = phase, reason != .breakerOpen else { return [] }
-            return begin(trusted: trusted)
+            return begin(trusted: trusted, justLaunched: reason == .notStarted)
 
         case .tryAgain(let trusted):
             guard phase == .off(.breakerOpen) else { return [] }
-            return begin(trusted: trusted) + [.log(.notice, "another try was asked for; the breaker is closed")]
+            trips = []
+            return begin(trusted: trusted, justLaunched: false)
+                + [.log(.notice, "another try was asked for; the breaker is closed")]
 
         case .tapsCreated(let created):
             guard case .off = phase else { return [] }
+            // Whichever answer led here, no start is waiting for one any more.
+            startIsWaiting = false
             guard created else {
+                // Said once. Whoever keeps asking, the wizard's poll for one, hears nothing new.
+                let alreadySaid = phase == .off(.refused)
                 phase = .off(.refused)
-                return [.log(.error, "macOS would not create the event taps although the grant reads as given")]
+                return alreadySaid ? [] : [.log(.error, "macOS would not create the event taps although the grant is in place")]
             }
-            phase = .idle
-            trips = []
-            trustVerifiedAt = nil
+            // The trips are not forgotten: losing the grant and getting it back is not somebody asking for
+            // another try. They lapse on their own after `K.breakerWindow`.
+            phase = isAway ? .suspended : .idle
+            forgetTrust()
             sentinelIsDown = false
             outstandingPress = nil
             return [.log(.notice, "listening for ⇧ Shift; the click tap exists and is disabled")]
 
         case .modifiers(let shift, let optionOrControl):
-            shiftIsDown = shift
+            keysAskForIt = shift && !optionOrControl
             switch phase {
-            case .idle where shift && !optionOrControl && userEnabled && !sentinelIsDown:
+            case .idle where keysAskForIt && userEnabled && !sentinelIsDown:
                 if let verified = trustVerifiedAt, (0...K.trustFreshness).contains(now - verified) {
                     return arm(now: now)
                 }
                 phase = .arming
                 return [askAboutTheGrant()]
-            case .arming where !shift:
+            case .arming where !keysAskForIt:
                 phase = .idle
                 probeGeneration += 1
                 return []
-            case .armed where !shift && outstandingPress == nil:
+            case .armed where !keysAskForIt && outstandingPress == nil:
                 return disarm()
             default:
                 return []
@@ -210,19 +228,35 @@ public struct TapLifecycle: Equatable, Sendable {
         case .trustProbe(let verdict, let generation):
             switch verdict {
             case .revoked:
+                guard tapsExist else {
+                    // Whatever was being waited for, the answer is that there is no grant.
+                    if startIsWaiting || phase == .off(.refused) { phase = .off(.needsPermission) }
+                    startIsWaiting = false
+                    return []
+                }
                 return loseTheGrant("a live Accessibility request was refused")
             case .trusted:
-                guard generation == probeGeneration, tapsExist else { return [] }
+                guard generation == probeGeneration else { return [] }
+                guard tapsExist else {
+                    guard startIsWaiting else { return [] }
+                    startIsWaiting = false
+                    return [.createTaps]
+                }
                 trustVerifiedAt = now
                 var effects: [Effect] = []
                 if sentinelIsDown {
                     sentinelIsDown = false
                     effects.append(.enableSentinel)
                 }
-                if phase == .arming { effects += arm(now: now) }
+                // The keys are asked again, not remembered: they may have moved while the answer was fetched.
+                if phase == .arming { effects += keysAskForIt && userEnabled ? arm(now: now) : stopArming() }
                 return effects
             case .unknown:
                 guard generation == probeGeneration else { return [] }
+                if startIsWaiting {
+                    startIsWaiting = false
+                    return [.log(.notice, "nothing created: nobody answered the question about the grant")]
+                }
                 switch phase {
                 case .arming:
                     phase = .idle
@@ -238,24 +272,34 @@ public struct TapLifecycle: Equatable, Sendable {
             switch (verdict, phase) {
             case (.revoked, _) where tapsExist:
                 return loseTheGrant("the grant read as gone when it was looked at again")
+            case (.revoked, .off(.refused)):
+                // macOS refused the taps with the grant reading as given. It is not given.
+                phase = .off(.needsPermission)
+                return []
             case (.trusted, .off(.needsPermission)), (.trusted, .off(.refused)):
                 return [.createTaps]
-            case (.trusted, _) where tapsExist && sentinelIsDown:
-                sentinelIsDown = false
-                return [.enableSentinel]
+            case (.trusted, _) where tapsExist:
+                return bringTheSentinelBack()
+            case (.unknown, _) where tapsExist:
+                // A listener holds nothing up, so nobody answering is no reason to keep it off for good.
+                return bringTheSentinelBack()
             default:
                 return []
             }
 
         case .trustNotification:
-            trustVerifiedAt = nil
+            forgetTrust()
             switch phase {
             case .armed:
                 // The tap first, the question after: the other order leaves it enabled while the answer is
-                // fetched.
-                outstandingPress = nil
-                phase = .arming
-                return [.disableClickTap, .stopWatchdog, askAboutTheGrant(), .recheckTrustSoon]
+                // fetched. And the question only on behalf of keys that still ask for it: a tap that was only
+                // still armed for the release of a swallowed press has nothing to be armed again for.
+                var effects = disarm()
+                if keysAskForIt && userEnabled {
+                    phase = .arming
+                    effects.append(askAboutTheGrant())
+                }
+                return effects + [.recheckTrustSoon]
             case .arming:
                 return [askAboutTheGrant(), .recheckTrustSoon]
             case .idle, .suspended, .off(.needsPermission), .off(.refused):
@@ -275,17 +319,17 @@ public struct TapLifecycle: Equatable, Sendable {
         case .releaseSeen(let number):
             guard outstandingPress == number else { return [] }
             outstandingPress = nil
-            return phase == .armed && !shiftIsDown ? disarm() : []
+            return phase == .armed && !keysAskForIt ? disarm() : []
 
         case .tapDisabledBySystem(let tap, let reason):
             guard tapsExist else { return [] }
             return tripped(tap, reason, now: now)
 
-        case .watchdog(let shiftDown, let buttonDown, let trusted):
+        case .watchdog(let shiftDown, let buttonDown):
+            // What the hardware says about the key is believed whatever the phase is.
+            if !shiftDown { keysAskForIt = false }
             guard phase == .armed else { return [.stopWatchdog] }
-            guard trusted else { return loseTheGrant("AXIsProcessTrusted answered false while armed") }
             if !shiftDown && !(outstandingPress != nil && buttonDown) {
-                shiftIsDown = false
                 return disarm() + [.log(.notice, "disarmed: ⇧ Shift is up and its release was never heard")]
             }
             if now - lastActivity > K.armedIdleLimit {
@@ -294,17 +338,20 @@ public struct TapLifecycle: Equatable, Sendable {
             return [askAboutTheGrant()]
 
         case .suspend:
+            isAway = true
             guard tapsExist, phase != .suspended else { return [] }
             let effects = phase == .armed ? disarm() : []
-            probeGeneration += 1
+            forgetTrust()
             phase = .suspended
             return effects
 
         case .resume(let trusted):
+            isAway = false
             guard phase == .suspended else { return [] }
             guard trusted else { return loseTheGrant("the grant was gone when the Mac came back") }
             phase = .idle
-            trustVerifiedAt = nil
+            // A Mac that has been away is the one place a grant can have moved with nothing heard.
+            forgetTrust()
             sentinelIsDown = false
             return [.enableSentinel]
 
@@ -333,12 +380,38 @@ public struct TapLifecycle: Equatable, Sendable {
     // MARK: - The few moves everything above is made of
 
     /// From an `off` phase only. Without the grant nothing is created, and the phase says why.
-    private mutating func begin(trusted: Bool) -> [Effect] {
+    ///
+    /// **`trusted` is the cached answer, and only a process that has just started may build on it.** Such a
+    /// process reads the grant as it is. One that has been running may still be reading the answer from
+    /// before the grant was taken away, and a tap that can swallow is born enabled: so after a loss, a
+    /// refusal or an open breaker, a live answer is fetched first and `createTaps` comes out of that.
+    private mutating func begin(trusted: Bool, justLaunched: Bool) -> [Effect] {
         guard trusted else {
             phase = .off(.needsPermission)
+            startIsWaiting = false
             return []
         }
-        return [.createTaps]
+        guard !justLaunched else { return [.createTaps] }
+        startIsWaiting = true
+        return [askAboutTheGrant()]
+    }
+
+    /// Whatever vouched for the grant no longer does, and neither does any answer still on its way: it was
+    /// asked before the doubt.
+    private mutating func forgetTrust() {
+        trustVerifiedAt = nil
+        probeGeneration += 1
+    }
+
+    private mutating func stopArming() -> [Effect] {
+        phase = .idle
+        return []
+    }
+
+    private mutating func bringTheSentinelBack() -> [Effect] {
+        guard sentinelIsDown else { return [] }
+        sentinelIsDown = false
+        return [.enableSentinel]
     }
 
     /// A new question, which makes every answer still on its way an answer to an older one.
@@ -355,8 +428,9 @@ public struct TapLifecycle: Equatable, Sendable {
         return [.enableClickTap, .startWatchdog, .log(.debug, "armed")]
     }
 
-    /// From `armed` only. A press still waiting for its release is forgotten with it: the release goes to
-    /// Finder, which never saw the press and does nothing with it.
+    /// From `armed` only. A press still waiting for its release is forgotten with it, so that release reaches
+    /// Finder, which applies its own ⇧ Shift toggle to the clicked file: a selection one file short, in the
+    /// rare moment a tap has to go while a button is down, and the price of never leaving it enabled.
     private mutating func disarm() -> [Effect] {
         phase = .idle
         outstandingPress = nil
@@ -368,7 +442,9 @@ public struct TapLifecycle: Equatable, Sendable {
         var effects = phase == .armed ? disarm() : []
         effects.append(.destroyTaps)
         phase = .off(.needsPermission)
-        probeGeneration += 1
+        startIsWaiting = false
+        sentinelIsDown = false
+        forgetTrust()
         effects.append(.log(.error, "the Accessibility grant is gone (\(why)); both taps destroyed"))
         return effects
     }
@@ -378,7 +454,7 @@ public struct TapLifecycle: Equatable, Sendable {
     private mutating func tripped(_ tap: Tap, _ reason: DisableReason, now: TimeInterval) -> [Effect] {
         trips = trips.filter { (0..<K.breakerWindow).contains(now - $0) } + [now]
         // A tap that stopped answering is what a revoked grant looks like from the inside.
-        trustVerifiedAt = nil
+        forgetTrust()
         var effects: [Effect] = []
         if phase == .armed { effects += disarm() } else if tap == .click { effects.append(.disableClickTap) }
         if phase == .arming { phase = .idle }

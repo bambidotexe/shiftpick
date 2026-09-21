@@ -36,9 +36,12 @@ public enum UpdateInstaller {
 
     /// Writes the helper next to the update and starts it on its own: it waits for this process to exit.
     /// The helper's pid, for `stop`. **Refused before anything is written** unless the plan is safe against
-    /// the folder the script itself is in, which is the app's updates folder.
-    public static func start(_ plan: UpdateInstallPlan, script: URL) throws -> Int32 {
-        guard plan.isSafe(updatesDirectory: script.deletingLastPathComponent()) else {
+    /// the folder the script itself is in, which is the app's updates folder, and what it replaces is the
+    /// bundle this process is running out of and no other.
+    public static func start(_ plan: UpdateInstallPlan, script: URL,
+                             bundle: URL = Bundle.main.bundleURL) throws -> Int32 {
+        guard plan.destination.standardizedFileURL.path == bundle.standardizedFileURL.path,
+              plan.isSafe(updatesDirectory: script.deletingLastPathComponent()) else {
             Log.update.error("the install helper was not started: the plan names a path outside the updates folder, or one that is not an app bundle")
             throw UnsafePlan()
         }

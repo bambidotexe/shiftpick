@@ -135,9 +135,18 @@ role descriptions beside them.
   that is **created disabled and enabled only while ⇧ Shift is held**. A tap is born enabled, so the click
   tap is disabled in the line after it is created, before its source is on any run loop.
 - **A listening tap on `flagsChanged` needs no second permission**: the Accessibility grant covers it, which
-  is how `snappy-snap` has always run the same tap. Both taps are only created once the grant reads as given:
-  a tap that listens to the keyboard, asked for without it, is reported to make macOS offer Input Monitoring
-  instead, and that is a prompt this app never wants on screen.
+  is how `snappy-snap` has always run the same tap. A tap that listens to the keyboard, asked for without the
+  grant, is reported to make macOS offer Input Monitoring instead, and that is a prompt this app never wants
+  on screen. **So both taps are only created on a live answer**, the launch apart: the cached answer is the
+  one that goes on saying yes after the grant has gone, which is exactly when a tap would be asked for
+  without it.
+- **Blocks handed to a run loop from inside a Mach-port callback run before the next port message is
+  served.** Measured on macOS 27 with plain Mach ports, both messages already queued: 600 rounds on one port
+  and on two, no exception, blocks queued by blocks included. It is what lets a tap's callback answer the
+  event in hand first and change the tap's state afterwards, with nothing heard in between.
+- **An accessory app with no window on screen is one macOS may nap, and a napped process has its timers put
+  off.** `ClickGuard` holds a `latencyCritical` activity for exactly as long as the click tap is enabled,
+  which is the one stretch in which a timer of this app matters to anybody else.
 - Creating them needs the Accessibility grant. When it is missing, `tapCreate` returns nil, which is the
   only signal there is; the app says so on the System page rather than going quiet.
 - The callbacks run on **a thread of their own** (`TapThread`), because a tap is answered by whichever run
@@ -166,8 +175,11 @@ converted anywhere, and no Cocoa rectangle ever reaches the click path.
 
 ## The permission
 
-- **`AXIsProcessTrusted()` is an answer the system keeps for the process, not a live one.** It is right at
-  launch. It lags the notification that says the grant moved, and it has been reported to go on saying yes
+- **`AXIsProcessTrusted()` is an answer the system keeps for the process, not a live one.** Measured on
+  macOS 27: the first call in a process is a 13.7 ms round trip to `tccd` with no timeout, and the next 2,000
+  average 0.68 µs, a read of something already in the process. **So it is never called on the thread that
+  serves the taps**: the call that refills that cache comes around a change to the privacy database, which is
+  exactly when the grant is moving. It is right at launch. It lags the notification that says the grant moved, and it has been reported to go on saying yes
   after the grant was taken away, above all when the app is removed from the list with the minus button
   rather than switched off. Windows may show it; **nothing that enables an event tap relies on it alone.**
 - **A real request is refused the moment the grant is gone**: any Accessibility call comes back

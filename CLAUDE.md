@@ -117,7 +117,7 @@ make release     # skill: macos-publish-release. The same, plus tag, push, GitHu
 
 - `swift build` — the three code targets and the probe. **This is the truth**; editor diagnostics are
   frequently stale.
-- `swift test` — two bundles, and **one summary line each: count two.** `ShiftPickCoreTests` (194) runs in
+- `swift test` — two bundles, and **one summary line each: count two.** `ShiftPickCoreTests` (210) runs in
   about three seconds; `ShiftPickPlatformTests` (29) spawns real subprocesses and threads and takes a moment
   longer.
   `swift test --filter <SuiteName>` runs one suite.
@@ -213,8 +213,10 @@ the log.
 - **A tap macOS disabled is never enabled by the event that says so.** That is the system's own safety net,
   and the callback that cut it is what cost a hard reboot (`docs/pitfalls.md` 13). What comes back is the
   next ⇧ Shift press, asked about like any other.
-- **`AXIsProcessTrusted()` never keeps a tap enabled on its own.** It is a cached answer and has been seen
-  to be wrong. Arming asks `Permissions.liveVerdict`; windows may show the cached one.
+- **`AXIsProcessTrusted()` never keeps a tap enabled on its own, never creates one after launch, and is
+  never called on the taps' thread.** It is a cached answer and has been seen to be wrong, and the call that
+  refills it is a round trip with no timeout. Arming and creating ask `Permissions.liveVerdict`, on the
+  worker; windows may show the cached one.
 - **A helper that deletes is only ever pointed at what is provably ShiftPick's own.** Its paths are glued
   together from strings the bundle supplied, and an identifier that came back empty turns
   `~/Library/Caches/<identifier>` into the user's whole Caches folder. `Core/PathRules` asks first; nothing
@@ -276,11 +278,11 @@ the log.
 
 ## Status
 
-`swift build` is clean and `swift test` is green (194 + 29) at this commit. The app target has no automated
+`swift build` is clean and `swift test` is green (210 + 29) at this commit. The app target has no automated
 tests; `docs/manual-test-checklist.md` is its verification.
 
 **What is proven and what is not, about the safety model.** The rules are proven: `TapLifecycle` is a value,
-and its 61 scenarios and 80,000 seeded events run on every `swift test`, as do the click's deadline and the
+and its 77 scenarios and 80,000 seeded events run on every `swift test`, as do the click's deadline and the
 taps' thread. **The taps themselves have not been exercised since they were rewritten**: `ClickGuard` cannot
 run in a test, because a test runner has no Accessibility grant to create a tap with. Until `docs/manual-test-checklist.md`
 §9 has been walked on an installed build, drill included, that layer is code that compiles and has been
@@ -288,6 +290,11 @@ read, not code that has been seen working.
 
 Known limitations, in plain words:
 
+- **The first ⇧ Shift click can be Finder's.** Arming happens when the key goes down and takes a live answer
+  from the Dock, about a millisecond. A click faster than that, a Dock that takes more than 50 ms to answer,
+  or a key press the sentinel never hears (a password field has the keyboard) leaves that one click to Finder,
+  which adds one file; the press itself arms for the next. Never the other way round: nothing is ever
+  swallowed on a guess.
 - **The safety drill has not been run.** `docs/manual-test-checklist.md` §9 takes the grant away from a running app behind a
   dead-man's switch, and what it measures (which of the four ways notices first, how long it takes, whether
   `tccutil` reaches a running process) is still reported by others rather than read on this Mac.

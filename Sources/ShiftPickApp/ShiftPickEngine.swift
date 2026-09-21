@@ -63,7 +63,7 @@ final class ShiftPickEngine: ObservableObject {
         status.deliver = { [weak self] new in
             MainActor.assumeIsolated { self?.statusChanged(to: new) }
         }
-        resolver.onGrantLost = { [clickGuard] in clickGuard.trustWasLost() }
+        resolver.onGrantLost = { [weak clickGuard] in clickGuard?.trustWasLost() }
         resolver.update(store.settings)
 
         // The kill switch is a flag the sentinel reads, so turning ShiftPick off takes effect on the next
@@ -115,8 +115,9 @@ final class ShiftPickEngine: ObservableObject {
     /// disarmed first and the grant is asked about afterwards, a few times over a few seconds.
     func trustMayHaveChanged() { clickGuard.trustMayHaveChanged() }
 
-    /// A cheap look, for a poll that is running anyway: the onboarding wizard's. It starts the listener when
-    /// the grant has arrived and takes it down when the grant reads as gone.
+    /// A cheap look, for a poll that is running anyway: the onboarding wizard's. It asks for a start when the
+    /// grant reads as given, which after a loss creates nothing until a live answer agrees, and takes the
+    /// listener down when the grant reads as gone.
     func refreshTrust() {
         if Permissions.accessibilityGranted { clickGuard.start() } else { clickGuard.trustWasLost() }
     }

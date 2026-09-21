@@ -22,10 +22,11 @@ import ShiftPickCore
 ///   the key, no enabled tap of the dangerous kind exists for a revoked grant, a hung thread or a sleeping
 ///   Mac to go wrong with.
 ///
-/// **This class decides nothing.** `ShiftPickCore.TapLifecycle` decides, from values alone, and hands back
-/// effects; this does what they say, in the order they are given, and reports what the system did. The one
-/// rule it carries itself is in `clickHeard`: a tap the system disabled is reported and **never enabled
-/// there**.
+/// **This class decides nothing about when a tap is enabled.** `ShiftPickCore.TapLifecycle` decides, from
+/// values alone, and hands back effects; this does what they say, in the order they are given, and reports
+/// what the system did. What it carries itself is what only it can see: which press is ShiftPick's to decide
+/// (`clickHeard`), that a tap the system disabled is reported and **never enabled there**, that a tap which
+/// would not enable is one more trip, and that nothing is created once `shutDown` has been called.
 ///
 /// Both taps are served by `TapThread`, which does nothing else, and every tap, timer and lifecycle change
 /// happens on it. **No Accessibility call is ever made on that thread**: the question a click asks goes to
@@ -72,6 +73,13 @@ public final class ClickGuard: @unchecked Sendable {
 
     /// The same two ports, where a teardown that cannot wait for the tap's thread can reach them.
     private let ports = OSAllocatedUnfairLock(uncheckedState: Ports())
+    /// Set by `shutDown`, from whichever thread it ran on, and never cleared: no tap is created after it,
+    /// whatever the lifecycle believes. It is what holds when the taps' thread was too stuck to be told.
+    private let isShutDown = OSAllocatedUnfairLock(initialState: false)
+    /// Held while the click tap is enabled and for no longer. An accessory app with no window on screen is
+    /// one macOS is free to nap, and a napped process has its timers put off: the watch below is a timer, and
+    /// the one state it exists for is the one in which the Mac's clicks are waiting on this process.
+    private var armedActivity: NSObjectProtocol?
 
     public init(userEnabled: Bool, hooks: Hooks) {
         self.hooks = hooks
@@ -129,11 +137,17 @@ public final class ClickGuard: @unchecked Sendable {
     /// **Returns once no tap exists**, and is what runs before anything that takes the grant, the bundle or
     /// the process away: an uninstall, an update, a quit. It asks the tap's thread and waits
     /// `K.shutDownWait`; a thread that does not answer by then is not coming back, so the ports are disabled
-    /// and invalidated from here instead, which the window server honours from any thread.
+    /// and invalidated from here instead, which the window server honours from any thread. A block the
+    /// thread has already started is waited for to its end, and this one waits on nothing: it disables,
+    /// invalidates and stops timers.
     public func shutDown() {
+        isShutDown.withLock { $0 = true }
         if thread.performAndWait(timeout: K.shutDownWait, { [weak self] in self?.feed(.terminate) }) { return }
         Log.click.error("the taps' thread did not answer in \(K.shutDownWait, privacy: .public) s; taps destroyed from the calling thread")
         destroyFromAnyThread()
+        // Should that thread come back, the lifecycle still has to hear that it is over. `isShutDown` is what
+        // holds until it does, and if it never does.
+        thread.perform { [weak self] in self?.feed(.terminate) }
     }
 
     // MARK: - The lifecycle, on the tap's thread
@@ -165,10 +179,15 @@ public final class ClickGuard: @unchecked Sendable {
             destroyTaps()
         case .enableClickTap:
             guard let click else { return }
+            guard !isShutDown.withLock({ $0 }) else { return }
             CGEvent.tapEnable(tap: click, enable: true)
             // A tap that stays disabled when it is asked not to be is what a grant that has just gone looks
-            // like from this side. It counts as one more time the system took it away.
-            if !CGEvent.tapIsEnabled(tap: click) { feed(.tapDisabledBySystem(.click, .wouldNotEnable)) }
+            // like from this side. It counts as one more time the system took it away, and it is heard once
+            // this callback has returned: the third of them destroys both taps, and arming can come out of the
+            // sentinel's own callback.
+            if !CGEvent.tapIsEnabled(tap: click) {
+                feedAfterThisCallback(.tapDisabledBySystem(.click, .wouldNotEnable))
+            }
         case .disableClickTap:
             if let click { CGEvent.tapEnable(tap: click, enable: false) }
         case .enableSentinel:
@@ -180,8 +199,7 @@ public final class ClickGuard: @unchecked Sendable {
         case .recheckTrustSoon:
             scheduleRechecks()
         case .startWatchdog:
-            // `enableClickTap` just before it may have found the tap refusing, and disarmed.
-            if lifecycle.phase == .armed { startWatchdog() }
+            startWatchdog()
         case .stopWatchdog:
             stopWatchdog()
         case .report(let status):
@@ -204,6 +222,7 @@ public final class ClickGuard: @unchecked Sendable {
 
     /// Both or neither. False is what a missing grant looks like, and it is the only signal there is.
     private func createTaps() -> Bool {
+        guard !isShutDown.withLock({ $0 }) else { return false }
         let owner = Unmanaged.passUnretained(self).toOpaque()
         guard let sentinel = CGEvent.tapCreate(
             tap: .cgSessionEventTap, place: .headInsertEventTap,
@@ -237,11 +256,22 @@ public final class ClickGuard: @unchecked Sendable {
         // way until the lifecycle says ⇧ Shift is down and the grant has just been vouched for.
         CGEvent.tapEnable(tap: click, enable: false)
 
+        // A tap whose port is on no run loop is a tap nobody answers: every click routed to it would stall
+        // until the system's timeout, and the notice that it had been disabled would arrive through the same
+        // unanswered port. So a source that cannot be made takes both taps with it.
+        var made: [CFRunLoopSource] = []
         for port in [sentinel, click] {
-            guard let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, port, 0) else { continue }
-            CFRunLoopAddSource(thread.cfRunLoop, source, .commonModes)
-            sources.append(source)
+            guard let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, port, 0) else { break }
+            made.append(source)
         }
+        guard made.count == 2 else {
+            CGEvent.tapEnable(tap: sentinel, enable: false)
+            CFMachPortInvalidate(click)
+            CFMachPortInvalidate(sentinel)
+            return false
+        }
+        for source in made { CFRunLoopAddSource(thread.cfRunLoop, source, .commonModes) }
+        sources = made
         CGEvent.tapEnable(tap: sentinel, enable: true)
         self.sentinel = sentinel
         self.click = click
@@ -349,25 +379,33 @@ public final class ClickGuard: @unchecked Sendable {
 
     // MARK: - The watch kept while armed, and the looks after a notification
 
-    /// A timer that exists only while the click tap is enabled. It asks the hardware, not the event stream,
-    /// whether ⇧ Shift is still down: a stream that has stalled is exactly when the key's release would
-    /// never be heard.
+    /// A timer that exists only while the click tap is enabled. It asks the system, not the event stream,
+    /// whether ⇧ Shift is still down: a release the sentinel never heard is otherwise a tap left enabled.
     private func startWatchdog() {
         stopWatchdog()
+        armedActivity = ProcessInfo.processInfo.beginActivity(
+            options: [.userInitiatedAllowingIdleSystemSleep, .latencyCritical],
+            reason: "the click tap is enabled")
         let interval = K.armedWatchInterval
         guard let timer = CFRunLoopTimerCreateWithHandler(
             kCFAllocatorDefault, CFAbsoluteTimeGetCurrent() + interval, interval, 0, 0, { [weak self] _ in
             guard let self else { return }
             let hardware = CGEventSource.flagsState(.hidSystemState)
             let session = CGEventSource.flagsState(.combinedSessionState)
-            // Either is enough: keys pressed by another Mac through a sharing tool never reach the hardware
-            // state, and a stalled session never updates its own.
+            // Down if either says so. A key held on another Mac through a sharing tool never reaches the
+            // hardware state, so that state alone would disarm under everybody who works that way. The price
+            // is a session that has stalled and still says down: that case is left to the live question this
+            // same look asks, and under it to the system's own timeout.
             let shiftDown = hardware.contains(.maskShift) || session.contains(.maskShift)
             let buttonDown = CGEventSource.buttonState(.hidSystemState, button: .left)
                 || CGEventSource.buttonState(.combinedSessionState, button: .left)
-            self.feed(.watchdog(shiftDown: shiftDown, buttonDown: buttonDown,
-                                trusted: Permissions.accessibilityGranted))
-        }) else { return }
+            self.feed(.watchdog(shiftDown: shiftDown, buttonDown: buttonDown))
+        }) else {
+            // No watch, no armed tap: reported as a key that is up, which is what disarms.
+            Log.click.error("the watch over the armed tap could not be created; disarming")
+            feedAfterThisCallback(.watchdog(shiftDown: false, buttonDown: false))
+            return
+        }
         CFRunLoopAddTimer(thread.cfRunLoop, timer, .commonModes)
         watchdog = timer
     }
@@ -375,6 +413,8 @@ public final class ClickGuard: @unchecked Sendable {
     private func stopWatchdog() {
         if let watchdog { CFRunLoopTimerInvalidate(watchdog) }
         watchdog = nil
+        if let armedActivity { ProcessInfo.processInfo.endActivity(armedActivity) }
+        armedActivity = nil
     }
 
     /// A few looks after an event, and then nothing: never a poll.

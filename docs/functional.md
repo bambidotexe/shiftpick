@@ -22,16 +22,26 @@ ShiftPick holds **two session event taps**, and they are not alike.
   swallowed is still waiting for its release. With no finger on ⇧ Shift, no click on the Mac passes through
   ShiftPick at all.
 
+**Both taps are created on a live answer about the grant, never on the cached one alone.** The one
+exception is the launch itself: a process that has just started reads the grant as it is. After that, a start
+asked for by a grant that seems to have arrived, by the wizard's poll or by another try first asks the live
+question of step 3 below, and creates nothing unless the answer is yes. A tap macOS refuses to create is said
+once in the log, however often it is asked for again.
+
 **Arming**, when ⇧ Shift goes down:
 
 1. **The kill switch is read first.** With *Enable ShiftPick* off nothing is armed, every click goes straight
    to the system, and no anchor is looked for. It takes effect on the next press of ⇧ Shift, not on the next
    launch.
-2. **⌥ Option or ⌃ Control held with it arms nothing**: both mean something else in Finder, and neither is
-   ShiftPick's to take.
+2. **⌥ Option or ⌃ Control held with it arms nothing, and pressing either while armed disarms**: both mean
+   something else in Finder, and neither is ShiftPick's to take. Letting go of it with ⇧ Shift still down arms
+   again.
 3. **The grant is asked about first, live.** A real Accessibility request is made of the Dock, and an answer
-   no older than **`K.trustFreshness` (2 s)** is reused, so a burst of capital letters asks once. A refusal
-   takes both taps down (§7). No answer within **`K.trustProbeTimeout` (50 ms)** arms nothing.
+   no older than **`K.trustFreshness` (2 s)** is reused, so a burst of capital letters asks once. **An answer
+   only counts if it was asked after the grant was last put in doubt**: a privacy notification, a tap macOS
+   took away and a Mac coming back each make every answer still on its way worthless. A refusal takes both
+   taps down (§7). No answer within **`K.trustProbeTimeout` (50 ms)** arms nothing, and the keys are looked
+   at again when the answer comes: a key let go meanwhile arms nothing.
 4. The click tap is enabled. Releasing ⇧ Shift disables it again.
 
 While it is armed, a click **with ⇧ Shift and without ⌥ Option or ⌃ Control** is a **⇧ Shift click**, and §2
@@ -46,7 +56,9 @@ application is in front.
 mouse-up, so letting the release through would undo the range on the file that was clicked. macOS gives a
 press and its release the same event number, which is how the release is recognised, and the tap stays armed
 until it has come even if ⇧ Shift is let go first. A press that is let through forgets the one before it, so
-a release that never arrives cannot swallow somebody else's.
+a release that never arrives cannot swallow somebody else's. **When the tap has to go while a button is
+down** (the grant put in doubt, a trip, the Mac going away), the release reaches Finder, which toggles the
+clicked file: a selection one file short, in a rare moment, and the price of never leaving the tap enabled.
 
 **A watch is kept while the tap is armed, and only then.** Every **`K.armedWatchInterval` (0.5 s)** the
 hardware is asked whether ⇧ Shift is still down, the grant is asked about again, and a tap that has been
@@ -59,10 +71,15 @@ stopped answering is the system's own safety net, and it is left whole. The tap 
 which reason it was, the grant is looked at again, and the next press of ⇧ Shift arms it through the same
 questions as any other. **`K.breakerTrips` (3) of these inside `K.breakerWindow` (60 s)** and ShiftPick
 destroys both taps and stops creating them: the menu and Settings › System say so, and turning *Enable
-ShiftPick* off and on again is what asks for another try.
+ShiftPick* off and on again is what asks for another try, which still asks the live question first. Nothing
+else closes it and nothing else starts the count over: not a launch of the wizard, not the grant going and
+coming back.
 
-**Nothing is armed while nobody can be clicking**: the Mac going to sleep, the screen locking, another user's
-session coming forward. Coming back asks about the grant again before anything arms.
+**Nothing is armed while nobody can be clicking**: the Mac asleep, the screen locked, another user's session
+in front. **The reasons are counted**: closing a lid locks and then sleeps, and the wake that follows finds
+the lock screen still up, so each reason is ended by its own notification and nothing arms until none is
+left. Taps created meanwhile arm nothing either. Coming back asks about the grant again before anything
+arms.
 
 **Both taps are destroyed before anything that takes the grant or the process away**: a quit, which is also
 how an update begins (§8, where the helper touches nothing until the process has gone), and an uninstall,
@@ -254,8 +271,8 @@ the bottom right. Its height follows the page around its **top-left** corner: 44
   launch, nothing when a window opens, nothing "once, to get it out of the way": a prompt nobody clicked for
   arrives with no explanation beside it, and macOS remembers a refusal for good. The system's dialog carries
   its own way to the pane, so nothing opens a pane beside it or instead of it after a refusal.
-- **The grant arriving does not close the wizard.** The taps are created the moment it lands, with no
-  relaunch; the row ticks over to *Granted* and the button turns from *Skip* to *Continue*. Closing it is the
+- **The grant arriving does not close the wizard.** The taps are created as soon as a live answer agrees, with
+  no relaunch; the row ticks over to *Granted* and the button turns from *Skip* to *Continue*. Closing it is the
   user's move. It is noticed two ways: the system's `com.apple.accessibility.api` notification, which costs
   nothing while nothing happens and after which the grant is looked at again **`K.trustRecheckDelays` (0.25 s,
   1 s and 3 s)** later, because that notification has been seen to arrive before the answer changes; and the

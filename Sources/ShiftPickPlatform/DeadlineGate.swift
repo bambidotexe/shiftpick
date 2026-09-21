@@ -78,10 +78,10 @@ public final class ClickTicket: @unchecked Sendable {
 
 /// Hands a held click to the worker and waits **so long and no longer**.
 ///
-/// The click path's budget used to be a promise the work made about itself, checked between steps. One
-/// Accessibility call that does not return keeps no promise. Here the budget belongs to the waiter: the tap's
-/// thread sleeps on a semaphore with a timeout, and when that runs out the click goes back to the system
-/// whatever the worker is doing. The worker finds out from its ticket.
+/// **The budget belongs to the waiter, never to the work.** Work that checks its own clock between steps
+/// keeps no promise when one Accessibility call does not return. So the tap's thread sleeps on a semaphore
+/// with a timeout, and when that runs out the click goes back to the system whatever the worker is doing. The
+/// worker finds out from its ticket.
 public final class DeadlineGate: @unchecked Sendable {
     public enum Outcome: Equatable, Sendable {
         case answered(swallow: Bool)

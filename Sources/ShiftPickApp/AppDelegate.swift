@@ -13,6 +13,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var onboarding: OnboardingWindowController?
     private var trustObserver: NSObjectProtocol?
     private var sessionObservers: [(NotificationCenter, NSObjectProtocol)] = []
+    /// Why nobody can be clicking right now. The engine is suspended while this holds anything.
+    private var awayReasons: Set<AwayReason> = []
+
+    private enum AwayReason: String {
+        case asleep, locked, anotherSession
+    }
     private var cancellables: Set<AnyCancellable> = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -163,10 +169,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// nothing happens, which is what "no polling while idle" means here.
     ///
     /// **The notification is a hint, never an answer, and nothing here reads the grant to decide what it
-    /// meant.** It has been seen to arrive before `AXIsProcessTrusted()` changes, and a handler that read the
-    /// old answer once and left is how a revoked grant went unnoticed under an enabled tap. So the engine is
-    /// told every time: it disarms the click tap first, asks a live question, and looks again a few times
-    /// over the next seconds. The wizard's own poll is the second way in, through `grantMayHaveChanged`.
+    /// meant.** It arrives before `AXIsProcessTrusted()` changes, so a handler that reads the grant once and
+    /// leaves sees the answer from before the change. The engine is told every time instead: it disarms the
+    /// click tap first, asks a live question, and looks again a few times over the next seconds. The wizard's
+    /// own poll is the second way in, through `grantMayHaveChanged`.
     private func watchTheGrant() {
         trustObserver = DistributedNotificationCenter.default().addObserver(
             forName: Permissions.trustDidChange, object: nil, queue: .main
@@ -174,12 +180,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             MainActor.assumeIsolated { self?.engine.trustMayHaveChanged() }
         }
         // **The wizard comes back when the grant goes**, unless it is already up. Its row is then the one
-        // place that says what happened and how to put it right.
+        // place that says what happened and how to put it right. From any state that had the grant, not only
+        // from listening: a refusal heard with the breaker open, or after macOS refused the taps, is the same
+        // news. The launch is not in it: `applicationDidFinishLaunching` decides about the wizard itself.
         engine.$status
             .removeDuplicates()
             .scan((TapLifecycle.Status.stopped, TapLifecycle.Status.stopped)) { ($0.1, $1) }
             .sink { [weak self] before, now in
-                guard before == .watching, now == .needsPermission else { return }
+                guard now == .needsPermission, before != .stopped, before != .needsPermission else { return }
                 Log.app.error("the Accessibility permission has been taken away; back to onboarding")
                 if self?.onboarding?.isUp != true { self?.showOnboarding() }
             }
@@ -198,34 +206,47 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - Sleep, the lock screen, another user's session
 
-    /// Nothing is armed while nobody can be clicking: the Mac going to sleep, the screen locking, another
-    /// user's session coming forward. Coming back asks about the grant again before anything arms, because
-    /// a Mac that has been away is the one place a grant can have moved with no notification heard.
+    /// Nothing is armed while nobody can be clicking: the Mac asleep, the screen locked, another user's
+    /// session in front. Coming back asks about the grant again before anything arms, because a Mac that has
+    /// been away is the one place a grant can have moved with no notification heard.
+    ///
+    /// **The reasons are counted, not flagged.** Closing a lid locks the screen and then sleeps; opening it
+    /// wakes the Mac with the lock screen still up. One flag would call that "back" at the wake. Each reason is
+    /// put down by its own notification and by no other, and the engine resumes when none is left.
     private func watchTheSession() {
         let workspace = NSWorkspace.shared.notificationCenter
         let distributed = DistributedNotificationCenter.default()
-        let away: [(NotificationCenter, Notification.Name)] = [
-            (workspace, NSWorkspace.willSleepNotification),
-            (workspace, NSWorkspace.sessionDidResignActiveNotification),
-            (distributed, Notification.Name("com.apple.screenIsLocked")),
+        let pairs: [(NotificationCenter, Notification.Name, Notification.Name, AwayReason)] = [
+            (workspace, NSWorkspace.willSleepNotification, NSWorkspace.didWakeNotification, .asleep),
+            (workspace, NSWorkspace.sessionDidResignActiveNotification,
+             NSWorkspace.sessionDidBecomeActiveNotification, .anotherSession),
+            (distributed, Notification.Name("com.apple.screenIsLocked"),
+             Notification.Name("com.apple.screenIsUnlocked"), .locked),
         ]
-        let back: [(NotificationCenter, Notification.Name)] = [
-            (workspace, NSWorkspace.didWakeNotification),
-            (workspace, NSWorkspace.sessionDidBecomeActiveNotification),
-            (distributed, Notification.Name("com.apple.screenIsUnlocked")),
-        ]
-        for (center, name) in away {
-            let observer = center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
-                MainActor.assumeIsolated { self?.engine.suspend() }
+        for (center, leaving, returning, reason) in pairs {
+            let away = center.addObserver(forName: leaving, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.went(away: reason) }
             }
-            sessionObservers.append((center, observer))
-        }
-        for (center, name) in back {
-            let observer = center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
-                MainActor.assumeIsolated { self?.engine.resume() }
+            let back = center.addObserver(forName: returning, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.came(backFrom: reason) }
             }
-            sessionObservers.append((center, observer))
+            sessionObservers += [(center, away), (center, back)]
         }
+    }
+
+    private func went(away reason: AwayReason) {
+        guard awayReasons.insert(reason).inserted else { return }
+        Log.app.notice("away (\(reason.rawValue, privacy: .public)); nothing arms until it is over")
+        if awayReasons.count == 1 { engine.suspend() }
+    }
+
+    /// A reason that was never heard going is nothing to come back from. A suspension nobody could see the
+    /// end of would be an app that silently does nothing, so each one is said, and so is its end.
+    private func came(backFrom reason: AwayReason) {
+        guard awayReasons.remove(reason) != nil else { return }
+        let left = awayReasons.map(\.rawValue).sorted().joined(separator: ", ")
+        Log.app.notice("back (\(reason.rawValue, privacy: .public))\(left.isEmpty ? "" : "; still away: \(left)", privacy: .public)")
+        if awayReasons.isEmpty { engine.resume() }
     }
 
     // MARK: - Updates

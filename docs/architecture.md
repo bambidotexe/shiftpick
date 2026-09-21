@@ -57,17 +57,20 @@ at that moment**, and then layers what is left:
 |---|---|---|
 | 0 | **The click tap is enabled only while ⇧ Shift is held.** The rest of the time the only live tap is a listener, which the window server never waits for. | A grant revoked, a thread hung, a Mac asleep, at any moment the key is up: nothing is enabled to stall. |
 | 1 | **A tap macOS disabled is never enabled by the event that says so**, and three trips in a minute destroy both taps until another try is asked for. | Everything the layers below miss costs one stalled click, once, and then heals itself. |
-| 2 | **Arming asks first**: a live Accessibility request, answered by the Dock, no older than 2 s. Any call that comes back refused destroys both taps. | `AXIsProcessTrusted()` going on saying yes after the grant has gone. |
+| 2 | **Arming asks first, and so does creating the taps**: a live Accessibility request, answered by the Dock, no older than 2 s and asked after the grant was last put in doubt. Only a process that has just started may create them on the cached answer. Any call that comes back refused destroys both taps. | `AXIsProcessTrusted()` going on saying yes after the grant has gone. |
 | 3 | **The privacy notification disarms before anything is asked**, then the grant is looked at three times over three seconds. | The notification arriving before the answer changes. |
 | 4 | **A watch while armed, and only then**: is ⇧ Shift still down according to the hardware, is the grant still there, has anything been clicked in a minute. | A key release never heard, a key held down by a bag, Sticky Keys. |
-| 5 | **Taps destroyed first** on quit and before an uninstall resets the grant; nothing armed across sleep, the lock screen, another user's session. | The app taking its own grant away. |
+| 5 | **Taps destroyed first** on quit and before an uninstall resets the grant, and nothing created after that whatever the lifecycle believes; nothing armed across sleep, the lock screen, another user's session, each counted apart. | The app taking its own grant away; a lid that locks, sleeps and wakes still locked. |
 | 6 | **The budget is kept by whoever waits.** The taps' thread hands a click to a worker and waits 150 ms. | A Finder, or an Accessibility call, that never answers. |
 
 **The rules are a value.** `Core/TapLifecycle` decides all of layers 0 to 5 from an event and the time, with
-no tap, no thread and no clock in sight, which is what lets every scenario be a unit test: 61 of them by
-name, and a seeded run of 80,000 events in an order nobody would write, after each of which the click tap is
-enabled in exactly one phase. `Platform/ClickGuard` executes what it says, in order, and carries one rule of
-its own: the callback never enables a tap.
+no tap, no thread and no clock in sight, which is what lets every scenario be a unit test: 77 of them by
+name, and a seeded run of 80,000 events in an order nobody would write, after each of which nine sentences
+have to hold: the click tap is enabled in exactly one phase, only ever while the keys ask for it, and taps
+are only ever created on a live answer. `Platform/ClickGuard` executes what it says, in order. What it
+carries itself is what only it can see: which press is ShiftPick's to decide, that the callback never enables
+a tap, that a tap which would not enable is one more trip, and that nothing is created once it has been shut
+down.
 
 ## The click path
 

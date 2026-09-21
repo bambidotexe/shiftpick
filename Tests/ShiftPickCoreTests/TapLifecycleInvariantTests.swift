@@ -66,6 +66,8 @@ final class TapLifecycleInvariantTests: XCTestCase {
         var now: TimeInterval = 0
         var lastGeneration = 0
         var lastStatus = life.status
+        /// What the modifier keys last said: ⇧ Shift down with neither ⌥ Option nor ⌃ Control.
+        var keysAskForIt = false
 
         for step in 0..<steps {
             now += [0, 0.01, 0.4, 3, 70][random.below(5)]
@@ -101,6 +103,20 @@ final class TapLifecycleInvariantTests: XCTestCase {
                 switch event {
                 case .trustProbe(.trusted, _), .modifiers(shift: true, optionOrControl: false): break
                 default: XCTFail("armed by \(event): \(context)")
+                }
+            }
+            // 8. The click tap is never enabled unless the modifier keys last said so: ⇧ Shift down, and
+            //    neither ⌥ Option nor ⌃ Control. A swallowed press keeps it enabled; nothing enables it again.
+            if case .modifiers(let shift, let optionOrControl) = event { keysAskForIt = shift && !optionOrControl }
+            if case .watchdog(false, _) = event { keysAskForIt = false }
+            if effects.contains(.enableClickTap) { XCTAssertTrue(keysAskForIt, context) }
+            // 9. Taps are created on a live answer, or by a process that has only just started and reads the
+            //    grant as it is. Never on the cached answer of one that has been running.
+            if effects.contains(.createTaps) {
+                switch (event, before) {
+                case (.trustProbe(.trusted, _), _), (.trustRecheck(.trusted), _): break
+                case (.start(trusted: true), .off(.notStarted)): break
+                default: XCTFail("taps created by \(event): \(context)")
                 }
             }
             // 6. Every change of status is reported, and nothing else is.
@@ -140,8 +156,7 @@ final class TapLifecycleInvariantTests: XCTestCase {
         case 14, 15: return .releaseSeen(number: Int64(random.below(3)))
         case 16: return .tapDisabledBySystem(random.flip() ? .click : .sentinel,
                                              [.timeout, .userInput, .wouldNotEnable][random.below(3)])
-        case 17, 18: return .watchdog(shiftDown: random.flip(), buttonDown: random.flip(),
-                                      trusted: random.below(8) > 0)
+        case 17, 18: return .watchdog(shiftDown: random.flip(), buttonDown: random.flip())
         case 19: return .suspend
         case 20: return .resume(trusted: random.below(5) > 0)
         case 21: return .userEnabled(random.below(3) > 0)

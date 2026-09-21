@@ -9,6 +9,8 @@ public enum UninstallStep: Sendable, Hashable {
     case loginItem
     case bundleToTrash
     case storedState
+    /// The helper was never started: what it would have removed could not be shown to be this app's own.
+    case storedStateNotProvablyOurs
 }
 
 public struct UninstallFailure: Sendable, Hashable {
@@ -72,7 +74,7 @@ public enum Uninstall {
                 the uninstall helper was not started: \(Paths.appSupport.path, privacy: .public) or \
                 \(AppIdentity.bundleIdentifier, privacy: .public) is not provably this app's own
                 """)
-            return .init(step: .storedState, reason: Loc.settings.general.uninstallRefusedReason)
+            return .init(step: .storedStateNotProvablyOurs, reason: "")
         }
         do {
             try DetachedProcess.spawn(executable: "/bin/sh", arguments: ["-c", script], environment: [:])

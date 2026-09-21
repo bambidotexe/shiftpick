@@ -65,8 +65,13 @@ struct GeneralPage: View {
 
         // **First, and before the grant is touched.** The next line resets the Accessibility grant, and an
         // enabled click tap whose owner has just lost it stalls every click on the Mac, a moment before this
-        // asks for one on its last alert. There is no way back from here, so nothing starts again.
-        (NSApp.delegate as? AppDelegate)?.prepareForRemoval()
+        // asks for one on its last alert. There is no way back from here, so nothing starts again. **An
+        // uninstall that cannot show the taps are gone does not go on to take the grant away.**
+        guard let app = NSApp.delegate as? AppDelegate else {
+            Log.app.error("the uninstall was abandoned: nothing could be asked to destroy the event taps first")
+            return
+        }
+        app.prepareForRemoval()
 
         var failures = Uninstall.removeSystemRegistrations()
         Uninstall.moveBundleToTrash { failure in
@@ -92,6 +97,7 @@ struct GeneralPage: View {
         case .loginItem: return words.uninstallLoginItemFailed(failure.reason)
         case .bundleToTrash: return words.uninstallTrashFailed(failure.reason)
         case .storedState: return words.uninstallHelperFailed(failure.reason)
+        case .storedStateNotProvablyOurs: return words.uninstallHelperFailed(words.uninstallRefusedReason)
         }
     }
 

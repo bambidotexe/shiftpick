@@ -148,7 +148,8 @@ waited for a click on an alert.
 while ⇧ Shift is held; a tap macOS disabled is never enabled by the event that says so; arming asks a live
 question first; the notification disarms before it asks; both taps are destroyed before the uninstall touches
 the grant. `TapLifecycleTests.testATapMacOSDisabledIsNeverReEnabledByThatEvent` is this incident as a test,
-and putting the line back fails 16,000 assertions of `TapLifecycleInvariantTests`.
+and putting the line back fails three of its scenarios and 10,861 assertions of
+`TapLifecycleInvariantTests`.
 
 **Do not measure this by trying it.** `manual-test-checklist.md` §9 is the drill, and it starts a dead-man's switch
 first: `scripts/drill.sh` kills the app after thirty seconds whatever happens to the mouse, and a process
