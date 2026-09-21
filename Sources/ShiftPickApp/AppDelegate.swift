@@ -10,8 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let menuBar = MenuBarController()
 
     private var settingsWindow: SettingsWindow?
-    private var onboarding: OnboardingWindow?
-    private var permissionTimer: Timer?
+    private var onboarding: OnboardingWindowController?
     private var trustObserver: NSObjectProtocol?
     private var cancellables: Set<AnyCancellable> = []
 
@@ -30,12 +29,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menuBar.openSettings = { [weak self] in self?.showSettings() }
         menuBar.setup()
 
-        if Permissions.accessibilityGranted {
-            engine.start()
-            if openedByHand { showSettings() }
-        } else {
-            Permissions.promptForAccessibility()
+        // Nothing here asks for the permission. The wizard's own button is the only thing in the app that
+        // does, because a prompt nobody clicked for arrives with no explanation beside it and macOS remembers
+        // a refusal for good.
+        if Permissions.accessibilityGranted { engine.start() }
+
+        // The wizard on a first run the person started, and on any launch that finds the permission missing,
+        // however the app was launched: without it the app does nothing at all. A login item whose onboarding
+        // was simply never finished still opens no window.
+        if !Permissions.accessibilityGranted || (openedByHand && !store.settings.onboardingCompleted) {
             showOnboarding()
+        } else if openedByHand {
+            showSettings()
         }
         watchTheGrant()
         startUpdates()
@@ -50,11 +55,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// The one way back into Settings once the icon is hidden: opening the bundle again from the
     /// Applications folder or Spotlight while the app is already running fires this rather than
-    /// `applicationDidFinishLaunching`. Onboarding takes precedence while the permission is missing, so a
-    /// fresh install never shows two windows at once. A login item cannot arrive here: it launches a
-    /// process that is not running yet.
+    /// `applicationDidFinishLaunching`. **The wizard takes precedence while it is up**, and again while the
+    /// permission is missing, so a fresh install never shows two windows at once: with no Dock icon,
+    /// `open -b` is the only way the user fetches a window back. A login item cannot arrive here: it launches
+    /// a process that is not running yet.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
-        if Permissions.accessibilityGranted { showSettings() } else { onboarding?.show() }
+        if onboarding?.isUp == true {
+            onboarding?.show()
+        } else if Permissions.accessibilityGranted {
+            showSettings()
+        } else {
+            showOnboarding()
+        }
         return true
     }
 
@@ -73,10 +85,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         settingsWindow?.show()
     }
 
-    private func showOnboarding() {
-        if onboarding == nil { onboarding = OnboardingWindow() }
-        onboarding?.show()
-        startPermissionPoll()
+    /// **A fresh controller every time**, so every row re-reads its state and the walk starts at page one.
+    /// The one already on screen is brought forward instead, rather than replaced under the user.
+    func showOnboarding() {
+        if onboarding?.isUp == true {
+            onboarding?.show()
+            return
+        }
+        let controller = OnboardingWindowController.make(
+            store: store,
+            onFinish: { [weak self] in self?.store.settings.onboardingCompleted = true },
+            grantMayHaveChanged: { [weak self] in self?.grantChanged() })
+        controller.othersNeedUsActive = { [weak self] in
+            self?.settingsWindow?.isUp == true || UpdateController.shared.windowIsUp
+        }
+        onboarding = controller
+        controller.show()
     }
 
     /// An accessory application never shows a menu bar of its own, so nothing here is ever seen. It exists
@@ -120,7 +144,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// The grant given or taken away while the app runs, without a timer and without a relaunch: macOS
     /// posts a distributed notification whenever the privacy database changes. It costs nothing while
-    /// nothing happens, which is what "no polling while idle" means here.
+    /// nothing happens, which is what "no polling while idle" means here. The wizard's own poll is the second
+    /// way in, because this notification has been seen to arrive a moment before the process is really
+    /// trusted; it calls the same method through `grantMayHaveChanged`.
     private func watchTheGrant() {
         trustObserver = DistributedNotificationCenter.default().addObserver(
             forName: Permissions.trustDidChange, object: nil, queue: .main
@@ -129,39 +155,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    /// Called by the notification and by the wizard's poll, and safe to call when nothing has moved: each
+    /// branch leaves at once if the engine is already where the grant says it should be.
+    ///
+    /// **The wizard is not closed when the grant arrives.** Its row ticks over to *Granted* and its button
+    /// turns from *Skip* to *Continue*; closing it is the user's move. A window that vanished the moment the
+    /// permission landed was a window nobody ever read.
     private func grantChanged() {
         if Permissions.accessibilityGranted {
             guard !engine.isWatching else { return }
             Log.app.notice("the Accessibility permission has arrived")
-            stopPermissionPoll()
-            onboarding?.close()
             engine.start()
         } else {
             guard engine.isWatching else { return }
             Log.app.error("the Accessibility permission has been taken away; back to onboarding")
             engine.stop()
-            showOnboarding()
+            if onboarding?.isUp != true { showOnboarding() }
         }
-    }
-
-    /// A second way in, for the case the notification does not cover: the database is written before the
-    /// system decides this process is trusted, and the notification has been seen to arrive a moment early.
-    /// It runs **only while the onboarding window is up** and stops on the first granted answer, which is
-    /// the one timer this app ever arms that is not answering something.
-    private func startPermissionPoll() {
-        guard permissionTimer == nil else { return }
-        permissionTimer = Timer.scheduledTimer(withTimeInterval: K.onboardingPollInterval, repeats: true) {
-            [weak self] _ in
-            MainActor.assumeIsolated {
-                guard let self, Permissions.accessibilityGranted else { return }
-                self.grantChanged()
-            }
-        }
-    }
-
-    private func stopPermissionPoll() {
-        permissionTimer?.invalidate()
-        permissionTimer = nil
     }
 
     // MARK: - Updates
@@ -172,7 +182,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let updates = UpdateController.shared
         updates.onShowSettings = { [weak self] in
             guard let self else { return }
-            if Permissions.accessibilityGranted { self.showSettings() } else { self.onboarding?.show() }
+            if Permissions.accessibilityGranted { self.showSettings() } else { self.showOnboarding() }
         }
         updates.othersNeedUsActive = { [weak self] in
             self?.settingsWindow?.isUp == true || self?.onboarding?.isUp == true

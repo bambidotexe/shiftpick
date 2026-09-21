@@ -141,16 +141,30 @@ converted anywhere, and no Cocoa rectangle ever reaches the click path.
 
 ## The permission
 
-- `AXIsProcessTrusted()` answers whether this process may ask anything.
-  `AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt: true])` shows the system's own dialog, and
-  ShiftPick shows it once, at a launch that finds the permission missing.
+- `AXIsProcessTrusted()` answers whether this process may ask anything, and shows nothing, which is why it
+  may run behind a poll. `AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt: true])` shows the
+  system's own dialog. **They are two calls and they are never swapped**: the second returns the current
+  state too, which makes it tempting as the reader, and behind a two second poll that is a permission prompt
+  every two seconds. Only the onboarding wizard's button calls it, never the start-up path.
+- **The pane no longer calls it Accessibility.** `SecurityPrivacyExtension.appex`'s own
+  `Localizable.loctable` answers `ACCESSIBILITY` with **Device Control and Data Access** (fr: *Contrôle de
+  l’appareil et accès aux données*) on macOS 27, and no key in that table answers "Accessibility" any more,
+  although the API, the system's own dialog and everything written about it still do. Read it again after a
+  macOS release, because the wizard's row and the System page's warning quote it word for word:
+
+  ```bash
+  F=/System/Library/ExtensionKit/Extensions/SecurityPrivacyExtension.appex/Contents/Resources/Localizable.loctable
+  plutil -extract en xml1 -o - "$F" | grep -A1 '<key>ACCESSIBILITY</key>'
+  plutil -extract fr xml1 -o - "$F" | grep -A1 '<key>ACCESSIBILITY</key>'
+  ```
 - **The grant is per code identity.** A stable Developer ID signature keeps it across reinstalls; an ad-hoc
   signature gives the app a new identity on every build and loses it every time. That is why an ad-hoc
   build is never installed.
 - **`com.apple.accessibility.api`** is posted on the *distributed* notification centre when the privacy
   database changes. It is how a grant given or taken away reaches a running app with no timer at all. It
-  can arrive a moment before the process is really trusted, which is why the onboarding window also polls
-  at 1 Hz while it is up, and only while it is up.
+  can arrive a moment before the process is really trusted, which is why the onboarding wizard also polls
+  every `K.onboardingPollInterval` while it is up, and only while it is up. That poll is the app's only one:
+  its tick refreshes the wizard's rows **and** tells the app, so there is no second timer on the same grant.
 - A **command-line tool inherits the Accessibility grant of the terminal that starts it**, which is why
   `Tools/axdump` can read Finder long before the app is allowed to.
 
@@ -158,7 +172,13 @@ converted anywhere, and no Cocoa rectangle ever reaches the click path.
 
 - An accessory app (`LSUIElement`) **is not brought forward by the cooperative `NSApp.activate()`**:
   measured on macOS 27, it left the window behind the one it opened over with the process not frontmost.
-  Every window this app shows uses `activate(ignoringOtherApps: true)`.
+  Every window this app shows uses `activate(ignoringOtherApps: true)` **to open**, and nothing but that:
+  once a window is up, coming back to the front is `makeKeyAndOrderFront` alone. Activating after a button
+  has handed the user over to System Settings is what drops a window on top of the pane it just opened.
+- **macOS gives an ordinary app the front back when the app it handed over to quits, and skips `LSUIElement`
+  apps doing so.** There is no flag for it. The onboarding wizard therefore watches for System Settings
+  quitting itself (`FocusReturnWatch`), and the wait is bounded so that an unrelated visit there an hour
+  later does not pull the window forward out of nowhere.
 - An accessory app with **no window left is still the active application**, which sends the user's
   keystrokes nowhere. Every window hands activation back on close *and* on miniaturise, which never fires
   `windowWillClose`.

@@ -80,7 +80,7 @@ and the newer of a request and a written rule wins only after the owner has said
 | a user setting | **Invoke the `building-settings-pages` skill first.** `Core/Settings.swift` + a row on its page + `SettingsTests` | `functional.md` §5 |
 | the Settings window's pages, look or copy | **Invoke the `building-settings-pages` skill first**: it holds every rule of the window's structure, numbers and wording. `App/SettingsKit.swift` (the kit and `SettingsMetrics`), `App/SettingsView.swift` (`SettingsPageID`, `SystemStatus`), `App/SettingsWindow.swift` (the toolbar, the height that follows the page), `App/Settings…Page.swift`. **The words are not in the page files**: they are `Core/Strings<Page>Page.swift` | `functional.md` §5 |
 | the menu-bar item or its menu | `App/MenuBarController.swift`, `Core/StringsMenu.swift` | `functional.md` §6 |
-| onboarding, or what happens when the permission moves | `App/OnboardingWindow.swift`, `App/AppDelegate` (`watchTheGrant`, `grantChanged`), `Platform/Permissions.swift` | `functional.md` §7, `macOS.md` *The permission* |
+| onboarding, or what happens when the permission moves | **Invoke the `building-onboarding` skill first**: it holds every rule of the wizard, who is in front, and what a grant button may do. `App/OnboardingWindow.swift` (the controller, the pages, the row, `OnboardingMetrics`), `App/GrantCatalogue.swift` (what a grant is, the two lists), `App/AppDelegate` (`showOnboarding`, `watchTheGrant`, `grantChanged`), `Platform/Permissions.swift`. **The words are not in the page files**: they are `Core/StringsOnboarding.swift` | `functional.md` §7, `macOS.md` *The permission* |
 | updates: the check, its schedule, the notification | `Core/UpdateCheck.swift`, `UpdateSchedule.swift`, `UpdatePanel.swift`, the `update…` numbers in `Core/Constants.swift`; `Platform/UpdateChecker.swift`; `App/UpdateController.swift` (the one owner), `UpdateNotifier.swift` | `functional.md` §8 |
 | updates: the window, the fetch, making it ready, Install and Relaunch | `Core/UpdateSession.swift`, `StagedUpdateCheck.swift`, `UpdateInstallScript.swift` (the helper's text, run under a real `/bin/sh` by `UpdateInstallScriptTests`); `Platform/UpdateStager.swift`, `CodeSignature.swift`, `UpdateInstaller.swift`, `DetachedProcess.swift`; `App/UpdateWindow.swift` | the same, plus `pitfalls.md`. **Read those entries before touching the order of an install** |
 | the uninstall | `Core/UninstallPlan.swift` (the helper's text and why it waits for the pid), `Platform/Uninstall.swift` (the order), the Uninstall group of `App/SettingsGeneralPage.swift`, `Core/StringsGeneralPage.swift` | `functional.md` §9 |
@@ -100,7 +100,7 @@ make release     # skill: publish-release. The same, plus tag, push, GitHub rele
 
 - `swift build` — the three code targets and the probe. **This is the truth**; editor diagnostics are
   frequently stale.
-- `swift test` — two bundles, and **one summary line each: count two.** `ShiftPickCoreTests` (117) runs in
+- `swift test` — two bundles, and **one summary line each: count two.** `ShiftPickCoreTests` (119) runs in
   under three seconds; `ShiftPickPlatformTests` (13) spawns real subprocesses and takes a moment longer.
   `swift test --filter <SuiteName>` runs one suite.
 - `swift run axdump <command>` — the Accessibility probe (`Tools/axdump`, never shipped). `trust`, `views`,
@@ -153,7 +153,9 @@ Three code targets, dependencies pointing one way: Core ← Platform ← App. Fu
   the update's I/O (`UpdateChecker` + `UpdateDownload`, the only network code; `UpdateStager`,
   `CodeSignature`, `UpdateInstaller`, `DetachedProcess`) · `Uninstall`.
 - **`Sources/ShiftPickApp`** — `AppDelegate` wires everything. **`ShiftPickEngine`** owns the tap and the
-  anchor and is where one ⇧ Shift click is decided. `MenuBarController` · `OnboardingWindow` ·
+  anchor and is where one ⇧ Shift click is decided. `MenuBarController` · the onboarding wizard
+  (`OnboardingWindow` the controller, the pages, the row and `OnboardingMetrics`; `GrantCatalogue` what a
+  grant is and the two lists; `ControlActionHandler`) ·
   `UpdateController` (the update's one owner) + `UpdateNotifier` + `UpdateWindow` · the settings window
   (`SettingsKit` the kit, `SettingsWindow` the toolbar window whose height follows the page, three
   `Settings…Page`, `SettingsView` with `SettingsPageID` and `SystemStatus`).
@@ -192,6 +194,10 @@ the log.
 - **Accessibility is the only permission the app needs, and the only one it asks for.** Notifications are
   asked for the first time an automatic check has a release to announce, and for nothing else. **No Apple
   events**: `docs/pitfalls.md` says what was measured and why.
+- **Every permission prompt follows a click of the user's, and the reader is never the asker.** Only the
+  onboarding wizard's own button calls `Permissions.requestAccessibility`; nothing at launch, nothing when a
+  window opens. `Permissions.accessibilityGranted` is what reads, which is why it may run behind a poll.
+  `.claude/skills/building-onboarding` says why, at length.
 - **No user-facing string is written at its point of use.** It goes in a `Core/Strings*.swift` table, where
   one accessor answers for every language, so a string cannot exist in English alone.
 - **Silence is a defect.** Anything that declines to act logs why, once, with the numbers.
@@ -219,7 +225,7 @@ the log.
 
 ## Status
 
-`swift build` is clean and `swift test` is green (117 + 13) at this commit. The app target has no automated
+`swift build` is clean and `swift test` is green (119 + 13) at this commit. The app target has no automated
 tests; `MANUAL_TESTS.md` is its verification.
 
 Known limitations, in plain words:

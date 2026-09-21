@@ -33,7 +33,7 @@ ShiftPickCore  ←  ShiftPickPlatform  ←  ShiftPickApp
 | | `UpdateChecker` + `UpdateDownload`, `UpdateStager`, `CodeSignature`, `UpdateInstaller`, `DetachedProcess` | The update's I/O. The only network code in the app. |
 | | `Uninstall` | The registrations an uninstall gives back. |
 | App | `ShiftPickMain`, `AppDelegate`, **`ShiftPickEngine`**, `MenuBarController` | The app, and the one behaviour. |
-| | `OnboardingWindow`, `SettingsKit`, `SettingsWindow`, `SettingsView`, `Settings…Page` | The windows. |
+| | `OnboardingWindow` + `GrantCatalogue` + `ControlActionHandler`, `SettingsKit`, `SettingsWindow`, `SettingsView`, `Settings…Page` | The windows. The wizard is the one hand-built AppKit window; everything else is SwiftUI in a hosting controller. |
 | | `UpdateController`, `UpdateNotifier`, `UpdateWindow` | The update's one owner and its two surfaces. |
 
 ## The click path
@@ -96,14 +96,15 @@ that alone was the difference between 47 seconds and 0.06 for five thousand icon
   hops; unpacking a disk image runs on one serial queue of its own, because it mounts, copies and verifies,
   and two of those at once would share a mount point.
 - **Nothing polls while idle.** With the permission granted and no window open, the only timer armed is the
-  update schedule's, which is coarse (`K.updateTick`) and tolerant. The Settings window starts and stops
-  its own two-second poll; the onboarding window starts and stops its one-second one.
+  update schedule's, which is coarse (`K.updateTick`) and tolerant. The Settings window starts and stops its
+  own two-second poll; the onboarding wizard starts and stops the other, also two seconds, and that tick is
+  the only thing besides the system's notification that tells the app the grant has arrived.
 
 ## Persistence
 
 | What | Where |
 |---|---|
-| The three switches | one JSON blob in `UserDefaults`, key `settings.v1` |
+| The three switches, and whether the wizard has been walked | one JSON blob in `UserDefaults`, key `settings.v1` |
 | Launch at login | `SMAppService`, and nowhere else: the system's answer is the only one |
 | The quiet-launch marker, the update's working folder | `~/Library/Application Support/ShiftPick` |
 | The anchor | nowhere. It is two Accessibility elements held in memory, and a launch starts without one |

@@ -28,7 +28,8 @@ make install                                    # production build, notarized, i
 /usr/bin/log stream --predicate 'subsystem == "dev.rubens.ShiftPick"' --level debug
 ```
 
-The first launch asks for Accessibility and waits for it. Signing comes from `scripts/signing.env`
+The first launch opens the onboarding wizard, whose own button is the only thing that asks for
+Accessibility; the app waits there for the grant. Signing comes from `scripts/signing.env`
 (tracked, no secret in it): it looks the Wooflab team's Developer ID Application certificate up in the
 keychain by team id. An ad-hoc signature gives the app a new code identity, so the owner loses the
 Accessibility grant.

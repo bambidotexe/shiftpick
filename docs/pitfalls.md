@@ -71,7 +71,7 @@ there only because their repositories exist.
 
 ```
 Test Suite 'ShiftPickPlatformTests.xctest' passed …  Executed 13 tests
-Test Suite 'ShiftPickCoreTests.xctest' passed …      Executed 117 tests
+Test Suite 'ShiftPickCoreTests.xctest' passed …      Executed 119 tests
 ```
 
 **Count two.** A bundle that crashes prints none, so grepping for one green line reads a crash as a pass.
@@ -108,13 +108,25 @@ off.
 
 ## 9. SwiftUI text in a hosting controller does not wrap on its own
 
-The onboarding window came out **460 × 205** with three one-line texts in it, two of them truncated. A
+The first onboarding window came out **460 × 205** with three one-line texts in it, two of them truncated. A
 hosting controller sizing itself is free to propose a width no window has, and a `Text` with no
 `fixedSize(horizontal: false, vertical: true)` will take it. With the `fixedSize` and an explicit content
-width the same window is 460 × 269 and every sentence wraps. The settings kit already does this on every
-row, which is why only the one hand-written window was wrong.
+width the same window was 460 × 269 and every sentence wrapped. The settings kit already does this on every
+row, which is why only the one hand-written window was wrong. The onboarding wizard that replaced it is
+AppKit and sets `preferredMaxLayoutWidth` on every label instead, so the trap now belongs to any new SwiftUI
+window built outside the kit.
 
-## 10. A file panel's collection list has no `AXWindow`
+## 10. A permission's name in System Settings is not the permission's name
+
+`SecurityPrivacyExtension.appex`'s `ACCESSIBILITY` key reads **Device Control and Data Access** on macOS 27,
+and no key in that table answers "Accessibility" at all, although the API, the system's own dialog and
+everything written about the grant still say Accessibility. So a row or a warning that tells the user to look
+for "Accessibility" sends them hunting for a heading that is not on the screen, and one written from memory
+is wrong the moment Apple renames a section. Both places that name it quote the pane's own strings
+(`docs/macOS.md`, *The permission*, has the command), and `LocalizationTests` holds a two-entry exemption so
+that the "Control" in the quoted name is not read as the ⌃ Control key.
+
+## 11. A file panel's collection list has no `AXWindow`
 
 Finder's `AXList/AXCollectionList` answers `AXWindow` with the window it is in. **An Open or Save panel's
 does not**: it answers `kAXErrorNoValue`. Since the window's `AXIdentifier` is the only thing that tells a

@@ -1,3 +1,4 @@
+import AppKit
 import ShiftPickCore
 import ShiftPickPlatform
 import SwiftUI
@@ -36,6 +37,16 @@ struct SystemPage: View {
                           hint: words.clicksHint,
                           warnings: clicksWarnings) {
                 StatusRow(words.clicksRow, mark: clicksMark)
+            }
+
+            // The wizard is the one place that explains the permission and the gesture together, so it stays
+            // reachable after the first run. A fresh one is built each time, starting at page one.
+            SettingsGroup(title: words.startOverTitle) {
+                ButtonRow {
+                    Button(words.showOnboardingButton) {
+                        (NSApp.delegate as? AppDelegate)?.showOnboarding()
+                    }
+                }
             }
         }
     }

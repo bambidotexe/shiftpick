@@ -61,7 +61,14 @@ public enum K {
     /// the page already right. Started and stopped by the window, never by a view's `onAppear`.
     public static let systemPollInterval: TimeInterval = 2
 
-    /// How often the onboarding window asks whether the permission has arrived. The one timer the app runs
-    /// that is not answering something: it stops the moment the grant is there.
-    public static let onboardingPollInterval: TimeInterval = 1
+    /// How often the onboarding wizard re-reads the rows on its page, and tells the app that the permission
+    /// may have arrived. Slow enough to be free, fast enough that granting in System Settings and coming
+    /// back finds the row already right. **The app's only poll**: the wizard starts it when it opens and
+    /// stops it when it closes, and nothing else watches the permission on a timer.
+    public static let onboardingPollInterval: TimeInterval = 2
+
+    /// How long a wait for another app to quit stays honoured, after a row's button has sent the user to
+    /// System Settings. Long enough to grant a permission, short enough that an unrelated visit there much
+    /// later does not pull the wizard forward out of nowhere.
+    public static let focusReturnWait: TimeInterval = 300
 }

@@ -18,7 +18,7 @@
   <img alt="No dependencies" src="https://img.shields.io/badge/dependencies-none-1f6feb">
   <img alt="One permission" src="https://img.shields.io/badge/permissions-Accessibility-8250df">
   <img alt="English and French" src="https://img.shields.io/badge/languages-English%20%C2%B7%20Fran%C3%A7ais-333333">
-  <img alt="Unit tests" src="https://img.shields.io/badge/tests-130%20passing-2ea44f">
+  <img alt="Unit tests" src="https://img.shields.io/badge/tests-132%20passing-2ea44f">
 </p>
 
 ## The problem
@@ -68,7 +68,7 @@ when the icon is hidden. Every change applies as you make it.
 | **General** | Launch at login · Show in menu bar · Updates · Quit · Uninstall |
 | **Selection** | Enable ShiftPick · whether ⌘ Command with ⇧ Shift adds the range to the selection |
 | **Tip** | everything is free and stays free · a one-time tip on Ko-fi |
-| **System** | the Accessibility permission, live, with the way to grant it · whether ShiftPick is watching for clicks |
+| **System** | the Accessibility permission, live, with the way to grant it · whether ShiftPick is watching for clicks · the way back to the welcome wizard |
 
 The menu-bar item carries the same enable switch, Launch at Login, one line saying what the app is doing
 right now, Settings and Quit.
@@ -82,8 +82,12 @@ Download the disk image from
 **ShiftPick** to Applications, then open it once. It is signed with a Developer ID and notarized by Apple,
 so it opens without a warning.
 
-The first launch asks for **Accessibility**, which is the only permission it needs, and waits: grant it in
-System Settings › Privacy & Security › Accessibility and the app starts working at once, with no relaunch.
+The first launch opens a short welcome wizard: what the app does, then the one permission it needs, then
+where it lives. **Accessibility** is that permission, and the wizard's own Allow button is the only thing
+that ever asks for it. Grant it and the app starts working at once, with no relaunch. macOS 27 lists it in
+System Settings › Privacy & Security under *Device Control and Data Access*.
+
+Settings › System › Start over opens the wizard again.
 
 From this repository instead:
 
@@ -174,7 +178,7 @@ ShiftPick is free and carries no ads. If it saves you trouble, you can leave a t
 ## Notes
 
 - Personal build: English and French.
-- `swift test` runs 130 tests across the two library targets (117 + 13); the app target's verification is
+- `swift test` runs 132 tests across the two library targets (119 + 13); the app target's verification is
   `MANUAL_TESTS.md`, the log, and `swift run axdump range`.
 - The app icon is a placeholder, generated from the same three-bar mark the menu-bar item draws. See
   `Resources/ICON-NOTES.md`.

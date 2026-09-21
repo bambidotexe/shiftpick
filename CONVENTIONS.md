@@ -122,16 +122,23 @@ and most complete of the three copies; the French of every sentence comes from
 
 ## 6. Permission onboarding
 
-`snappy-snap` is the one that already does Accessibility, and its flow is reused whole
-(`Sources/SnappySnap/UI/OnboardingWindow.swift`, `AppDelegate.applicationDidFinishLaunching`):
+`snappy-snap`'s small one-window flow was the first one here, and `koffeelid`'s four-page wizard
+replaced it whole, skill and all: `.claude/skills/building-onboarding` is that skill, copied from
+`koffeelid` and adapted, and it is the contract. A rule the owner changes in koffeelid's copy is
+changed here too. Live in `Sources/ShiftPickApp/OnboardingWindow.swift`, `GrantCatalogue.swift`,
+`ControlActionHandler.swift`, with the words in `Core/StringsOnboarding.swift`.
 
-- On a launch with the permission missing: `AXIsProcessTrustedWithOptions(prompt: true)`, then a
-  small titled window saying what the permission is for, with **Open Accessibility Settings** and a
-  numbered three-line instruction.
-- A 1 Hz timer while that window is up, and **only** while it is up. The moment the grant arrives
-  the window closes and the engine starts — no relaunch.
-- `NSApp.activate(ignoringOtherApps: true)` for that window and for Settings: measured on macOS 27,
-  the cooperative `activate()` cannot bring an accessory app forward.
+- A titled, closable, fixed 540 wide window, an **ordinary** level and collection behaviour, stepping
+  through a hero page, one list page per set of grants, and a final page.
+- **Only a row's button ever asks macOS for a permission.** Nothing at launch, and the reader
+  (`AXIsProcessTrusted`) is never the asker (`AXIsProcessTrustedWithOptions`).
+- A row's title is **what System Settings calls the switch**, quoted from the pane's own loctable in
+  both languages, and it is looked up again rather than remembered.
+- One 2 s poll while the window is up, owned by the window; a row that moves redraws its own trailing
+  control, never the page.
+- `NSApp.activate(ignoringOtherApps: true)` **to open** that window and Settings: measured on macOS 27,
+  the cooperative `activate()` cannot bring an accessory app forward. Coming back afterwards is
+  `makeKeyAndOrderFront` alone.
 - The System page reports the permission live while the window is open, from a 2 s poll the
   *window* starts and stops (`SystemStatus`), never a view's `onAppear`.
 

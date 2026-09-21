@@ -28,10 +28,14 @@ public struct SystemPageStrings {
         }
     }
 
+    /// The switch is quoted as the Privacy and Security pane's own strings name it, which is no longer
+    /// \u{201C}Accessibility\u{201D}: read it again with `plutil -extract fr xml1` after a macOS release.
     public var accessibilityWarning: String {
         switch language {
-        case .en: "In Privacy & Security, Accessibility, turn on \u{201C}\(AppIdentity.name)\u{201D}."
-        case .fr: "Dans Confidentialité et sécurité, Accessibilité, activez \u{201C}\(AppIdentity.name)\u{201D}."
+        case .en: "In Privacy & Security, \u{201C}Device Control and Data Access\u{201D}, turn on "
+            + "\u{201C}\(AppIdentity.name)\u{201D}."
+        case .fr: "Dans Confidentialité et sécurité, \u{201C}Contrôle de l\u{2019}appareil et accès aux "
+            + "données\u{201D}, activez \u{201C}\(AppIdentity.name)\u{201D}."
         }
     }
 
@@ -88,6 +92,22 @@ public struct SystemPageStrings {
         switch language {
         case .en: "\(AppIdentity.name) is off. Turn it on again on the Selection page."
         case .fr: "\(AppIdentity.name) est désactivé. Réactivez-le sur la page Sélection."
+        }
+    }
+
+    // MARK: Start over
+
+    public var startOverTitle: String {
+        switch language {
+        case .en: "Start over"
+        case .fr: "Recommencer"
+        }
+    }
+
+    public var showOnboardingButton: String {
+        switch language {
+        case .en: "Show Onboarding Again"
+        case .fr: "Revoir la présentation"
         }
     }
 }

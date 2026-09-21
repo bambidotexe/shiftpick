@@ -1,7 +1,7 @@
 import Foundation
 
-/// Everything the user can choose. Three switches and nothing else: ShiftPick does one thing, and no
-/// setting restricts where it does it.
+/// Everything the user can choose, and the one thing it remembers about them. Three switches and nothing
+/// else: ShiftPick does one thing, and no setting restricts where it does it.
 ///
 /// Stored as one JSON blob in `UserDefaults` by `ShiftPickPlatform.SettingsStore`. Every property has a
 /// default here and is decoded tolerantly, so a settings file written by an older build never resets the
@@ -19,6 +19,11 @@ public struct Settings: Codable, Equatable, Sendable {
     /// the Settings window.
     public var showInMenuBar: Bool = true
 
+    /// Whether the last page of the onboarding wizard has been reached and its button pressed. Not a
+    /// setting: no window shows it, and Settings > System offers the wizard again rather than this flag. A
+    /// wizard closed before that last button keeps it false, so it opens again at the next launch.
+    public var onboardingCompleted: Bool = false
+
     public init() {}
 
     /// Written out rather than synthesised: a key missing from an older file has to fall back to its
@@ -31,5 +36,7 @@ public struct Settings: Codable, Equatable, Sendable {
             ?? fallback.commandShiftAdds
         showInMenuBar = try container.decodeIfPresent(Bool.self, forKey: .showInMenuBar)
             ?? fallback.showInMenuBar
+        onboardingCompleted = try container.decodeIfPresent(Bool.self, forKey: .onboardingCompleted)
+            ?? fallback.onboardingCompleted
     }
 }

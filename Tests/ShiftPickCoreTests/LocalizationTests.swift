@@ -1,7 +1,8 @@
 import XCTest
 import ShiftPickCore
 
-/// Every sentence the user reads, in both languages, held to the window's copy rules.
+/// Every sentence the user reads, in both languages, held to the window's copy rules. The onboarding
+/// wizard's words are in here too: it is the first thing a user reads and the same rules govern it.
 ///
 /// The tables are Swift, so "the French is missing" is a compile error rather than a test failure. What is
 /// left for a test is the text itself: the rules the owner fitted by eye, which no compiler can see.
@@ -30,10 +31,30 @@ final class LocalizationTests: XCTestCase {
                      ("mainMenu.minimize", main.minimize)] { add(pair.0, pair.1) }
 
         let onboarding = Loc.onboarding
-        for pair in [("onboarding.windowTitle", onboarding.windowTitle),
-                     ("onboarding.heading", onboarding.heading), ("onboarding.body", onboarding.body),
-                     ("onboarding.steps", onboarding.steps),
-                     ("onboarding.openSettingsButton", onboarding.openSettingsButton)] { add(pair.0, pair.1) }
+        for pair in [("onboarding.pitchHeadline", onboarding.pitchHeadline),
+                     ("onboarding.pitchAccent", onboarding.pitchAccent),
+                     ("onboarding.pitchBody", onboarding.pitchBody),
+                     ("onboarding.pitchIconViewPill", onboarding.pitchIconViewPill),
+                     ("onboarding.pitchDesktopPill", onboarding.pitchDesktopPill),
+                     ("onboarding.pitchPanelsPill", onboarding.pitchPanelsPill),
+                     ("onboarding.permissionHeader", onboarding.permissionHeader),
+                     ("onboarding.permissionIntro", onboarding.permissionIntro),
+                     ("onboarding.accessibilityTitle", onboarding.accessibilityTitle),
+                     ("onboarding.accessibilityWhy", onboarding.accessibilityWhy),
+                     ("onboarding.allowButton", onboarding.allowButton),
+                     ("onboarding.requiredMark", onboarding.requiredMark),
+                     ("onboarding.homeHeader", onboarding.homeHeader),
+                     ("onboarding.homeIntro", onboarding.homeIntro),
+                     ("onboarding.openAtLoginTitle", onboarding.openAtLoginTitle),
+                     ("onboarding.openAtLoginWhy", onboarding.openAtLoginWhy),
+                     ("onboarding.menuBarWhy", onboarding.menuBarWhy),
+                     ("onboarding.turnOnButton", onboarding.turnOnButton),
+                     ("onboarding.turnOffButton", onboarding.turnOffButton),
+                     ("onboarding.doneHeadline", onboarding.doneHeadline),
+                     ("onboarding.doneBody", onboarding.doneBody),
+                     ("onboarding.continueButton", onboarding.continueButton),
+                     ("onboarding.skipButton", onboarding.skipButton),
+                     ("onboarding.finishButton", onboarding.finishButton)] { add(pair.0, pair.1) }
 
         let settings = Loc.settings
         for pair in [("settings.pageGeneral", settings.pageGeneral),
@@ -104,7 +125,9 @@ final class LocalizationTests: XCTestCase {
                      ("system.clicksTitle", system.clicksTitle),
                      ("system.clicksHint", system.clicksHint), ("system.clicksRow", system.clicksRow),
                      ("system.clicksWarningNoTap", system.clicksWarningNoTap),
-                     ("system.clicksWarningDisabled", system.clicksWarningDisabled)] { add(pair.0, pair.1) }
+                     ("system.clicksWarningDisabled", system.clicksWarningDisabled),
+                     ("system.startOverTitle", system.startOverTitle),
+                     ("system.showOnboardingButton", system.showOnboardingButton)] { add(pair.0, pair.1) }
 
         let update = Loc.update
         for pair in [("update.httpStatus", update.httpStatus(503)),
@@ -162,6 +185,16 @@ final class LocalizationTests: XCTestCase {
         }
     }
 
+    /// The sentences that quote a switch by the name System Settings gives it, where a word that is also a
+    /// key's name is the ordinary English word instead. macOS calls the Accessibility grant \u{201C}Device
+    /// Control and Data Access\u{201D}, and that \u{201C}Control\u{201D} is not the ⌃ Control key. The name is
+    /// quoted from the pane's own strings and cannot be reworded, so these are named one by one, and only the
+    /// one word is let past: every other key rule still applies to them.
+    private static let quotedSystemNames: [String: Set<String>] = [
+        "onboarding.accessibilityTitle": ["Control"],
+        "system.accessibilityWarning": ["Control"],
+    ]
+
     /// A key is its symbol, then its name, at every mention.
     func testEveryKeyIsWrittenWithItsSymbol() {
         let rules: [Language: [(String, String)]] = [
@@ -173,6 +206,7 @@ final class LocalizationTests: XCTestCase {
             for (name, sentence) in everySentence(language) {
                 for (word, withSymbol) in rules[language] ?? [] {
                     guard sentence.contains(word) else { continue }
+                    guard Self.quotedSystemNames[name]?.contains(word) != true else { continue }
                     XCTAssertTrue(sentence.contains(withSymbol),
                                   "\(language.rawValue) \(name) says \(word) without its symbol: \(sentence)")
                 }

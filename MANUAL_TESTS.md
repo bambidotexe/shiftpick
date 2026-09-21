@@ -101,17 +101,68 @@ touching anything.
       include a row it should not.
 - [ ] A window **resized** so the columns re-flow, mid-session: the next range follows the new layout.
 
-## 8. The permission
+## 8. The permission and the onboarding wizard
 
-- [ ] **First launch with the permission missing.** The system's own dialog appears once, and the
-      onboarding window stays. Every sentence in it wraps; nothing is cut off.
-- [ ] Grant Accessibility in System Settings **without touching the app**: within a second the onboarding
-      window closes by itself, the menu's status line reads *Watching for ⇧ Shift clicks*, and the very
-      next ⇧ Shift click is a range. **No relaunch.**
-- [ ] **Take the grant away** while the app runs: the onboarding window comes back, the menu says it is
-      waiting, and clicks go to Finder. Grant it again: it starts again.
-- [ ] Settings › System while all of that happens: the row follows within two seconds, and the button and
-      the warning appear and disappear with it.
+The wizard has no automated test at all. Walk the whole of it, and `.claude/skills/building-onboarding`'s own
+checklist with it.
+
+**What it looks like**
+
+- [ ] **First launch.** Four pages, each stepped by the one button at the bottom right: the pitch with the
+      icon, the blue accent on one word and the three capsules; **Permission**; **Where it lives**;
+      **All set**. Nothing is cut off, nothing is truncated, every sentence wraps.
+- [ ] The height follows the page around its **top-left** corner: the title bar does not move, the bottom
+      edge does. No page is stretched or crowded.
+- [ ] The button reads **Skip** on page 2 until the permission is granted, and on page 3 until either row is
+      on. It turns to **Continue** without the page being redrawn: the header and the other row do not move.
+- [ ] Return presses the button on every page.
+- [ ] The whole wizard in **French** and in **English**, and the two quoted names word for word against
+      System Settings: *Device Control and Data Access* in Privacy & Security, *Open at Login* in Login Items
+      & Extensions.
+
+**The permission**
+
+- [ ] **No prompt appears by itself, ever.** Launch with the permission missing and leave the wizard open for
+      a minute: no dialog. Reach *All set* having granted nothing, Finish, quit, and launch twice more: still
+      none. Every prompt in the whole walk followed a click of yours.
+- [ ] Press **Allow…**: **only** the system's dialog, never System Settings alongside it. Refuse it, then
+      press again: nothing new opens, and the button does not change its name.
+- [ ] Grant Accessibility in System Settings **without touching the app**: within about two seconds the row
+      reads *Granted*, the button turns to *Continue*, **the wizard stays open**, the menu's status line reads
+      *Watching for ⇧ Shift clicks*, and the very next ⇧ Shift click is a range. **No relaunch.**
+- [ ] **Take the grant away** while the app runs: the wizard comes back, the menu says it is waiting, and
+      clicks go to Finder. Grant it again: it starts again. With the wizard already up, it is not replaced.
+- [ ] Settings › System while all of that happens: the row follows within two seconds, and the button and the
+      warning appear and disappear with it.
+
+**Where it lives**
+
+- [ ] **Turn On** beside *Open at Login*: the row reads *Enabled* and offers *Turn Off*, and the app is in
+      System Settings › General › Login Items under *Open at Login*. Turn it off again: both agree.
+- [ ] **Show in menu bar**: *Turn Off* takes the icon away and the row offers *Turn On*; Settings › General
+      agrees with it.
+
+**Who is in front**
+
+- [ ] The wizard opens in front. Click another app's window: it goes behind and **stays** there. Switch to
+      another Space and back: still in front of what it was in front of.
+- [ ] Press **Allow…**, then use the system dialog's own button to open System Settings: the pane comes
+      forward and **stays**. Grant it with the pane still open: the row ticks over with the wizard still
+      behind.
+- [ ] **Close the System Settings window**: the wizard comes back in front of what it was in front of. Leave
+      it open and click another app instead: the wizard does not move.
+- [ ] `open -b dev.rubens.ShiftPick` brings the wizard forward, not Settings. Open Settings as well
+      (⌘, from the menu-bar item), then activate the app: **Settings** comes forward, not the wizard.
+- [ ] Closing the wizard gives the front back to whoever had it, and keystrokes go to that app. Closing it
+      with Settings still open leaves the app active.
+
+**When it opens**
+
+- [ ] Finish it once, quit, launch again by hand: **no wizard**, the Settings window instead.
+- [ ] Close it with the × **before** *All set*, quit, launch again: the wizard is back, at page one.
+- [ ] **Settings › System › Start over**: a fresh wizard at page one, with every row re-read.
+- [ ] **Launch at login** on, wizard never finished, log out and in: the app starts and **opens no window**.
+- [ ] `make install` over a running copy: no window, wizard included.
 
 ## 9. The tap
 

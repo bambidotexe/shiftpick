@@ -153,9 +153,11 @@ numbers and its copy are the `building-settings-pages` skill's, not this documen
 | | One-time tip | the Ko-fi cup, *A cup of coffee*, what it is, and a button naming the smallest tip the page takes (`SupportLink.smallestTip`, 5 €). It opens `https://ko-fi.com/bambidotexe` in the browser; nothing is paid inside the app. |
 | **System** | Accessibility | the permission, live. While it is denied, a button to the pane and a warning naming the switch; once granted both go and the row stays. |
 | | Clicks | whether ShiftPick is watching. Its warning tells *off on purpose* from *macOS refused the tap*. |
+| | Start over | one button, *Show Onboarding Again*, which opens a fresh wizard at its first page |
 
 Defaults: **Enable ShiftPick on**, **⌘ Command adds on**, **Show in menu bar on**. Launch at login is the
-system's answer and is not stored here.
+system's answer and is not stored here. `onboardingCompleted` is stored beside the three switches and is not
+a setting: no window shows it, and Start over opens the wizard rather than clearing it.
 
 Settings are one JSON blob in `UserDefaults`. A key missing from a file written by an older build falls back
 to its default instead of resetting the others.
@@ -182,17 +184,46 @@ for the Accessibility permission*, *macOS refused the click listener*.
 Hiding the icon leaves the app working. Opening the bundle again from the Applications folder or Spotlight
 is then the way back to the Settings window.
 
-## 7. The permission
+## 7. The permission, and the onboarding wizard
 
-- A launch that finds **Accessibility** missing shows the system's own prompt once, then a window that says
-  what the permission is for and how to give it, and waits.
-- **The moment the grant arrives the window closes and the app starts working**, with no relaunch. It is
-  noticed two ways: the system's `com.apple.accessibility.api` notification, which costs nothing while
-  nothing happens, and a **`K.onboardingPollInterval` (1 s)** timer that runs **only while that window is
-  up**, because the notification has been seen to arrive a moment before the process is really trusted.
-- **A grant taken away** is noticed the same way: the tap is stopped and the onboarding window comes back.
-- **Nothing else polls, ever.** With the permission granted and no window open, ShiftPick arms no timer at
-  all except the update schedule's.
+Its shape, its numbers and every trap it avoids are the `building-onboarding` skill's, not this document's.
+
+**The wizard** is a titled, closable, fixed 540 wide window, stepping through four pages with one button at
+the bottom right. Its height follows the page around its **top-left** corner: 440, 440, 440, 400.
+
+| Page | What is on it | Its button |
+|---|---|---|
+| 1 | the app icon, the headline with one word in the icon's blue, what the app does, three capsules: *Icon views*, *Desktop*, *Open and Save* | Continue |
+| 2 | **Permission**: one row, the Accessibility grant, marked required | *Skip* until it is granted, then *Continue* |
+| 3 | **Where it lives**: *Open at Login* and *Show in menu bar*, both optional, each with *Turn On* or *Turn Off* | *Skip* until either is on, then *Continue* |
+| 4 | **All set**: the gesture in one sentence, and where the menu-bar item is | Finish |
+
+- **It opens on a first run the person started**, whatever the grants are, and on **any** launch that finds
+  Accessibility missing, however the app was launched. A login item whose wizard was simply never finished
+  opens no window. **Settings › System › Start over** opens it again, and so does opening the app again while
+  it is up. It is a **fresh controller every time**: every row re-reads the system and the walk starts at
+  page one.
+- **Finish records that it was walked**; a window closed before that button keeps the flag false, so the
+  wizard returns at the next launch.
+- **The row's button is the only thing in the whole app that asks macOS for the permission.** Nothing at
+  launch, nothing when a window opens, nothing "once, to get it out of the way": a prompt nobody clicked for
+  arrives with no explanation beside it, and macOS remembers a refusal for good. The system's dialog carries
+  its own way to the pane, so nothing opens a pane beside it or instead of it after a refusal.
+- **The grant arriving does not close the wizard.** The engine starts the moment it lands, with no relaunch;
+  the row ticks over to *Granted* and the button turns from *Skip* to *Continue*. Closing it is the user's
+  move. It is noticed two ways: the system's `com.apple.accessibility.api` notification, which costs nothing
+  while nothing happens, and the wizard's **`K.onboardingPollInterval` (2 s)** tick, because that
+  notification has been seen to arrive a moment before the process is really trusted.
+- **A grant taken away** is noticed the same way: the tap is stopped and the wizard comes back, unless it is
+  already up.
+- **Who is in front.** The wizard is an ordinary window at the ordinary level, with the default collection
+  behaviour: the Accessibility dialog and System Settings open over it and stay there. The app is activated
+  once, when the window opens. Two things bring it back afterwards and nothing else: **System Settings
+  quitting** (`K.focusReturnWait`, 300 s, after which the wait is dropped) and the app becoming active while
+  the wizard is its only window, which orders it front without activating.
+- **Nothing else polls, ever.** The wizard starts its one timer when it opens and stops it when it closes.
+  With the permission granted and no window open, ShiftPick arms no timer at all except the update
+  schedule's.
 
 ## 8. Updates
 
