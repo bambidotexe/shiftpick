@@ -189,9 +189,9 @@ converted anywhere, and no Cocoa rectangle ever reaches the click path.
   average 0.68 µs, a read of something already in the process. **So it is never called on the thread that
   serves the taps**: the call that refills that cache comes around a change to the privacy database, which is
   exactly when the grant is moving. It is right at launch. **After it, it can go on saying yes with the grant
-  gone.** Measured in the drill: once the grant had been taken away, the onboarding wizard's row, which reads
-  it, showed the grant a second and a half later and at every poll for the next six seconds, while no live
-  question was answered yes and nothing was created. It has also been reported to lag the notification, and
+  gone.** Measured in the drill: once the grant had been taken away, it still said yes a second and a half
+  later and at every two-second read for the next six seconds, while no live question was answered yes and
+  nothing was created. So no window shows it alone (`TapLifecycle.Status.showsGrant`). It has also been reported to lag the notification, and
   to stay yes for good when the app is removed from the list with the minus button. Windows may show it;
   **nothing that enables an event tap relies on it alone.**
 - **A real request is refused the moment the grant is gone**: any Accessibility call comes back

@@ -127,15 +127,17 @@ final class FocusReturnWatch {
 /// has been refused. Nothing outside these actions ever calls a request API.
 @MainActor
 enum GrantCatalogue {
-    /// The one permission, and it is required: without it the app does nothing at all.
-    static var permissions: [GrantItem] {
+    /// The one permission, and it is required: without it the app does nothing at all. `grantIsInPlace` is
+    /// the row's reader: macOS's cached answer, except once ShiftPick has found the grant gone itself
+    /// (`TapLifecycle.Status.showsGrant`). It asks nothing.
+    static func permissions(grantIsInPlace: @escaping () -> Bool) -> [GrantItem] {
         let words = Loc.onboarding
         return [
             GrantItem(id: .accessibility,
                       title: words.accessibilityTitle,
                       why: words.accessibilityWhy,
                       required: true,
-                      granted: { Permissions.accessibilityGranted },
+                      granted: grantIsInPlace,
                       buttonTitle: words.allowButton,
                       action: { _, done in
                           Permissions.requestAccessibility()

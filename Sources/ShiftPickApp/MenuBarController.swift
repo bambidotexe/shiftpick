@@ -83,9 +83,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
     private func statusLine() -> String {
         let words = Loc.menu
-        // The engine's own answer first: it is the one that has asked a live question about the grant, and
+        // The same rule as every window: the engine has asked a live question about the grant, and
         // `accessibilityGranted` can go on saying yes after the grant has gone.
-        if engine?.status == .needsPermission || !Permissions.accessibilityGranted {
+        let status = engine?.status ?? .stopped
+        if !status.showsGrant(systemSays: Permissions.accessibilityGranted) {
             return words.statusNeedsPermission
         }
         if engine?.tapWasRefused == true { return words.statusNoTap }

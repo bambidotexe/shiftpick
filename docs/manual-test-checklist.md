@@ -229,7 +229,9 @@ reopened, so two steps were walked unguarded. A step that needs Touch ID or a pa
 - [ ] **B. The minus button**, same place, with the grant back and the app reopened: select ShiftPick and
       remove it from the list. The same as A. macOS may post no notification for this one: then nothing is
       logged until the next press of ⇧ Shift, which says `a live Accessibility request was refused` and takes
-      both taps down. Either is a pass; a Mac that stops answering is not. **Then leave the wizard open for
+      both taps down. Either is a pass; a Mac that stops answering is not. **The wizard's row reads the grant
+      as missing from the moment the log says it is gone**, whatever macOS's own answer still claims, and ticks
+      back to *Granted* only once `listening for ⇧ Shift clicks` is logged again. **Then leave the wizard open for
       half a minute and watch the log**: it polls every two seconds, and none of these may appear, because
       nothing is created under a grant that is gone: `would not create the event taps` more than once, a
       status that flaps between listening and not, or a macOS prompt about Input Monitoring.

@@ -81,10 +81,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return true
     }
 
+    /// The grant as every window shows it: macOS's cached answer, except once ShiftPick has found the grant
+    /// gone itself, which that answer can go on hiding for seconds.
+    private var grantIsInPlace: Bool {
+        engine.status.showsGrant(systemSays: Permissions.accessibilityGranted)
+    }
+
     private func showWhatOpeningTheAppShows() {
         if onboarding?.isUp == true {
             onboarding?.show()
-        } else if Permissions.accessibilityGranted && store.settings.onboardingCompleted {
+        } else if grantIsInPlace && store.settings.onboardingCompleted {
             showSettings()
         } else {
             showOnboarding()
@@ -130,6 +136,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let controller = OnboardingWindowController.make(
             store: store,
             onFinish: { [weak self] in self?.store.settings.onboardingCompleted = true },
+            grantIsInPlace: { [weak self] in self?.grantIsInPlace ?? Permissions.accessibilityGranted },
             grantMayHaveChanged: { [weak self] in self?.grantChanged() })
         controller.othersNeedUsActive = { [weak self] in
             self?.settingsWindow?.isUp == true || UpdateController.shared.windowIsUp
@@ -286,7 +293,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let updates = UpdateController.shared
         updates.onShowSettings = { [weak self] in
             guard let self else { return }
-            if Permissions.accessibilityGranted { self.showSettings() } else { self.showOnboarding() }
+            if self.grantIsInPlace { self.showSettings() } else { self.showOnboarding() }
         }
         updates.othersNeedUsActive = { [weak self] in
             self?.settingsWindow?.isUp == true || self?.onboarding?.isUp == true

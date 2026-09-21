@@ -221,7 +221,7 @@ numbers and its copy are the `macos-building-settings-pages` skill's, not this d
 | | Quit | one destructive button |
 | | Uninstall | one destructive button, with a warning that never goes away |
 | **Selection** | ⇧ Shift-click | Enable ShiftPick · ⌘ Command with ⇧ Shift adds the range to the selection, under it and disabled with it |
-| **System** | Accessibility | the permission, live. While it is denied, a button to the pane and a warning naming the switch; once granted both go and the row stays. |
+| **System** | Accessibility | the permission, live and **as ShiftPick can use it**: macOS's answer, except once ShiftPick has found the grant gone itself, which that answer can go on hiding for seconds (§7). While it is denied, a button to the pane and a warning naming the switch; once granted both go and the row stays. |
 | | Clicks | whether ShiftPick is watching. Its warning tells *off on purpose* from *macOS refused the taps* and from *macOS kept taking the click tap away* (§1), and that last one names the way back: *Enable ShiftPick* off and on again. |
 | | Start over | one button, *Show Onboarding Again*, which opens a fresh wizard at its first page |
 | **Tip** | the app icon beside one sentence, in a card with no title | every feature is free and stays free, and a coffee is how the project is supported |
@@ -284,6 +284,10 @@ the bottom right. Its height follows the page around its **top-left** corner: 44
   launch, nothing when a window opens, nothing "once, to get it out of the way": a prompt nobody clicked for
   arrives with no explanation beside it, and macOS remembers a refusal for good. The system's dialog carries
   its own way to the pane, so nothing opens a pane beside it or instead of it after a refusal.
+- **The row shows the grant as ShiftPick can use it**, and so do the System page's row, the menu and the
+  choice between the wizard and Settings when the app is opened again: macOS's own answer, except once
+  ShiftPick has found the grant gone itself. That answer was measured saying yes for seconds after the grant
+  had gone, so a row that believed it alone showed *Granted* while nothing was listening.
 - **The grant arriving does not close the wizard.** The taps are created as soon as a live answer agrees, with
   no relaunch; the row ticks over to *Granted* and the button turns from *Skip* to *Continue*. Closing it is the
   user's move. It is noticed two ways: the system's `com.apple.accessibility.api` notification, which costs

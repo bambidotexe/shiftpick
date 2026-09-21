@@ -12,19 +12,21 @@ struct SystemPage: View {
 
     var body: some View {
         let words = Loc.settings.system
+        // The system's cached answer, except once ShiftPick has found the grant gone itself.
+        let granted = engine.status.showsGrant(systemSays: status.accessibilityGranted)
         SettingsPage {
             // A state the user can fix is three things: the row; while it is red, a button to the place it
             // is fixed and a warning naming the exact switch; once green, the button and the warning go and
             // the row stays, so the link between the app and the permission stays visible.
             SettingsGroup(title: words.accessibilityTitle,
                           hint: words.accessibilityHint,
-                          warnings: status.accessibilityGranted ? [] : [words.accessibilityWarning],
+                          warnings: granted ? [] : [words.accessibilityWarning],
                           notes: [words.accessibilityNote]) {
                 StatusRow(words.accessibilityRow,
-                          mark: status.accessibilityGranted
+                          mark: granted
                             ? .good(Loc.settings.words.granted)
                             : .failure(Loc.settings.words.denied))
-                if !status.accessibilityGranted {
+                if !granted {
                     ButtonRow {
                         Button(words.openAccessibilityButton) { Permissions.openAccessibilitySettings() }
                     }

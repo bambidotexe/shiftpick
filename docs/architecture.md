@@ -64,7 +64,7 @@ at that moment**, and then layers what is left:
 | 6 | **The budget is kept by whoever waits.** The taps' thread hands a click to a worker and waits 150 ms. | A Finder, or an Accessibility call, that never answers. |
 
 **The rules are a value.** `Core/TapLifecycle` decides all of layers 0 to 5 from an event and the time, with
-no tap, no thread and no clock in sight, which is what lets every scenario be a unit test: 94 of them by
+no tap, no thread and no clock in sight, which is what lets every scenario be a unit test: 96 of them by
 name, and a seeded run of 80,000 events in an order nobody would write, after each of which ten sentences
 have to hold: the click tap is enabled in exactly one phase, only ever while the keys ask for it, and taps
 are only ever created on a live answer. `Platform/ClickGuard` executes what it says, in order. What it

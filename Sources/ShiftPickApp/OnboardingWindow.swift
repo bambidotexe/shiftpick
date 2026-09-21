@@ -401,6 +401,7 @@ extension OnboardingWindowController {
     ///
     /// Both list pages carry one or two rows, so both take the short height.
     static func make(store: SettingsStore, onFinish: @escaping () -> Void,
+                     grantIsInPlace: @escaping () -> Bool,
                      grantMayHaveChanged: @escaping () -> Void) -> OnboardingWindowController {
         let words = Loc.onboarding
         let pages: [OnboardingPage] = [
@@ -413,7 +414,7 @@ extension OnboardingWindowController {
                   button: words.continueButton),
             .list(header: words.permissionHeader,
                   intro: words.permissionIntro,
-                  items: GrantCatalogue.permissions,
+                  items: GrantCatalogue.permissions(grantIsInPlace: grantIsInPlace),
                   advanceWhen: everyRequiredGrant,
                   height: OnboardingMetrics.shortListHeight),
             .list(header: words.homeHeader,

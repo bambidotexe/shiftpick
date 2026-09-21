@@ -541,3 +541,14 @@ public struct TapLifecycle: Equatable, Sendable {
         return effects
     }
 }
+
+extension TapLifecycle.Status {
+    /// Whether a window may show the Accessibility grant as in place. `systemSays` is `AXIsProcessTrusted()`,
+    /// an answer the system keeps for the process and that was measured saying yes for seconds after the
+    /// grant had gone. **Once ShiftPick has found the grant gone itself, that is what is shown**, whatever the
+    /// cached answer still claims; otherwise the cached answer is, and the rows that report the taps say what
+    /// else is wrong.
+    public func showsGrant(systemSays: Bool) -> Bool {
+        systemSays && self != .needsPermission
+    }
+}

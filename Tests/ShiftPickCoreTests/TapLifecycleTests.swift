@@ -875,6 +875,22 @@ final class TapLifecycleTests: XCTestCase {
         XCTAssertEqual(life.phase, .off(.terminated))
     }
 
+    // MARK: - The grant, as a window shows it
+
+    /// macOS's cached answer was measured saying yes for seconds after the grant had gone. Once ShiftPick has
+    /// found the grant gone itself, a window says so, whatever that answer still claims.
+    func testAGrantShiftPickFoundGoneIsNotShownWhateverTheCachedAnswerSays() {
+        XCTAssertFalse(TapLifecycle.Status.needsPermission.showsGrant(systemSays: true))
+    }
+
+    func testTheCachedAnswerIsShownOtherwise() {
+        for status in [TapLifecycle.Status.watching, .refused, .breakerOpen, .stopped] {
+            XCTAssertTrue(status.showsGrant(systemSays: true), "\(status)")
+            XCTAssertFalse(status.showsGrant(systemSays: false), "\(status)")
+        }
+        XCTAssertFalse(TapLifecycle.Status.needsPermission.showsGrant(systemSays: false))
+    }
+
     // MARK: - What the windows are told
 
     func testTheStatusOfEveryPhase() {

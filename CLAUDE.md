@@ -117,7 +117,7 @@ make release     # skill: macos-publish-release. The same, plus tag, push, GitHu
 
 - `swift build` — the three code targets and the probe. **This is the truth**; editor diagnostics are
   frequently stale.
-- `swift test` — two bundles, and **one summary line each: count two.** `ShiftPickCoreTests` (227) runs in
+- `swift test` — two bundles, and **one summary line each: count two.** `ShiftPickCoreTests` (229) runs in
   about three seconds; `ShiftPickPlatformTests` (29) spawns real subprocesses and threads and takes a moment
   longer.
   `swift test --filter <SuiteName>` runs one suite.
@@ -278,11 +278,11 @@ the log.
 
 ## Status
 
-`swift build` is clean and `swift test` is green (227 + 29) at this commit. The app target has no automated
+`swift build` is clean and `swift test` is green (229 + 29) at this commit. The app target has no automated
 tests; `docs/manual-test-checklist.md` is its verification.
 
 **What is proven and what is not, about the safety model.** The rules are proven: `TapLifecycle` is a value,
-and its 94 scenarios and 80,000 seeded events run on every `swift test`, as do the click's deadline and the
+and its 96 scenarios and 80,000 seeded events run on every `swift test`, as do the click's deadline and the
 taps' thread. **The taps have been seen on the owner's Mac**, which is the only place they can be:
 `ClickGuard` cannot run in a test, because a test runner has no Accessibility grant to create a tap with. The
 first install found `docs/pitfalls.md` 15 within the millisecond; the builds after it passed the Finder
@@ -303,10 +303,6 @@ Known limitations, in plain words:
   whether `tccutil` reaches a running process is still reported by others. And the click tap has never been
   enabled at the very moment a grant went: turning the switch off takes a click and Touch ID, and the live
   question at the ⇧ Shift press got there first each time. The watch bounds that case to half a second.
-- **The onboarding wizard's row and Settings › System's Accessibility row can show the grant while ShiftPick
-  is not listening.** Both read `AXIsProcessTrusted()`, which the drill caught saying yes for seconds after the
-  grant was gone. Nothing is created on it, so this misleads and does not endanger; the menu's status line
-  and the System page's Clicks row say what the taps are really doing.
 - **A range is bounded by what Finder has built.** Both ends have to be on screen. Click a file, scroll
   three screens, ⇧ Shift click another, and the click goes to Finder untouched, because the first file is
   no longer something Accessibility can name. Everything between two icons that are both visible is
