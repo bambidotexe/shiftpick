@@ -215,6 +215,11 @@ Mac that ignores you. If that happens: **hands off, wait for the switch, and wri
 what the log said last.** The switch always fires, so open the app again between steps, check that a
 ⇧ Shift click selects a range, and start the switch again.
 
+**Start the switch last, right before the step.** It is aimed at the copy running when it starts, and fires
+once: a copy opened after it has none, and the switch in the first walk ran out while the app was being
+reopened, so two steps were walked unguarded. A step that needs Touch ID or a password may need longer:
+`sh scripts/drill.sh 60`.
+
 - [ ] **A. The switch turned off, hands off ⇧ Shift.** System Settings › Privacy & Security › *Device Control
       and Data Access*, turn ShiftPick off. **Every click and every key keeps working the whole time.** Within
       about three seconds the log says `the Accessibility grant is gone (…); both taps destroyed`, the wizard
@@ -230,6 +235,9 @@ what the log said last.** The switch always fires, so open the app again between
       Hold ⇧ Shift with one hand, turn ShiftPick off with the other, keep the key down, and ⇧ Shift click a
       file. The worst allowed is **one** click that takes a moment, with `macOS took the click tap away
       (timeout), 1 of 3` in the log and nothing enabled after it. Let go of the key: everything works.
+      **It is hard to reach by hand**: turning the switch off takes a click and Touch ID, and in the first walk
+      the live question asked at the ⇧ Shift press found the grant gone before anything was enabled. The walk
+      has reached the case only when `armed` is logged before the loss line.
 - [ ] **D. Uninstall**, with the grant in place: Settings › General › Uninstall, and confirm. `stopped
       listening; no event tap exists` is logged **before** anything else happens, and the last alert's button
       takes your click.

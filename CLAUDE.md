@@ -283,11 +283,12 @@ tests; `docs/manual-test-checklist.md` is its verification.
 
 **What is proven and what is not, about the safety model.** The rules are proven: `TapLifecycle` is a value,
 and its 94 scenarios and 80,000 seeded events run on every `swift test`, as do the click's deadline and the
-taps' thread. **The taps themselves have been seen once**: `ClickGuard` cannot run in a test, because a test
-runner has no Accessibility grant to create a tap with, and the first install on the owner's Mac is the only
-run there has been. It created both taps and found `docs/pitfalls.md` 15 within the millisecond. Until
-`docs/manual-test-checklist.md` §9 has been walked on an installed build, drill included, the rest of that
-layer is code that compiles and has been read, not code that has been seen working.
+taps' thread. **The taps have been seen on the owner's Mac**, which is the only place they can be:
+`ClickGuard` cannot run in a test, because a test runner has no Accessibility grant to create a tap with. The
+first install found `docs/pitfalls.md` 15 within the millisecond; the build after it passed the Finder gesture
+and drill steps A, B, C and E of `docs/manual-test-checklist.md` §9. The grant was taken away with the switch
+and with the minus button, the loss was caught before anything was enabled every time, and no click or key
+was ever held up. `docs/macOS.md` has what the walk measured.
 
 Known limitations, in plain words:
 
@@ -297,10 +298,14 @@ Known limitations, in plain words:
   unlock notification that never arrived, leaves that one click to Finder, which adds one file; the press
   itself arms for the next, or wakes ShiftPick up. Never the other way round: nothing is ever
   swallowed on a guess.
-- **The safety drill has not been run.** `docs/manual-test-checklist.md` §9 takes the grant away from a running app behind a
-  dead-man's switch, and what it measures (which of the four ways notices first, how long it takes, whether
-  `tccutil` reaches a running process) is still reported by others rather than read on this Mac.
-  `docs/macOS.md` says so wherever it applies.
+- **Two things the drill has not shown.** Step D, the uninstall, has not been walked with these taps, so
+  whether `tccutil` reaches a running process is still reported by others. And the click tap has never been
+  enabled at the very moment a grant went: turning the switch off takes a click and Touch ID, and the live
+  question at the ⇧ Shift press got there first each time. The watch bounds that case to half a second.
+- **The onboarding wizard's row and Settings › System's Accessibility row can show the grant while ShiftPick
+  is not listening.** Both read `AXIsProcessTrusted()`, which the drill caught saying yes for seconds after the
+  grant was gone. Nothing is created on it, so this misleads and does not endanger; the menu's status line
+  and the System page's Clicks row say what the taps are really doing.
 - **A range is bounded by what Finder has built.** Both ends have to be on screen. Click a file, scroll
   three screens, ⇧ Shift click another, and the click goes to Finder untouched, because the first file is
   no longer something Accessibility can name. Everything between two icons that are both visible is

@@ -158,8 +158,9 @@ role descriptions beside them.
   event is passed to the registered `CGEventTapCallBack`"), the user there being the program calling it, and
   the first install measured it: one is delivered for **every** `CGEventTapEnable(tap, false)`, even on a tap
   that is already disabled. So only timeouts are counted (`pitfalls.md` 15).
-- **Whether `CGEvent.tapIsEnabled` answers for an enable made a moment before is not known.** It is asked
-  once after every enable of the click tap and a `false` is only logged (`the click tap did not take the
+- **`CGEvent.tapIsEnabled` answers for an enable made a moment before.** Measured on the installed build:
+  it said yes after every enable of the click tap, about ten of them in ordinary use and through the drill.
+  It is still asked once after every enable, and a `false` is only logged (`the click tap did not take the
   enable`), never acted on: the live question about the grant already covers the one case where it would
   matter.
 - **`CGEventSource.flagsState(.hidSystemState)` is the keyboard as the hardware sees it**, and it goes on
@@ -187,14 +188,20 @@ converted anywhere, and no Cocoa rectangle ever reaches the click path.
   macOS 27: the first call in a process is a 13.7 ms round trip to `tccd` with no timeout, and the next 2,000
   average 0.68 µs, a read of something already in the process. **So it is never called on the thread that
   serves the taps**: the call that refills that cache comes around a change to the privacy database, which is
-  exactly when the grant is moving. It is right at launch. It lags the notification that says the grant moved, and it has been reported to go on saying yes
-  after the grant was taken away, above all when the app is removed from the list with the minus button
-  rather than switched off. Windows may show it; **nothing that enables an event tap relies on it alone.**
+  exactly when the grant is moving. It is right at launch. **After it, it can go on saying yes with the grant
+  gone.** Measured in the drill: once the grant had been taken away, the onboarding wizard's row, which reads
+  it, showed the grant a second and a half later and at every poll for the next six seconds, while no live
+  question was answered yes and nothing was created. It has also been reported to lag the notification, and
+  to stay yes for good when the app is removed from the list with the minus button. Windows may show it;
+  **nothing that enables an event tap relies on it alone.**
 - **A real request is refused the moment the grant is gone**: any Accessibility call comes back
   `kAXErrorAPIDisabled`. That is the live question (`Permissions.liveVerdict`): one attribute asked of the
   Dock, which is always running and answers in well under a millisecond, with a 50 ms timeout. A timeout says
   nothing either way and is never read as a revocation. Every call the click path makes is a witness as
-  well: `AX.refusalCount` moves when one is refused.
+  well: `AX.refusalCount` moves when one is refused. **Measured in the drill, twice: the first call after the
+  loss was refused.** Once it was the look for the anchor that the click on the switch itself set off, 60 ms
+  later; once the live question asked when ⇧ Shift was next pressed. Both times it came before anything was
+  enabled, and nothing was ever held up.
 - `AXIsProcessTrusted()` answers whether this process may ask anything, and shows nothing, which is why it
   may run behind a poll. `AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt: true])` shows the
   system's own dialog. **They are two calls and they are never swapped**: the second returns the current
@@ -221,7 +228,9 @@ converted anywhere, and no Cocoa rectangle ever reaches the click path.
   post nothing. So hearing it disarms the click tap first, asks the live question, and looks again
   `K.trustRecheckDelays` later; a handler that reads the grant once and leaves is how a revocation goes
   unnoticed. The onboarding wizard also polls every `K.onboardingPollInterval` while it is up, and only while
-  it is up: its tick refreshes the wizard's rows **and** tells the app.
+  it is up: its tick refreshes the wizard's rows **and** tells the app. Measured: switching the grant back on
+  had both taps created about a second before the wizard's own poll noticed, which is the look again after
+  the notification.
 - **`tccutil reset Accessibility <bundle id>` is a revocation this app performs on itself**, in its
   uninstall. Whether it reaches the running process at once or only the next launch has **not been measured
   here**, and others report both; the uninstall does not find out, because it destroys both taps first.
