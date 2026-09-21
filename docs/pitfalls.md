@@ -157,9 +157,11 @@ rule behind it: **`OnboardingMetrics` decides sizes, and a stack view left free 
 All four references now carry the fix; a trap fixed in a window and not in the reference is a trap that ships
 again.
 
-**The instrument.** `swift run axdump tree $(pgrep -x ShiftPick) 8` prints the frames and `swift run axdump
-at <x> <y>` says what a real hit test finds there: a frame that names a rectangle where a hit test finds
-nothing is this class of bug. The app says it too, on every render and every poll tick:
+**The instrument.** `swift run axdump at <x> <y>` is the one that shows it: its hit test is system-wide
+(`AXUIElementCreateSystemWide`), so it answers over this app's own windows and prints the chain above what it
+found. Point it at the stepping button: it answers the window, or the page, and not the button. A frame that
+names a rectangle where a hit test finds nothing is this class of bug. (`axdump tree` will not help here: it
+walks Finder and takes no pid.) The app says it too, on every render and every poll tick:
 
 ```sh
 /usr/bin/log stream --predicate 'subsystem == "dev.rubens.ShiftPick"' --level debug   # category: onboarding
