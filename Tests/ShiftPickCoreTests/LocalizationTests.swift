@@ -38,6 +38,7 @@ final class LocalizationTests: XCTestCase {
         let settings = Loc.settings
         for pair in [("settings.pageGeneral", settings.pageGeneral),
                      ("settings.pageSelection", settings.pageSelection),
+                     ("settings.pageTip", settings.pageTip),
                      ("settings.pageSystem", settings.pageSystem)] { add(pair.0, pair.1) }
 
         let words = settings.words
@@ -59,9 +60,6 @@ final class LocalizationTests: XCTestCase {
                      ("general.updateFailed", general.updateFailed("x")),
                      ("general.updateButton", general.updateButton),
                      ("general.checkForUpdatesButton", general.checkForUpdatesButton),
-                     ("general.supportTitle", general.supportTitle),
-                     ("general.supportHint", general.supportHint),
-                     ("general.supportButton", general.supportButton),
                      ("general.quitTitle", general.quitTitle), ("general.quitButton", general.quitButton),
                      ("general.uninstallTitle", general.uninstallTitle),
                      ("general.uninstallHint", general.uninstallHint),
@@ -88,6 +86,13 @@ final class LocalizationTests: XCTestCase {
                      ("selection.shiftClickNote", selection.shiftClickNote),
                      ("selection.enableToggle", selection.enableToggle),
                      ("selection.commandShiftToggle", selection.commandShiftToggle)] { add(pair.0, pair.1) }
+
+        let tip = settings.tip
+        for pair in [("tip.intro", tip.intro), ("tip.offerTitle", tip.offerTitle),
+                     ("tip.offerName", tip.offerName),
+                     ("tip.offerDescription", tip.offerDescription),
+                     ("tip.offerHint", tip.offerHint(5)),
+                     ("tip.tipButton", tip.tipButton(5))] { add(pair.0, pair.1) }
 
         let system = settings.system
         for pair in [("system.accessibilityTitle", system.accessibilityTitle),

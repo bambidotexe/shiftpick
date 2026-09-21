@@ -60,13 +60,14 @@ is no place it does not.
 
 ## Settings
 
-A three-page window, opened from the menu-bar item (⌘,) or by opening the app again, which is the way in
+A four-page window, opened from the menu-bar item (⌘,) or by opening the app again, which is the way in
 when the icon is hidden. Every change applies as you make it.
 
 | Page | What is on it |
 |---|---|
-| **General** | Launch at login · Show in menu bar · Updates · Support · Quit · Uninstall |
+| **General** | Launch at login · Show in menu bar · Updates · Quit · Uninstall |
 | **Selection** | Enable ShiftPick · whether ⌘ Command with ⇧ Shift adds the range to the selection |
+| **Tip** | everything is free and stays free · a one-time tip on Ko-fi |
 | **System** | the Accessibility permission, live, with the way to grant it · whether ShiftPick is watching for clicks |
 
 The menu-bar item carries the same enable switch, Launch at Login, one line saying what the app is doing

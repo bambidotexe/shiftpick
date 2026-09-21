@@ -163,5 +163,7 @@ SHIFTPICK_UPDATE_FEED=file:///tmp/latest.json /Applications/ShiftPick.app/Conten
       Applications folder: the Settings window comes back.
 - [ ] `make install` over a running copy: the app is replaced and **opens no window** (the quiet-launch
       marker), and the Accessibility grant survives.
+- [ ] **Settings › Tip**: the toolbar's mug, the app icon beside the sentence, the Ko-fi cup on its red
+      wash, and *Tip €5*. The button opens `ko-fi.com/bambidotexe` in the browser and the window stays put.
 - [ ] The whole window in **French** and in **English** (System Settings › General › Language & Region, the
       per-app list).

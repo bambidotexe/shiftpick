@@ -61,10 +61,15 @@ both and edits only the three places marked `EDIT`.
   top-left corner, capped at `visibleFrame.height - 140`.
 - **A page is a column of groups. A group is a title, a card of rows, and under the card, outside
   it, a hint, then warnings, then notes. A row is a control and its label and nothing else.**
-- Pages: **General first**, then the features in the order a user meets them, then **System** last.
-- General is, in order: the app icon alone at 144 pt; **Startup**; **Updates**; **Support**;
-  **Quit**; **Uninstall**. `my-sidepulse/.../SettingsGeneralPage.swift`,
+- Pages: **General first**, then the features in the order a user meets them, then **Tip**, then
+  **System** last.
+- General is, in order: the app icon alone at 144 pt; **Startup**; **Updates**; **Quit**;
+  **Uninstall**. `my-sidepulse/.../SettingsGeneralPage.swift`,
   `snappy-snap/.../UI/SettingsGeneralPage.swift` — the two agree line for line.
+- **Tip** is the tip jar, its own page and the same in all four apps: a card with no title carrying the
+  app icon and one sentence, then **One-time tip** with the Ko-fi cup and a button naming the smallest
+  tip. Its two cards hold pictures and words rather than controls, which is the one place the row rule
+  above is set aside, and the owner asked for it.
 - A state is always a `StatusRow` with one of five marks and **one word** from a fixed vocabulary
   (Granted/Denied, Enabled/Disabled, Available/Missing, Valid/Invalid, Failed).
 - Every number is in `SettingsMetrics`; none of them is mine to retune.

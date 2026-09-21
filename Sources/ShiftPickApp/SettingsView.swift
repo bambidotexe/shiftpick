@@ -38,6 +38,7 @@ struct SettingsView: View {
         switch selection.page {
         case .general: GeneralPage(store: store, status: status)
         case .selection: SelectionPage(store: store)
+        case .tip: TipPage()
         case .system: SystemPage(store: store, status: status, engine: engine)
         }
     }
@@ -46,15 +47,16 @@ struct SettingsView: View {
 /// The pages, in toolbar order. The raw value is the toolbar item's identifier, so the toolbar and the
 /// selection cannot disagree about which page a click means.
 ///
-/// General first, then the one feature, then what the app needs from the system.
+/// General first, then the one feature, then the tip jar, then what the app needs from the system.
 enum SettingsPageID: String, CaseIterable, Sendable {
-    case general, selection, system
+    case general, selection, tip, system
 
     /// The toolbar item's label, and the window's title while the page is shown.
     var title: String {
         switch self {
         case .general: Loc.settings.pageGeneral
         case .selection: Loc.settings.pageSelection
+        case .tip: Loc.settings.pageTip
         case .system: Loc.settings.pageSystem
         }
     }
@@ -64,6 +66,7 @@ enum SettingsPageID: String, CaseIterable, Sendable {
         switch self {
         case .general: "gearshape"
         case .selection: "square.stack.3d.up"
+        case .tip: "mug"
         case .system: "checkmark.shield"
         }
     }

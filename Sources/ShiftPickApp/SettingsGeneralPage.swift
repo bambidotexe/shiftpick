@@ -30,14 +30,6 @@ struct GeneralPage: View {
 
             UpdatesGroup()
 
-            // One row, so the hint carries the whole group: the button alone does not say that the app is
-            // free, and it opens a web page rather than doing something in the app.
-            SettingsGroup(title: words.supportTitle, hint: words.supportHint) {
-                ButtonRow {
-                    Button(words.supportButton) { NSWorkspace.shared.open(SupportLink.koFi) }
-                }
-            }
-
             SettingsGroup(title: words.quitTitle) {
                 // Through `NSApplication.terminate`, as the menu item does. No confirmation: opening the
                 // app again undoes it.

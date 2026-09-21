@@ -36,7 +36,7 @@ the rule was **follow the most recently committed one**, which is `my-sidepulse`
 
 | Decision | Why |
 |---|---|
-| Three pages: General, Selection, System | The skill's rule: General first, then the features in the order a user meets them, then System last. ShiftPick has one feature, so it has one feature page. |
+| Four pages: General, Selection, Tip, System | The skill's rule: General first, then the features in the order a user meets them, then Tip, then System last. ShiftPick has one feature, so it has one feature page. |
 | "About" is the app icon at the top of General and the version row in Updates | That is what the three reference projects do; none of them has an About window or an About group. |
 | The **Open Accessibility Settings** button and its warning show only while the permission is missing | `building-settings-pages` states it: "once green, button and warning go and **the row stays**". snappy-snap's own System page keeps the button always; the skill is the authority and it is the newer statement of the rule. |
 | A second group, **Clicks**, reports whether the tap is up | It is the one failure that is otherwise completely silent: the permission granted, the app on, and macOS refusing the tap anyway. Silence is a defect. |

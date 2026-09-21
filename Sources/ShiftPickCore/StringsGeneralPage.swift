@@ -1,6 +1,6 @@
 import Foundation
 
-/// The General page: Startup, Updates, Support, Quit, Uninstall.
+/// The General page: Startup, Updates, Quit, Uninstall.
 public struct GeneralPageStrings {
     private let language: Language
     init(_ language: Language) { self.language = language }
@@ -106,30 +106,6 @@ public struct GeneralPageStrings {
         switch language {
         case .en: "Check for Updates"
         case .fr: "Rechercher des mises à jour"
-        }
-    }
-
-    // MARK: Support
-
-    public var supportTitle: String {
-        switch language {
-        case .en: "Support"
-        case .fr: "Soutien"
-        }
-    }
-
-    public var supportHint: String {
-        switch language {
-        case .en: "\(AppIdentity.name) is free. If it saves you trouble, you can leave a tip on Ko-fi."
-        case .fr: "\(AppIdentity.name) est gratuit. S'il vous rend service, vous pouvez laisser un "
-            + "pourboire sur Ko-fi."
-        }
-    }
-
-    public var supportButton: String {
-        switch language {
-        case .en: "Buy Me a Coffee"
-        case .fr: "Offrir un café"
         }
     }
 

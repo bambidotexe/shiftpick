@@ -138,7 +138,7 @@ List, column and gallery views are untouched: Finder already selects a range in 
 
 ## 5. Settings
 
-A window of three pages, opened from the menu-bar item (⌘,) or by opening the app again. Its shape, its
+A window of four pages, opened from the menu-bar item (⌘,) or by opening the app again. Its shape, its
 numbers and its copy are the `building-settings-pages` skill's, not this document's.
 
 | Page | Group | Rows |
@@ -146,10 +146,11 @@ numbers and its copy are the `building-settings-pages` skill's, not this documen
 | **General** | the app icon, alone | |
 | | Startup | Launch at login · Show in menu bar. A note names the way back to this window when the icon is hidden. |
 | | Updates | `ShiftPick <version>` with the last answer as its mark · one button, *Check for Updates* or *Update* |
-| | Support | one button, *Buy Me a Coffee* |
 | | Quit | one destructive button |
 | | Uninstall | one destructive button, with a warning that never goes away |
 | **Selection** | ⇧ Shift-click | Enable ShiftPick · ⌘ Command with ⇧ Shift adds the range to the selection, under it and disabled with it |
+| **Tip** | the app icon beside one sentence, in a card with no title | every feature is free and stays free, and a coffee is how the project is supported |
+| | One-time tip | the Ko-fi cup, *A cup of coffee*, what it is, and a button naming the smallest tip the page takes (`SupportLink.smallestTip`, 5 €). It opens `https://ko-fi.com/bambidotexe` in the browser; nothing is paid inside the app. |
 | **System** | Accessibility | the permission, live. While it is denied, a button to the pane and a warning naming the switch; once granted both go and the row stays. |
 | | Clicks | whether ShiftPick is watching. Its warning tells *off on purpose* from *macOS refused the tap*. |
 

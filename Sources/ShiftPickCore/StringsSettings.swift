@@ -42,7 +42,7 @@ public struct StatusWords {
     }
 }
 
-/// Everything the Settings window shows: the three page titles, the shared status vocabulary, and one table
+/// Everything the Settings window shows: the four page titles, the shared status vocabulary, and one table
 /// per page.
 public struct SettingsStrings {
     private let language: Language
@@ -62,6 +62,13 @@ public struct SettingsStrings {
         }
     }
 
+    public var pageTip: String {
+        switch language {
+        case .en: "Tip"
+        case .fr: "Don"
+        }
+    }
+
     public var pageSystem: String {
         switch language {
         case .en: "System"
@@ -72,5 +79,6 @@ public struct SettingsStrings {
     public var words: StatusWords { StatusWords(language) }
     public var general: GeneralPageStrings { GeneralPageStrings(language) }
     public var selection: SelectionPageStrings { SelectionPageStrings(language) }
+    public var tip: TipPageStrings { TipPageStrings(language) }
     public var system: SystemPageStrings { SystemPageStrings(language) }
 }
