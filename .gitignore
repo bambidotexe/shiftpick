@@ -1,0 +1,7 @@
+.build/
+build/
+*.xcodeproj
+.swiftpm/
+.DS_Store
+*.swp
+.claude/.cc-writes/

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- Three bars in a column: the first and the third outlined, the middle one filled. Two clicks, and
+       everything between them taken. The same drawing as the menu-bar mark, at 1024. -->
+  <g fill="none" stroke="#FFFFFF" stroke-width="48">
+    <rect x="256" y="226" width="512" height="150" rx="75"/>
+    <rect x="256" y="672" width="512" height="150" rx="75"/>
+  </g>
+  <rect x="232" y="437" width="560" height="150" rx="75" fill="#FFFFFF"/>
+</svg>

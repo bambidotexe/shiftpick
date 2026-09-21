@@ -1,0 +1,34 @@
+{
+  "configurations": [
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:shiftpick}",
+      "name": "Debug ShiftPick",
+      "target": "ShiftPickApp",
+      "configuration": "debug",
+      "preLaunchTask": "swift: Build Debug ShiftPickApp"
+    },
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:shiftpick}",
+      "name": "Release ShiftPick",
+      "target": "ShiftPickApp",
+      "configuration": "release",
+      "preLaunchTask": "swift: Build Release ShiftPickApp"
+    },
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:shiftpick}",
+      "name": "Debug axdump",
+      "target": "axdump",
+      "configuration": "debug",
+      "preLaunchTask": "swift: Build Debug axdump"
+    }
+  ]
+}
