@@ -1,8 +1,10 @@
 # Changelog
 
 Every released version, newest first. `scripts/version.sh` holds the tree's version; a local install always
-builds exactly that version, and publishing is what moves it, then raises the tree to the next patch. The
-version at the top of this file is the one being prepared unless a release carries its tag.
+builds exactly that version. `scripts/publish.sh <patch|minor|major>` is the only thing that moves it: it
+bumps by that level, commits and pushes the bump before it builds anything, then releases exactly that
+version, and nothing bumps it again afterward. The version at the top of this file is the one being prepared
+unless a release carries its tag.
 
 ## 0.0.1
 

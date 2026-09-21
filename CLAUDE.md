@@ -112,17 +112,20 @@ make release     # skill: publish-release. The same, plus tag, push, GitHub rele
   builds the real thing — Release, Developer ID, Hardened Runtime, notarized, stapled, wrapped in the disk
   image — takes the bundle out of that image into `/Applications`, and opens it. It leaves **no `.app` and
   no `.dmg` anywhere under the repository**, on any exit path.
-- `make release` (`scripts/publish.sh`) — **the other way.** Everything `install` does, plus the tag, the
-  push, the GitHub release carrying the image, and the version raised again afterwards. Refuses on a dirty
-  tree, an existing tag or a `HEAD` that differs from `origin`, all before it builds anything. Run it only
-  when the owner has asked for a release. `sh scripts/publish.sh --no-install` publishes and leaves
-  `/Applications` alone, which is how the update a user gets is tested.
+- `make release LEVEL=<patch|minor|major>` (`scripts/publish.sh <level>`) — **the other way.** Refuses on a
+  dirty tree, then bumps the version by the level given, commits and pushes that bump, refuses if the
+  resulting tag already exists, and only then builds — everything `install` does, plus the tag, the push and
+  the GitHub release carrying the image. Nothing bumps the version again afterward. Run it only when the
+  owner has asked for a release, and ask which level if they have not said. `sh scripts/publish.sh <level>
+  --no-install` publishes and leaves `/Applications` alone, which is how the update a user gets is tested.
 - **There is no third way.** A bundle left in `build/` is a complete application that Spotlight offers;
   launching it by accident gives a second ShiftPick with a second event tap on the same clicks.
   `scripts/no-leftovers.sh` holds that rule.
 - `scripts/version.sh` — the version rule, and the only thing that writes the version: **a local install
-  always builds and installs exactly the tree's own version.** Publishing is the only thing that moves it,
-  and raises the tree to the next patch once it has. No releases yet → the tree is `0.0.1`.
+  always builds and installs exactly the tree's own version.** `scripts/publish.sh <patch|minor|major>` is
+  the only thing that moves it: it bumps by that level, commits and pushes the bump before it builds
+  anything, then releases exactly that version. Nothing bumps it again afterward. No releases yet → the tree
+  is `0.0.1`.
 - `/usr/bin/log stream --predicate 'subsystem == "dev.rubens.ShiftPick"' --level debug` — the app's log
   (`log` alone is a zsh builtin, hence the full path). Categories: `app`, `click`, `update`. **`click` says
   nothing on the ordinary path**: a line there is always about a ⇧ Shift click, and at `debug` it says why

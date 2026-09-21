@@ -144,9 +144,10 @@ All three share one pipeline; ShiftPick's is my-sidepulse's, adapted *(most rece
   the certificate's private key and the notary credentials are in the keychain, and the identity is
   looked up by team id.
 - `scripts/version.sh` — **the version rule**: a local install always builds and installs exactly the
-  tree's own version. Publishing is the only thing that moves it, and raises the tree to the next patch
-  once it has, so that version is never built again. The version lives in exactly one line, `VERSION="…"`
-  in `scripts/make-app.sh` *(most recent; snappy-snap keeps it in a tracked `Info.plist`)*.
+  tree's own version. `scripts/publish.sh <patch|minor|major>` is the only thing that moves it: it bumps by
+  that level, commits and pushes the bump before it builds anything, then releases exactly that version.
+  Nothing bumps it again afterward. The version lives in exactly one line, `VERSION="…"` in
+  `scripts/make-app.sh` *(most recent; snappy-snap keeps it in a tracked `Info.plist`)*.
 - `scripts/make-app.sh` — assembles the bundle, compiles the Icon Composer document with `actool`
   when full Xcode is there, writes `Info.plist` and the two `.lproj/InfoPlist.strings`, and signs
   innermost-first with `--options runtime --timestamp`. Refuses an ad-hoc build without `DEBUG_OK=1`.

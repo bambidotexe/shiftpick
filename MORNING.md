@@ -113,8 +113,8 @@ is why every update check says *No release published yet*.
 Then, once you have asked for a release:
 
 ```sh
-make release                  # or: sh scripts/publish.sh
-sh scripts/publish.sh --no-install   # to test the update the way a user gets it
+make release LEVEL=patch                  # or: sh scripts/publish.sh patch
+sh scripts/publish.sh patch --no-install   # to test the update the way a user gets it
 ```
 
 **I did not run any of it, or any part of it.** I did validate it without executing: every script it
