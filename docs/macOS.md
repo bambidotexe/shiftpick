@@ -248,4 +248,7 @@ converted anywhere, and no Cocoa rectangle ever reaches the click path.
   plist from inside the app leaves an empty one where a Mac that never had the app has no file at all. The
   removal goes to a detached helper that waits for the pid.
 - Notification authorization lives in `group.com.apple.usernoted`'s preferences, and no public API puts it
-  back to "not asked yet". Dropping this app's entry and restarting the two daemons does.
+  back to "not asked yet". **ShiftPick leaves it there.** The way around is to rewrite that file, which
+  belongs to a system daemon and holds every app's answer, and to kill `usernoted` and `NotificationCenter`
+  so that they read it again: a risk to the whole Mac's notification settings taken for the sake of one
+  prompt. A reinstall inherits the old answer.

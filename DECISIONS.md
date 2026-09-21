@@ -76,6 +76,10 @@ the rule was **follow the most recently committed one**, which is `my-sidepulse`
 
 ## What was left out, and why
 
+- **The uninstall does not reset the notification authorization.** No public API does, and the way around is
+  to rewrite `usernoted`'s private preferences, which hold every app's answer, and to kill two system
+  daemons. An uninstall touches only what is ShiftPick's own; a reinstall inherits the old answer.
+
 - **No tap in a helper process.** A second process that owns the taps can be killed by the first, which is
   the one remedy that always works; but it needs a nested signature, a second identity for the privacy
   database to reason about, and a channel between the two, and what it buys over a tap that is only enabled

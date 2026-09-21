@@ -291,7 +291,10 @@ the bottom right. Its height follows the page around its **top-left** corner: 44
   it, copies the app out, and checks that copy before enabling anything: same bundle identifier, strictly
   newer, runs on this macOS, **signed by the same team as the running app**.
 - **Install and Relaunch** starts a detached helper and quits through the ordinary quit, which destroys both
-  event taps on its way out. The helper waits
+  event taps on its way out. **The helper is only started on a plan that names nothing it should not touch**:
+  what is replaced is an app bundle, and everything it removes or writes is inside ShiftPick's own updates
+  folder. A plan that fails that is refused before anything is written, and the window says the update
+  could not be installed. The helper waits
   for the process to go, renames the old bundle aside, renames the new one in, opens it, and **puts the old
   one back if the new version is not seen running**. It leaves one line behind, which the next launch reads
   and shows.
@@ -308,12 +311,18 @@ the bottom right. Its height follows the page around its **top-left** corner: 44
 1. The **Accessibility grant** and the **login item**, while the bundle they both name is still where they
    name it. `tccutil reset` against a bundle identifier with no bundle behind it fails, and nothing puts
    that right afterwards.
-2. The notification authorization, so that a reinstall can be asked again.
-3. The **bundle to the Trash**, not deleted: the app the user has just removed is still there to put back.
-4. The **preferences and the support folder**, handed to a detached helper that waits for this process to
+2. The **bundle to the Trash**, not deleted: the app the user has just removed is still there to put back.
+3. The **preferences and the support folder**, handed to a detached helper that waits for this process to
    go. `cfprefsd` writes the domain out again as the process exits whatever happens, so removing them in
-   the app leaves an empty plist where a Mac that never had ShiftPick has no file at all.
-5. The app quits. Whatever could not be done is named, with what the system said about it.
+   the app leaves an empty plist where a Mac that never had ShiftPick has no file at all. **The helper is
+   only started when every path it would remove is provably ShiftPick's own**: a bundle identifier that is
+   one, a home folder that is one, and exactly one folder directly inside that home's Application Support.
+   Otherwise nothing is removed, and the last alert says so.
+4. The app quits. Whatever could not be done is named, with what the system said about it.
+
+**Only what is ShiftPick's own is touched, and only through the system's own tools.** The answer once given
+to "may ShiftPick send notifications" stays where macOS keeps it, and a reinstall inherits it: putting it
+back would mean rewriting another program's private database.
 
 **Dragging the bundle to the Trash is not an uninstall**, and the Uninstall group says so permanently: the
 Login Items entry and the Accessibility grant would stay, pointing at an app that is gone.

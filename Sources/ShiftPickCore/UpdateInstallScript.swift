@@ -38,6 +38,22 @@ public struct UpdateInstallPlan: Equatable, Sendable {
         self.settle = settle
     }
 
+    /// Whether the helper may be started on this plan. It runs once the app has gone, renames the installed
+    /// bundle aside and runs `rm -rf` on `backup`, on `backup.failed` and on nothing else, so before it is
+    /// started every path is held against where it is supposed to be: **only an app bundle is ever replaced,
+    /// and everything removed or written is inside the app's own updates folder.** The name and the version
+    /// are one word each: one ends up inside a path the helper looks for, the other in a line the next launch
+    /// splits on spaces.
+    public func isSafe(updatesDirectory: URL) -> Bool {
+        let root = updatesDirectory.path
+        guard PathRules.isPlainAbsolute(destination.path), destination.pathExtension == "app" else { return false }
+        guard [staged, backup, resultFile, logFile].allSatisfy({ PathRules.isInside($0.path, folder: root) })
+        else { return false }
+        guard staged.pathExtension == "app", backup.lastPathComponent == destination.lastPathComponent
+        else { return false }
+        return PathRules.isOneWord(executableName) && PathRules.isOneWord(version)
+    }
+
     /// The helper's arguments, in the order its text reads them.
     public var arguments: [String] {
         [String(pid), destination.path, staged.path, backup.path, resultFile.path, logFile.path,

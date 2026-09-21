@@ -22,6 +22,11 @@ public struct UninstallFailure: Sendable, Hashable {
 
 /// Everything ShiftPick put on a Mac outside its own bundle, taken off.
 ///
+/// **Only what is ShiftPick's own, and only through the system's own tools.** The answer the user once gave
+/// to "may ShiftPick send notifications" stays where macOS keeps it: no public API gives it back, and the
+/// way around that is to rewrite another program's private database and kill two system daemons, which is
+/// not a thing an uninstall gets to do to somebody's Mac. A reinstall inherits that answer.
+///
 /// **Dragging the bundle to the Trash is not an uninstall.** It removes the app and nothing else: the login
 /// item registered with `SMAppService` stays, so System Settings › General › Login Items goes on listing an
 /// app that is not there and offering to start it, and the Accessibility grant stays in the privacy list,
@@ -41,27 +46,7 @@ public enum Uninstall {
             do { try LoginItem.setEnabled(false) }
             catch { failed.append(.init(step: .loginItem, reason: error.localizedDescription)) }
         }
-        _ = resetNotificationGrant(bundleIdentifier)
         return failed
-    }
-
-    /// Notification authorization lives in usernoted's group preferences, and no public API puts it back to
-    /// "not asked yet". Left behind, a reinstall inherits a decision the user made once about an app they
-    /// have since removed, and can never be asked again. Its failure is not worth a sentence: an update
-    /// this app cannot announce is the whole of the cost.
-    private static func resetNotificationGrant(_ bundleIdentifier: String) -> Bool {
-        let url = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Group Containers/group.com.apple.usernoted/Library/Preferences/group.com.apple.usernoted.plist")
-        guard let data = try? Data(contentsOf: url),
-              var plist = (try? PropertyListSerialization.propertyList(from: data, format: nil)) as? [String: Any],
-              let apps = plist["apps"] as? [[String: Any]] else { return false }
-        let kept = apps.filter { ($0["bundle-id"] as? String) != bundleIdentifier }
-        guard kept.count != apps.count else { return true }
-        plist["apps"] = kept
-        guard let out = try? PropertyListSerialization.data(fromPropertyList: plist, format: .binary, options: 0),
-              (try? out.write(to: url)) != nil else { return false }
-        for daemon in ["usernoted", "NotificationCenter"] { run("/usr/bin/killall", [daemon]) }
-        return true
     }
 
     /// The Trash, not a delete: the app the user has just removed is still there to put back.
@@ -77,10 +62,18 @@ public enum Uninstall {
     /// before the quit. `UninstallPlan` says why they cannot be removed here.
     @MainActor
     public static func startHelper() -> UninstallFailure? {
-        let script = UninstallPlan.helperScript(pid: getpid(),
-                                                supportDirectory: Paths.appSupport.path,
-                                                bundleIdentifier: AppIdentity.bundleIdentifier,
-                                                home: FileManager.default.homeDirectoryForCurrentUser.path)
+        guard let script = UninstallPlan.helperScript(
+            pid: getpid(), supportDirectory: Paths.appSupport.path,
+            bundleIdentifier: AppIdentity.bundleIdentifier,
+            home: FileManager.default.homeDirectoryForCurrentUser.path)
+        else {
+            // Nothing is removed rather than something that might not be this app's.
+            Log.app.error("""
+                the uninstall helper was not started: \(Paths.appSupport.path, privacy: .public) or \
+                \(AppIdentity.bundleIdentifier, privacy: .public) is not provably this app's own
+                """)
+            return .init(step: .storedState, reason: Loc.settings.general.uninstallRefusedReason)
+        }
         do {
             try DetachedProcess.spawn(executable: "/bin/sh", arguments: ["-c", script], environment: [:])
             return nil

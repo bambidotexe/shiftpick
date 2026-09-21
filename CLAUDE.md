@@ -88,7 +88,8 @@ and the newer of a request and a written rule wins only after the owner has said
 | onboarding, or what happens when the permission moves | **Invoke the `building-onboarding` skill first**: it holds every rule of the wizard, who is in front, and what a grant button may do. `App/OnboardingWindow.swift` (the controller, the pages, the row, `OnboardingMetrics`), `App/GrantCatalogue.swift` (what a grant is, the two lists), `App/AppDelegate` (`showOnboarding`, `watchTheGrant`, `grantChanged`), `Platform/Permissions.swift`. **The words are not in the page files**: they are `Core/StringsOnboarding.swift` | `functional.md` §7, `macOS.md` *The permission* |
 | updates: the check, its schedule, the notification | `Core/UpdateCheck.swift`, `UpdateSchedule.swift`, `UpdatePanel.swift`, the `update…` numbers in `Core/Constants.swift`; `Platform/UpdateChecker.swift`; `App/UpdateController.swift` (the one owner), `UpdateNotifier.swift` | `functional.md` §8 |
 | updates: the window, the fetch, making it ready, Install and Relaunch | `Core/UpdateSession.swift`, `StagedUpdateCheck.swift`, `UpdateInstallScript.swift` (the helper's text, run under a real `/bin/sh` by `UpdateInstallScriptTests`); `Platform/UpdateStager.swift`, `CodeSignature.swift`, `UpdateInstaller.swift`, `DetachedProcess.swift`; `App/UpdateWindow.swift` | the same, plus `pitfalls.md`. **Read those entries before touching the order of an install** |
-| the uninstall | `Core/UninstallPlan.swift` (the helper's text and why it waits for the pid), `Platform/Uninstall.swift` (the order), the Uninstall group of `App/SettingsGeneralPage.swift`, `Core/StringsGeneralPage.swift` | `functional.md` §9 |
+| the uninstall | `Core/UninstallPlan.swift` (the helper's text, why it waits for the pid, **and what it refuses to be pointed at**), `Platform/Uninstall.swift` (the order), the Uninstall group of `App/SettingsGeneralPage.swift` (**the taps go first**), `Core/StringsGeneralPage.swift` | `functional.md` §9 |
+| anything that deletes, renames or runs a shell after the app has quit | `Core/PathRules.swift` holds the questions every such path is asked first; `UninstallPlan.helperScript` answers nil and `UpdateInstallPlan.isSafe` false when one fails. **A new helper, or a new path in an old one, goes through them**, with its refusals in `UninstallPlanTests` or `UpdateInstallPlanTests` | `functional.md` §8 and §9 |
 | **any sentence the user reads**, in either language | `Core/Strings*.swift` (one table per surface; a string is one accessor switching over `Language`, so the two languages are added together or not at all), `Core/Localization.swift` — `LocalizationTests`, which also reads the tables off disk | `functional.md` §10 |
 | the app's name, its identifier or its repository | **`scripts/signing.env` only.** `make-app.sh` writes all three into the built `Info.plist` and `Core/AppIdentity.swift` reads them back | `CONVENTIONS.md` §7 |
 | the icon | `Resources/AppIcon.icon` (re-export from Icon Composer, never hand-edit `icon.json`), `Resources/previews/ShiftPick-preview-1024.png`, `Resources/ICON-NOTES.md` | `architecture.md` *Build and signing* |
@@ -202,6 +203,11 @@ the log.
   next ⇧ Shift press, asked about like any other.
 - **`AXIsProcessTrusted()` never keeps a tap enabled on its own.** It is a cached answer and has been seen
   to be wrong. Arming asks `Permissions.liveVerdict`; windows may show the cached one.
+- **A helper that deletes is only ever pointed at what is provably ShiftPick's own.** Its paths are glued
+  together from strings the bundle supplied, and an identifier that came back empty turns
+  `~/Library/Caches/<identifier>` into the user's whole Caches folder. `Core/PathRules` asks first; nothing
+  is removed when the answer is no. **And an uninstall touches nothing that is not ShiftPick's**: no other
+  program's files, no system daemon.
 - **Anything that takes the grant or the process away destroys both taps first**: `engine.shutDown()` comes
   before `tccutil`, before a quit, before anything new of that kind.
 - **The thread that serves the taps never calls Accessibility and never blocks without a timeout.** It hands

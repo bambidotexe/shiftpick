@@ -28,8 +28,16 @@ public enum UninstallPlan {
     /// The caches, the HTTP storage and the saved window state go too. They are not dangerous, but they are
     /// named after the bundle identifier and belong to nothing else, and an uninstall that leaves them is
     /// not the fresh Mac it claims to be.
+    ///
+    /// **nil when anything it would be pointed at is not provably this app's own.** The helper runs `rm -rf`,
+    /// and every path below is glued together from three strings the bundle supplied. An identifier that
+    /// came back empty turns `~/Library/Caches/<identifier>` into the user's whole Caches folder; a name that
+    /// came back empty does the same to Application Support. Neither can happen to a bundle this project
+    /// built, and a helper that deletes is not the place to rely on that.
     public static func helperScript(pid: Int32, supportDirectory: String, bundleIdentifier: String,
-                                    home: String) -> String {
+                                    home: String) -> String? {
+        guard isBundleIdentifier(bundleIdentifier), isHomeFolder(home),
+              isOwnFolder(supportDirectory, inApplicationSupportOf: home) else { return nil }
         let library = home + "/Library"
         let paths = [
             supportDirectory,
@@ -43,12 +51,35 @@ public enum UninstallPlan {
             "i=0",
             "while /bin/kill -0 \(pid) 2>/dev/null && [ $i -lt \(helperWaitTenths) ]; do /bin/sleep 0.1; i=$((i+1)); done",
             // Before the file is removed, or cfprefsd writes its cache back over the gap.
-            "/usr/bin/defaults delete \(bundleIdentifier) 2>/dev/null",
+            "/usr/bin/defaults delete \(shellQuoted(bundleIdentifier)) 2>/dev/null",
             "/bin/rm -rf " + paths.map(shellQuoted).joined(separator: " "),
             // One per host identifier, so a glob rather than a path; `find` keeps the glob away from a home
             // folder whose name has a space in it.
             "/usr/bin/find \(shellQuoted(library + "/Preferences/ByHost")) -maxdepth 1 -name \(shellQuoted(bundleIdentifier + ".*.plist")) -delete 2>/dev/null",
         ] as [String]).joined(separator: "\n") + "\n"
+    }
+
+    // MARK: - What the helper may be pointed at
+
+    /// Letters, digits and hyphens in two or more parts joined by dots, and nothing else: no slash that
+    /// would climb out of a folder, no space or quote for the shell to read, no empty part.
+    static func isBundleIdentifier(_ text: String) -> Bool {
+        let parts = text.split(separator: ".", omittingEmptySubsequences: false)
+        guard parts.count >= 2 else { return false }
+        return parts.allSatisfy { part in
+            !part.isEmpty && part.unicodeScalars.allSatisfy { scalar in
+                scalar.isASCII && (CharacterSet.alphanumerics.contains(scalar) || scalar == "-")
+            }
+        }
+    }
+
+    static func isHomeFolder(_ path: String) -> Bool { PathRules.isPlainAbsolute(path) }
+
+    /// Exactly one folder of the app's own, directly inside that home's Application Support.
+    static func isOwnFolder(_ path: String, inApplicationSupportOf home: String) -> Bool {
+        let parent = home + "/Library/Application Support/"
+        guard path.hasPrefix(parent) else { return false }
+        return PathRules.isOneComponent(String(path.dropFirst(parent.count)))
     }
 
     /// Single quotes, with any quote in the path closed and reopened around an escaped one. The home folder

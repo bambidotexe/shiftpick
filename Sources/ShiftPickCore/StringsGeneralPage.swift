@@ -251,6 +251,15 @@ public struct GeneralPageStrings {
         }
     }
 
+    /// The reason `uninstallHelperFailed` is given when the helper was never started because what it would
+    /// have removed could not be shown to be this app's own. It reads after a colon and before a full stop.
+    public var uninstallRefusedReason: String {
+        switch language {
+        case .en: "its files could not be told apart from yours, so none were touched"
+        case .fr: "ses fichiers n'ont pas pu être distingués des vôtres, aucun n'a donc été touché"
+        }
+    }
+
     public func uninstallHelperFailed(_ reason: String) -> String {
         switch language {
         case .en: "The last step could not be started: \(reason). \(AppIdentity.name)'s settings and "

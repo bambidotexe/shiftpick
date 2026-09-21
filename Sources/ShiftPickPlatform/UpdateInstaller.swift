@@ -31,9 +31,17 @@ public enum UpdateInstaller {
         return nil
     }
 
+    /// The plan names something the helper must not be pointed at. Nothing was written and nothing started.
+    public struct UnsafePlan: Error, Equatable, Sendable {}
+
     /// Writes the helper next to the update and starts it on its own: it waits for this process to exit.
-    /// The helper's pid, for `stop`.
+    /// The helper's pid, for `stop`. **Refused before anything is written** unless the plan is safe against
+    /// the folder the script itself is in, which is the app's updates folder.
     public static func start(_ plan: UpdateInstallPlan, script: URL) throws -> Int32 {
+        guard plan.isSafe(updatesDirectory: script.deletingLastPathComponent()) else {
+            Log.update.error("the install helper was not started: the plan names a path outside the updates folder, or one that is not an app bundle")
+            throw UnsafePlan()
+        }
         try UpdateInstallScript.text.write(to: script, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: script.path)
         return try DetachedProcess.spawn(executable: "/bin/sh", arguments: [script.path] + plan.arguments,
