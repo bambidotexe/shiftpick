@@ -232,7 +232,8 @@ converted anywhere, and no Cocoa rectangle ever reaches the click path.
   had both taps created about a second before the wizard's own poll noticed, which is the look again after
   the notification.
 - **`tccutil reset Accessibility <bundle id>` is a revocation this app performs on itself**, in its
-  uninstall. Measured: it resets the grant and exits in about ten milliseconds. Whether the reset reaches the
+  uninstall. Measured: it resets the grant and exits in ten to thirty milliseconds, and
+  `SMAppService.mainApp.unregister` answers in under ten. Whether the reset reaches the
   running process at once or only the next launch has **not been measured here**, and others report both;
   the uninstall does not find out, because it destroys both taps first.
 - A **command-line tool inherits the Accessibility grant of the terminal that starts it**, which is why

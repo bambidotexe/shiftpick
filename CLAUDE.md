@@ -289,8 +289,8 @@ and its 96 scenarios and 80,000 seeded events run on every `swift test`, as do t
 taps' thread. **The taps have been seen on the owner's Mac**, which is the only place they can be:
 `ClickGuard` cannot run in a test, because a test runner has no Accessibility grant to create a tap with. The
 first install found `docs/pitfalls.md` 15 within the millisecond; the builds after it passed the Finder
-gesture, the lid closed and opened twice, a second copy started with `open -n`, and drill steps A, B, C and E
-of `docs/manual-test-checklist.md` §9. The grant was taken away with the switch
+gesture, the lid closed and opened twice, a second copy started with `open -n`, drill steps A, B, C and E
+of `docs/manual-test-checklist.md` §9, and the uninstall (step D, on its second walk). The grant was taken away with the switch
 and with the minus button, the loss was caught before anything was enabled every time, and no click or key
 was ever held up. `docs/macOS.md` has what the walk measured.
 
@@ -302,11 +302,10 @@ Known limitations, in plain words:
   unlock notification that never arrived, leaves that one click to Finder, which adds one file; the press
   itself arms for the next, or wakes ShiftPick up. Never the other way round: nothing is ever
   swallowed on a guess.
-- **Two things the drill has not shown.** The uninstall (step D) destroyed the taps first when it was walked,
-  then froze on its main thread (`docs/pitfalls.md` 16); the rework has not been walked yet, and whether
-  `tccutil` reaches a running process is still reported by others. And the click tap has never been enabled
-  at the very moment a grant went: turning the switch off takes a click and Touch ID, and the live question
-  at the ⇧ Shift press got there first each time. The watch bounds that case to half a second.
+- **One case the drill has not shown**: the click tap enabled at the very moment a grant goes. Turning the
+  switch off takes a click and Touch ID, and the live question at the ⇧ Shift press got there first each
+  time; the watch bounds that case to half a second. Whether `tccutil` reaches a running process is still
+  reported by others, because the uninstall destroys both taps before it asks.
 - **A range is bounded by what Finder has built.** Both ends have to be on screen. Click a file, scroll
   three screens, ⇧ Shift click another, and the click goes to Finder untouched, because the first file is
   no longer something Accessibility can name. Everything between two icons that are both visible is
@@ -318,6 +317,7 @@ Known limitations, in plain words:
   helper has installed and rolled back a stand-in app for real; the notification, the update window and
   ShiftPick installing over itself are `docs/manual-test-checklist.md` §10. Nothing is published, so every check answers
   **No release published yet** until the repository is public and carries a release.
-- **The uninstall has been walked once, and froze.** The rework that runs its waits off the main thread is
-  tested (`BoundedWaitTests`, `UninstallPlanTests`) and has not been walked; `docs/manual-test-checklist.md`
-  §11 is the walk.
+- **The uninstall froze on its first walk and passed its second.** The first waited on its main thread
+  (`docs/pitfalls.md` 16). The rework took about fifty milliseconds for its system steps, with no spinning
+  wheel, and left nothing behind: the bundle in the Trash, the domain, the support folder, the caches and the
+  saved state gone, the grant reset and the login item removed.
