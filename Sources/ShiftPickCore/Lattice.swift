@@ -76,7 +76,7 @@ struct Lattice {
 
     /// Whether no cluster is wider than `limit`. A line of icons Finder placed is exact; a line that only
     /// exists because single linkage walked from one hand-placed icon to the next is not.
-    private static func isTight(_ values: [CGFloat], _ index: [Int], limit: CGFloat) -> Bool {
+    static func isTight(_ values: [CGFloat], _ index: [Int], limit: CGFloat) -> Bool {
         guard let groups = index.max() else { return true }
         var low = [CGFloat](repeating: .greatestFiniteMagnitude, count: groups + 1)
         var high = [CGFloat](repeating: -.greatestFiniteMagnitude, count: groups + 1)

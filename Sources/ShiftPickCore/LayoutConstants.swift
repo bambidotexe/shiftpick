@@ -13,10 +13,16 @@ extension K {
     public static let gridLinkPitches: CGFloat = 1.5
 
     /// The gap, in pitches, that separates two rows or two columns of an inferred grid, and the widest a
-    /// row or a column may be before the cluster is a scatter with no grid. An icon a quarter pitch off its
-    /// line is on it, so a line of hand-placed icons is up to half a pitch wide; a line that only exists
-    /// because a scatter chained together is wider.
+    /// row may be before the cluster is a scatter with no grid. An icon a quarter pitch off its row is on
+    /// it, so a row of hand-placed icons is up to half a pitch wide; a row that only exists because a
+    /// scatter chained together is wider.
     public static let gridLineTolerancePitches: CGFloat = 0.5
+
+    /// The most icons a cluster may hold and be a grid whatever its shape. One icon is a grid of one; two
+    /// are a row, a column or a diagonal, and all three read the same way. From three on, a grid needs a
+    /// row or a column that two icons share: icons that share no line with anyone, a staircase however
+    /// even its steps, give nothing to read along, and are a scatter.
+    public static let gridAlwaysCount = 2
 
     /// How far an icon looks for its nearest neighbour when the pitch is measured, in icon sides. A window's
     /// pitch is under two sides and the Desktop's under two as well; an icon with nothing within three is
