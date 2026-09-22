@@ -170,6 +170,56 @@ final class ClustersTests: XCTestCase {
         }
     }
 
+    // MARK: - Small icons
+
+    /// The label under a 16-point icon is the label under a 64-point one, so the cell does not shrink with
+    /// the icon: at 16 points a pitch of 96 is six sides, and at 32 points the window's 116 is three and a
+    /// half. Three of either icon's own sides finds nobody; three sides of `K.cellSideFloor`, which is what
+    /// a small icon is measured in, finds every neighbour, and the grid is one cluster at its own pitch.
+    func testSmallIconsOnALabelDrivenPitchAreOneClusterAtThatPitch() {
+        for (side, pitch) in [(CGFloat(16), CGFloat(96)), (32, 116)] {
+            let items = Layouts.filled(rows: 4, columns: 5, pitch: CGSize(width: pitch, height: pitch), side: side)
+            let clusters = Clusters.build(items)
+            XCTAssertEqual(clusters.count, 1, "side \(side)")
+            XCTAssertEqual(clusters.pitch, pitch, accuracy: 0.5, "side \(side)")
+        }
+    }
+
+    /// The same two views tidied by hand, every icon up to a sixth of its pitch off its cell, for each of
+    /// forty wobbles: still one cluster, near its real pitch, exactly as the Desktop's 72-point icons are.
+    func testSmallIconsTidiedByHandStillHoldTogetherAtTheirPitch() {
+        for (side, pitch, amplitude) in [(CGFloat(16), CGFloat(96), 16), (32, 116, 20)] {
+            for seed in 1...40 {
+                let items = Layouts.wobbled(rows: 4, columns: 5, amplitude: amplitude, seed: UInt64(seed),
+                                            pitch: CGSize(width: pitch, height: pitch), side: side)
+                let clusters = Clusters.build(items)
+                XCTAssertEqual(clusters.count, 1, "side \(side), seed \(seed)")
+                XCTAssertEqual(clusters.pitch, pitch, accuracy: 10, "side \(side), seed \(seed)")
+            }
+        }
+    }
+
+    /// The reach a small icon is given is a 64-point icon's, not the whole screen: two 16-point icons at
+    /// opposite corners of a window are still two clusters of one, at the pitch an icon with nobody near
+    /// has, which for a small icon is a 64-point icon's too.
+    func testSmallIconsFarFromEveryoneAreStillClustersOfOne() {
+        let items = [Layouts.item(x: 100, y: 100, axOrder: 0, side: 16), Layouts.item(x: 600, y: 500, axOrder: 1, side: 16)]
+        let clusters = Clusters.build(items)
+        XCTAssertEqual(clusters.count, 2)
+        XCTAssertEqual(clusters.pitch, K.cellSideFloor * K.lonePitchSides, accuracy: 0.5)
+    }
+
+    /// Two 16-point icons dropped almost on top of each other in the corner of a hand-placed grid, thirty
+    /// points apart: within a label's width of each other they share a cell, a pile, exactly as two 64-point
+    /// icons that close would, and the pitch is the grid's, not the pair's.
+    func testALoosePairInASmallIconGridDoesNotHideTheGrid() {
+        var items = Layouts.filled(rows: 4, columns: 5, pitch: CGSize(width: 96, height: 96), side: 16)
+        items.append(Layouts.item(x: items[0].frame.minX + 30, y: items[0].frame.minY, axOrder: 20, side: 16))
+        let clusters = Clusters.build(items)
+        XCTAssertEqual(clusters.count, 1)
+        XCTAssertEqual(clusters.pitch, 96, accuracy: 1)
+    }
+
     /// The size the specification names, in the shape that is hardest for a spatial hash: nothing on a
     /// lattice, so nothing to share a cell with. Debug build; the point is that nothing is quadratic.
     func testFiveThousandScatteredIconsClusterInWellUnderASecond() {

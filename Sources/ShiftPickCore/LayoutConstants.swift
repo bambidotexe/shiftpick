@@ -25,9 +25,19 @@ extension K {
     public static let gridAlwaysCount = 2
 
     /// How far an icon looks for its nearest neighbour when the pitch is measured, in icon sides. A window's
-    /// pitch is under two sides and the Desktop's under two as well; an icon with nothing within three is
-    /// not evidence about the pitch.
+    /// pitch is under two sides of a 64-point icon and the Desktop's under two of a 72-point one; an icon
+    /// with nothing within three is not evidence about the pitch. The side is never taken under
+    /// `cellSideFloor`.
     public static let neighbourReachSides: CGFloat = 3
+
+    /// The least an icon's side counts as wherever the pitch is measured in sides, in points. Finder's cell
+    /// is the label's below about 64 points, not the icon's: a 16-point icon sits under the same label as a
+    /// 64-point one, on a pitch that does not shrink with it, so three of its own sides find nobody where
+    /// three of a 64-point icon's find every neighbour; and two small icons dropped within a label's width
+    /// of each other share a cell, as two 64-point icons that close do. So the reach, the overlap and the
+    /// pitch of an icon with nobody near are taken in sides of an icon at least this big, and a small icon's
+    /// grid is read exactly as the 64-point window's was measured to be. A larger icon is its own measure.
+    public static let cellSideFloor: CGFloat = 64
 
     /// How close two centres are, in icon sides, for the icons to overlap rather than neighbour each other:
     /// one side, on both axes. Finder never draws two cells closer than an icon's side, so a centre that

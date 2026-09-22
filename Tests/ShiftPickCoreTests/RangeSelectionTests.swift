@@ -124,6 +124,22 @@ final class RangeSelectionTests: XCTestCase {
         XCTAssertEqual(model.range(from: 0, to: 3), .ordered([0, 1, 2, 3]))
     }
 
+    /// The smallest icons Finder draws, 16 points under a label as wide as any, on a pitch six of their
+    /// sides wide: with a hole, and tidied by hand, the view is hand-placed, and it is one grid read along
+    /// its rows, the first icon of one row following the last of the row above.
+    func testSmallIconsOnALabelDrivenPitchAreReadAsOneGrid() {
+        var holed = Layouts.filled(rows: 3, columns: 4, pitch: CGSize(width: 96, height: 96), side: 16)
+        holed.remove(at: 5)
+        let withHole = model(holed)
+        XCTAssertEqual(withHole.kind, .handPlaced(grids: 1, scatters: 0))
+        XCTAssertEqual(withHole.range(from: 2, to: 4), .ordered([2, 3, 4]))
+
+        let tidied = model(Layouts.wobbled(rows: 3, columns: 4, amplitude: 16, seed: 9,
+                                           pitch: CGSize(width: 96, height: 96), side: 16))
+        XCTAssertEqual(tidied.kind, .handPlaced(grids: 1, scatters: 0))
+        XCTAssertEqual(tidied.range(from: 3, to: 4), .ordered([3, 4]))
+    }
+
     /// Clusters follow one another by top edge, then by leading edge, whatever order the items were listed
     /// in: the reading order runs through the higher cluster first.
     func testClustersReadByTopEdgeThenLeadingEdge() {

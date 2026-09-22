@@ -13,7 +13,11 @@ struct Clusters {
 
     static func build(_ items: [LayoutItem]) -> Clusters {
         guard !items.isEmpty else { return Clusters(index: [], count: 0, pitch: 1) }
-        let side = max(Lattice.median(items.map(\.frame.height)) ?? 1, 1)
+        // The side every distance below is measured in: the icon's, and never under `K.cellSideFloor`,
+        // because a smaller icon's cell is its label's and is laid out as a 64-point icon's would be. Written
+        // so that a median that is not a number falls to the floor rather than into every distance.
+        let measured = Lattice.median(items.map(\.frame.height)) ?? 1
+        let side = measured > K.cellSideFloor ? measured : K.cellSideFloor
         let pitch = measurePitch(items, side: side)
         let link = K.gridLinkPitches * pitch
         let hash = SpatialHash(items, cell: link)
@@ -39,7 +43,8 @@ struct Clusters {
         return Clusters(index: index, count: numbered.count, pitch: pitch)
     }
 
-    /// The pitch, in two readings of one pass over the neighbours within `K.neighbourReachSides`.
+    /// The pitch, in two readings of one pass over the neighbours within `K.neighbourReachSides` of the
+    /// `side` the caller measured (the icon's, floored at `K.cellSideFloor`).
     ///
     /// The coarse one is the median, over the icons, of the distance to the nearest other icon. It leans
     /// low under a wobble, because the nearest of an icon's four neighbours is the one that wobbled

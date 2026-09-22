@@ -255,15 +255,19 @@ view somebody laid out by hand, not guarantees**.
    was dropped on the other, a pile, and it is passed over for the nearest icon that does not. **The pitch**
    is the median of the samples no farther than **`K.gridLinkPitches` (1.5)** coarse pitches, the coarse
    pitch being the median, over the icons, of the distance to the nearest one of all; with no neighbour
-   within reach anywhere it is **`K.lonePitchSides` (1.5)** icon sides, and never under a point. An icon's
-   side is the median frame height. Two icons are then **linked** when their
-   centres are within **`K.gridLinkPitches` (1.5)** pitches of each other on both axes, and a **cluster** is
-   a connected set of links: a grid's orthogonal and diagonal neighbours are one pitch apart and a wobble,
-   while an empty row or column between two groups is two pitches less a wobble and breaks the link. **A gap
-   of two pitches or more through a cluster breaks it the same way**: the gap has to run through every row,
-   because one link anywhere across it, diagonal included, holds the two sides together; where it does, the
-   icons beyond it are another cluster and a range across the gap is the rubber band. An icon far from
-   everyone is a cluster of one.
+   within reach anywhere it is **`K.lonePitchSides` (1.5)** icon sides, and never under a point. **An icon's
+   side, for every one of these distances, is the median frame height and never under `K.cellSideFloor`
+   (64) points**: below that Finder's cell is the label's and not the icon's — a 16-point icon sits under
+   the same label as a 64-point one, on a pitch that does not shrink with it, and two of them dropped within
+   a label's width of each other share a cell — so a small icon looks three sides of a 64-point icon for its
+   neighbours, overlaps another within one, and its grid is read exactly as a 64-point window's is. Two
+   icons are then **linked** when their centres are within **`K.gridLinkPitches` (1.5)** pitches of each
+   other on both axes, and a **cluster** is a connected set of links: a grid's orthogonal and diagonal
+   neighbours are one pitch apart and a wobble, while an empty row or column between two groups is two
+   pitches less a wobble and breaks the link. **A gap of two pitches or more through a cluster breaks it the
+   same way**: the gap has to run through every row, because one link anywhere across it, diagonal included,
+   holds the two sides together; where it does, the icons beyond it are another cluster and a range across
+   the gap is the rubber band. An icon far from everyone is a cluster of one.
 6. **A grid, or a scatter.** Inside a cluster the centres' *y* values are cut into rows at every gap wider
    than **`K.gridLineTolerancePitches` (0.5)** of a pitch, the *x* values into columns the same way. The
    cluster is a **grid** when **no row is wider than that tolerance** (an icon a quarter pitch off its row
