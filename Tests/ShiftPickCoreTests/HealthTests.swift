@@ -11,9 +11,9 @@ final class HealthTests: XCTestCase {
     }
 
     private func facts(granted: Bool = true, systemSays: Bool? = nil, listener: TapLifecycle.Status = .watching,
-                       userEnabled: Bool = true, finderRunning: Bool? = true, crashes: [Date] = []) -> HealthFacts {
+                       finderRunning: Bool? = true, crashes: [Date] = []) -> HealthFacts {
         HealthFacts(accessibilityGranted: granted, accessibilitySystemSays: systemSays ?? granted,
-                    accessibilityRequired: true, listener: listener, userEnabled: userEnabled,
+                    accessibilityRequired: true, listener: listener,
                     finderRunning: finderRunning, runningSeconds: 3_720, memoryBytes: 48 * 1_048_576,
                     recentCrashes: crashes)
     }
@@ -31,21 +31,18 @@ final class HealthTests: XCTestCase {
         XCTAssertEqual(HealthRules.grant(held: false, required: false), .warning)
     }
 
-    /// The listener is what the whole app rests on: not listening while switched on is red.
-    func testAListenerThatIsNotListeningWhileSwitchedOnIsRed() {
-        XCTAssertEqual(HealthRules.listener(.watching, userEnabled: true), .good)
-        XCTAssertEqual(HealthRules.listener(.refused, userEnabled: true), .failure)
-        XCTAssertEqual(HealthRules.listener(.breakerOpen, userEnabled: true), .failure)
+    /// The listener is what the whole app rests on: not listening is red.
+    func testAListenerThatIsNotListeningIsRed() {
+        XCTAssertEqual(HealthRules.listener(.watching), .good)
+        XCTAssertEqual(HealthRules.listener(.refused), .failure)
+        XCTAssertEqual(HealthRules.listener(.breakerOpen), .failure)
     }
 
-    /// No line while switched off (a preference), while waiting for the permission (the permission's own line
-    /// says it: one cause, one line), and before anything was reported.
-    func testTheListenerHasNoLineInItsThreeQuietCases() {
-        for status in [TapLifecycle.Status.watching, .needsPermission, .refused, .breakerOpen, .stopped] {
-            XCTAssertNil(HealthRules.listener(status, userEnabled: false), "switched off: \(status)")
-        }
-        XCTAssertNil(HealthRules.listener(.needsPermission, userEnabled: true))
-        XCTAssertNil(HealthRules.listener(.stopped, userEnabled: true))
+    /// No line while waiting for the permission (the permission's own line says it: one cause, one line), and
+    /// none before anything was reported.
+    func testTheListenerHasNoLineInItsTwoQuietCases() {
+        XCTAssertNil(HealthRules.listener(.needsPermission))
+        XCTAssertNil(HealthRules.listener(.stopped))
     }
 
     func testAFixIsShownOnlyWhileItsRowIsOrangeOrRed() {
@@ -97,10 +94,10 @@ final class HealthTests: XCTestCase {
         XCTAssertEqual(HealthReport.checks(for: breaker).warnings, [Loc.settings.health.listenerStoppedFix])
     }
 
-    /// *Enable ShiftPick* off is a preference: the table shows nothing about it.
-    func testShiftPickSwitchedOffIsNoLine() {
-        XCTAssertEqual(HealthReport.checks(for: facts(userEnabled: false)).map(\.id), ["accessibility"])
-        XCTAssertNil(check("listener", in: facts(listener: .stopped)))
+    func testTheListenersWordIsSharedByBothPages() {
+        XCTAssertEqual(HealthReport.listenerWord(.watching), Loc.settings.words.enabled)
+        XCTAssertEqual(HealthReport.listenerWord(.breakerOpen), Loc.settings.health.stopped)
+        XCTAssertEqual(HealthReport.listenerWord(.refused), Loc.settings.words.failed)
     }
 
     func testFinderIsALineOnlyWhileItIsNotRunning() {

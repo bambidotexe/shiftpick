@@ -64,16 +64,15 @@ public struct HealthPageStrings {
         }
     }
 
-    /// The way back is the one switch the user already knows: turning it on again is what asks for another
-    /// try.
+    /// The way back is a button on the System page, under the listener's own row.
     public var listenerStoppedFix: String {
         switch language {
         case .en: "macOS interrupted \(AppIdentity.name) \(K.breakerTrips) times in "
-            + "\(Int(K.breakerWindow)) seconds, so it stopped listening for clicks. Turn "
-            + "\(AppIdentity.name) off and on again on the Selection page."
+            + "\(Int(K.breakerWindow)) seconds, so it stopped listening for clicks. Press "
+            + "\u{201C}Start Listening Again\u{201D} on the System page."
         case .fr: "macOS a interrompu \(AppIdentity.name) \(K.breakerTrips) fois en "
-            + "\(Int(K.breakerWindow)) secondes, il a donc cessé d'écouter les clics. Désactivez puis "
-            + "réactivez \(AppIdentity.name) sur la page Sélection."
+            + "\(Int(K.breakerWindow)) secondes, il a donc cessé d'écouter les clics. Cliquez sur "
+            + "\u{201C}Réécouter les clics\u{201D} sur la page Système."
         }
     }
 

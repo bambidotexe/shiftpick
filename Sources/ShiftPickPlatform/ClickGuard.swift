@@ -86,9 +86,9 @@ public final class ClickGuard: @unchecked Sendable {
     /// the one state it exists for is the one in which the Mac's clicks are waiting on this process.
     private var armedActivity: NSObjectProtocol?
 
-    public init(userEnabled: Bool, hooks: Hooks) {
+    public init(hooks: Hooks) {
         self.hooks = hooks
-        lifecycle = TapLifecycle(userEnabled: userEnabled)
+        lifecycle = TapLifecycle()
     }
 
     /// The callbacks recover `self` from an unretained pointer, so a tap left behind would call into freed
@@ -112,11 +112,6 @@ public final class ClickGuard: @unchecked Sendable {
     public func tryAgain() {
         let trusted = Permissions.accessibilityGranted
         thread.perform { [weak self] in self?.feed(.tryAgain(trusted: trusted)) }
-    }
-
-    /// The Settings switch. Off, the sentinel goes on listening and arms nothing.
-    public func setUserEnabled(_ enabled: Bool) {
-        thread.perform { [weak self] in self?.feed(.userEnabled(enabled)) }
     }
 
     /// The Mac is going to sleep, the screen is locking, or another user's session is coming forward.

@@ -35,7 +35,6 @@ final class ShiftPickEngine: ObservableObject {
     private let store: SettingsStore
     private let resolver = ShiftClickResolver()
     private let clickGuard: ClickGuard
-    private var cancellables: Set<AnyCancellable> = []
 
     init(store: SettingsStore) {
         self.store = store
@@ -43,7 +42,7 @@ final class ShiftPickEngine: ObservableObject {
         let gate = DeadlineGate(queue: resolver.queue)
         let status = StatusRelay()
 
-        clickGuard = ClickGuard(userEnabled: store.settings.enabled, hooks: ClickGuard.Hooks(
+        clickGuard = ClickGuard(hooks: ClickGuard.Hooks(
             decidePress: { point, flags in
                 let outcome = gate.run(budget: K.clickBudget, grace: K.commitGrace) { ticket in
                     resolver.shiftClick(at: point, flags: flags, ticket: ticket)
@@ -72,37 +71,20 @@ final class ShiftPickEngine: ObservableObject {
             MainActor.assumeIsolated { self?.onShiftHeardWhileAway?() }
         }
         resolver.onGrantLost = { [weak clickGuard] in clickGuard?.trustWasLost() }
-        resolver.update(store.settings)
-
-        // The kill switch is a flag the sentinel reads, so turning ShiftPick off takes effect on the next
-        // press of ⇧ Shift rather than on the next launch, and no tap is created or destroyed for it.
-        store.$settings
-            .removeDuplicates()
-            .sink { [resolver, clickGuard] settings in
-                resolver.update(settings)
-                clickGuard.setUserEnabled(settings.enabled)
-            }
-            .store(in: &cancellables)
-        store.$settings
-            .map(\.enabled)
-            .removeDuplicates()
-            .sink { [weak self] on in
-                Log.app.notice("ShiftPick \(on ? "enabled" : "disabled", privacy: .public)")
-                // Turning it on again is how the user asks for another try once macOS has taken the click
-                // tap away too often: the one switch they already know, and nothing new to learn.
-                if on, self?.breakerIsOpen == true { self?.clickGuard.tryAgain() }
-            }
-            .store(in: &cancellables)
     }
 
     // MARK: - Running
 
     /// Launch, or the grant arriving. Asking twice is asking once, and it never closes an open breaker:
-    /// turning ShiftPick off and on again is what does.
+    /// the System page's button is what does.
     func start() {
         resolver.forgetAnchor()
         clickGuard.start()
     }
+
+    /// The System page's button, once the breaker has opened: the only thing that closes it, and it still
+    /// asks the live question about the grant before anything is created.
+    func tryAgain() { clickGuard.tryAgain() }
 
     /// **Returns once no event tap exists.** It comes before anything that takes the grant, the bundle or
     /// the process away, and nothing starts again after it.

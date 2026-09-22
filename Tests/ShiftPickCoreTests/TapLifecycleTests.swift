@@ -6,7 +6,7 @@ import ShiftPickCore
 final class TapLifecycleTests: XCTestCase {
     private typealias Effect = TapLifecycle.Effect
 
-    private var life = TapLifecycle(userEnabled: true)
+    private var life = TapLifecycle()
     private var now: TimeInterval = 1_000
 
     /// What the event made the app do, without the log lines.
@@ -150,19 +150,6 @@ final class TapLifecycleTests: XCTestCase {
         XCTAssertEqual(life.phase, .idle)
     }
 
-    func testTheKillSwitchArmsNothing() {
-        startWatching()
-        send(.userEnabled(false))
-        XCTAssertEqual(pressShift(), [])
-        XCTAssertEqual(life.phase, .idle)
-    }
-
-    func testTurningShiftPickOffWhileArmedDisarms() {
-        arm()
-        XCTAssertEqual(send(.userEnabled(false)), [.disableClickTap, .stopWatchdog])
-        XCTAssertEqual(life.phase, .idle)
-    }
-
     // MARK: - macOS takes the tap away
 
     /// macOS disabling a tap that has stopped answering is the system's own safety net, and enabling the tap
@@ -170,7 +157,7 @@ final class TapLifecycleTests: XCTestCase {
     /// enables anything.
     func testATapMacOSDisabledIsNeverReEnabledByThatEvent() {
         for reason in [TapLifecycle.DisableReason.timeout, .userInput] {
-            life = TapLifecycle(userEnabled: true)
+            life = TapLifecycle()
             arm()
             let effects = send(.tapDisabledBySystem(.click, reason))
             XCTAssertFalse(effects.contains(.enableClickTap), "\(reason)")
@@ -564,13 +551,6 @@ final class TapLifecycleTests: XCTestCase {
         send(.resume(trusted: true))
         send(.suspend, after: 1)
         XCTAssertEqual(pressShift(), [.checkStillAway])
-    }
-
-    func testTurnedOffNothingIsLookedAt() {
-        startWatching()
-        send(.userEnabled(false))
-        send(.suspend)
-        XCTAssertEqual(pressShift(), [])
     }
 
     func testResumingListensAgainAndAsksBeforeTheNextArming() {

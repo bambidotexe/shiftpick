@@ -214,6 +214,16 @@ final class SafetyNetTests: XCTestCase {
 
     // MARK: - Around the taps
 
+    /// The breaker is closed by the user asking, and by nothing else: one button, through the engine, and
+    /// the engine alone talks to the guard about it.
+    func testAnotherTryIsAskedForThroughTheEngineAlone() throws {
+        let sources = try swiftFiles(under: ["Sources"])
+        XCTAssertEqual(occurrences(of: "clickGuard.tryAgain()", in: sources), ["Sources/ShiftPickApp/ShiftPickEngine.swift"],
+                       "Only ShiftPickEngine.tryAgain asks the guard for another try (docs/functional.md §1).")
+        XCTAssertEqual(occurrences(of: "engine.tryAgain()", in: sources), ["Sources/ShiftPickApp/SettingsSystemPage.swift"],
+                       "Only the System page's Start Listening Again button asks the engine.")
+    }
+
     func testOnlyAButtonAsksForThePermission() throws {
         let sources = try swiftFiles(under: ["Sources"])
         XCTAssertEqual(Set(occurrences(of: "AXIsProcessTrustedWithOptions", in: sources)),

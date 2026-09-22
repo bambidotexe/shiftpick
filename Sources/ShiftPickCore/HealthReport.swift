@@ -14,8 +14,6 @@ public struct HealthFacts: Equatable, Sendable {
     public var accessibilityRequired: Bool
     /// What the click listener is doing, as the engine last reported it.
     public var listener: TapLifecycle.Status
-    /// The *Enable ShiftPick* switch.
-    public var userEnabled: Bool
     /// Whether Finder is running; nil until it has been read.
     public var finderRunning: Bool?
     /// How long this process has been running, nil when the system would not say.
@@ -26,13 +24,12 @@ public struct HealthFacts: Equatable, Sendable {
     public var recentCrashes: [Date]
 
     public init(accessibilityGranted: Bool, accessibilitySystemSays: Bool, accessibilityRequired: Bool,
-                listener: TapLifecycle.Status, userEnabled: Bool, finderRunning: Bool?,
+                listener: TapLifecycle.Status, finderRunning: Bool?,
                 runningSeconds: TimeInterval?, memoryBytes: UInt64?, recentCrashes: [Date]) {
         self.accessibilityGranted = accessibilityGranted
         self.accessibilitySystemSays = accessibilitySystemSays
         self.accessibilityRequired = accessibilityRequired
         self.listener = listener
-        self.userEnabled = userEnabled
         self.finderRunning = finderRunning
         self.runningSeconds = runningSeconds
         self.memoryBytes = memoryBytes
@@ -43,13 +40,13 @@ public struct HealthFacts: Equatable, Sendable {
 /// The Health page's two tables: the checks, green, orange or red, and the readings, blue.
 ///
 /// **A check is something that has to be in place or running for ShiftPick to work**: the permission, the
-/// click listener, Finder. A preference is never a check, whichever way it is set (the *Enable ShiftPick*
-/// switch, Launch at login), and neither is a reading. The skill `macos-building-settings-pages` (*The
-/// Health page*) holds the rules and every app's list.
+/// click listener, Finder. A preference is never a check, whichever way it is set (Launch at login, Show in
+/// menu bar), and neither is a reading. The skill `macos-building-settings-pages` (*The Health page*) holds
+/// the rules and every app's list.
 public enum HealthReport {
-    /// The Health table, in page order: the permission, always; the click listener, while it is switched on
-    /// and past waiting for the permission; Finder, only while it is not running; the crashes, only while
-    /// there is one. Four lines at the very most.
+    /// The Health table, in page order: the permission, always; the click listener, once past waiting for the
+    /// permission; Finder, only while it is not running; the crashes, only while there is one. Four lines at
+    /// the very most.
     public static func checks(for facts: HealthFacts) -> [HealthRow] {
         [accessibility(facts), listener(facts), finder(facts), crashes(facts.recentCrashes)].compactMap { $0 }
     }
@@ -82,19 +79,27 @@ public enum HealthReport {
                          fix: Loc.settings.system.accessibilityWarning)
     }
 
+    /// The one word the listener's row carries, on the Health page and on the System page alike.
+    public static func listenerWord(_ status: TapLifecycle.Status) -> String {
+        switch status {
+        case .refused: Loc.settings.words.failed
+        case .breakerOpen: Loc.settings.health.stopped
+        case .watching, .needsPermission, .stopped: Loc.settings.words.enabled
+        }
+    }
+
     /// Whether ShiftPick is watching for ⇧ Shift clicks, and if it is not while it should be, why and what puts
-    /// it right. No line in the three cases `HealthRules.listener` answers nil for.
+    /// it right. No line in the two cases `HealthRules.listener` answers nil for.
     static func listener(_ facts: HealthFacts) -> HealthRow? {
-        guard let level = HealthRules.listener(facts.listener, userEnabled: facts.userEnabled) else { return nil }
+        guard let level = HealthRules.listener(facts.listener) else { return nil }
         let t = Loc.settings.health
-        let words = Loc.settings.words
-        let (word, fix): (String, String?) = switch facts.listener {
-        case .refused: (words.failed, t.listenerRefusedFix)
-        case .breakerOpen: (t.stopped, t.listenerStoppedFix)
-        case .watching, .needsPermission, .stopped: (words.enabled, nil)
+        let fix: String? = switch facts.listener {
+        case .refused: t.listenerRefusedFix
+        case .breakerOpen: t.listenerStoppedFix
+        case .watching, .needsPermission, .stopped: nil
         }
         // The engine's own name for its state, untranslated: an identifier a bug report wants as it is.
-        return HealthRow(id: "listener", label: t.clicksRow, level: level, word: word,
+        return HealthRow(id: "listener", label: t.clicksRow, level: level, word: listenerWord(facts.listener),
                          detail: "\(facts.listener)", fix: fix)
     }
 

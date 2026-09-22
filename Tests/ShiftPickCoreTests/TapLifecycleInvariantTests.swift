@@ -61,7 +61,7 @@ final class TapLifecycleInvariantTests: XCTestCase {
 
     private func run(seed: UInt64, steps: Int) {
         var random = Generator(state: seed)
-        var life = TapLifecycle(userEnabled: true)
+        var life = TapLifecycle()
         var world = World()
         var now: TimeInterval = 0
         var lastGeneration = 0
@@ -169,7 +169,7 @@ final class TapLifecycleInvariantTests: XCTestCase {
                                       buttonDown: random.flip())
         case 19: return .suspend
         case 20: return .resume(trusted: random.below(5) > 0)
-        case 21: return .userEnabled(random.below(3) > 0)
+        case 21: return .modifiers(shift: false, optionOrControl: true)
         case 22: return random.below(40) == 0 ? .terminate : .suspend
         default: return .resume(trusted: true)
         }

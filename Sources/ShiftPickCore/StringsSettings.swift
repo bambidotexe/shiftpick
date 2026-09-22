@@ -55,13 +55,6 @@ public struct SettingsStrings {
         }
     }
 
-    public var pageSelection: String {
-        switch language {
-        case .en: "Selection"
-        case .fr: "Sélection"
-        }
-    }
-
     public var pageHealth: String {
         switch language {
         case .en: "Health"
@@ -85,7 +78,6 @@ public struct SettingsStrings {
 
     public var words: StatusWords { StatusWords(language) }
     public var general: GeneralPageStrings { GeneralPageStrings(language) }
-    public var selection: SelectionPageStrings { SelectionPageStrings(language) }
     public var tip: TipPageStrings { TipPageStrings(language) }
     public var system: SystemPageStrings { SystemPageStrings(language) }
     public var health: HealthPageStrings { HealthPageStrings(language) }

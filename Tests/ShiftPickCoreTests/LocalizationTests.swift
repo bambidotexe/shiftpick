@@ -20,9 +20,9 @@ final class LocalizationTests: XCTestCase {
         func add(_ name: String, _ value: String) { out.append((name, value)) }
 
         let menu = Loc.menu
-        for pair in [("menu.enable", menu.enable), ("menu.launchAtLogin", menu.launchAtLogin),
+        for pair in [("menu.launchAtLogin", menu.launchAtLogin),
                      ("menu.settings", menu.settings), ("menu.quit", menu.quit),
-                     ("menu.statusWatching", menu.statusWatching), ("menu.statusOff", menu.statusOff),
+                     ("menu.statusWatching", menu.statusWatching),
                      ("menu.statusNeedsPermission", menu.statusNeedsPermission),
                      ("menu.statusNoTap", menu.statusNoTap),
                      ("menu.statusStoppedByMacOS", menu.statusStoppedByMacOS)] { add(pair.0, pair.1) }
@@ -59,7 +59,6 @@ final class LocalizationTests: XCTestCase {
 
         let settings = Loc.settings
         for pair in [("settings.pageGeneral", settings.pageGeneral),
-                     ("settings.pageSelection", settings.pageSelection),
                      ("settings.pageTip", settings.pageTip),
                      ("settings.pageSystem", settings.pageSystem),
                      ("settings.pageHealth", settings.pageHealth)] { add(pair.0, pair.1) }
@@ -105,13 +104,6 @@ final class LocalizationTests: XCTestCase {
             add(pair.0, pair.1)
         }
 
-        let selection = settings.selection
-        for pair in [("selection.shiftClickTitle", selection.shiftClickTitle),
-                     ("selection.shiftClickHint", selection.shiftClickHint),
-                     ("selection.shiftClickNote", selection.shiftClickNote),
-                     ("selection.enableToggle", selection.enableToggle),
-                     ("selection.commandShiftToggle", selection.commandShiftToggle)] { add(pair.0, pair.1) }
-
         let tip = settings.tip
         for pair in [("tip.intro", tip.intro), ("tip.offerTitle", tip.offerTitle),
                      ("tip.offerName", tip.offerName),
@@ -126,6 +118,10 @@ final class LocalizationTests: XCTestCase {
                      ("system.accessibilityWarning", system.accessibilityWarning),
                      ("system.accessibilityRow", system.accessibilityRow),
                      ("system.openAccessibilityButton", system.openAccessibilityButton),
+                     ("system.listenerTitle", system.listenerTitle),
+                     ("system.listenerHint", system.listenerHint),
+                     ("system.listenerStoppedWarning", system.listenerStoppedWarning),
+                     ("system.startListeningButton", system.startListeningButton),
                      ("system.startOverTitle", system.startOverTitle),
                      ("system.showOnboardingButton", system.showOnboardingButton)] { add(pair.0, pair.1) }
 

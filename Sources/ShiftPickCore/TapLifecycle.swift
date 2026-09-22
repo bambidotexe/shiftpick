@@ -92,8 +92,6 @@ public struct TapLifecycle: Equatable, Sendable {
         case watchdog(shiftDown: Bool, optionOrControlDown: Bool, buttonDown: Bool)
         case suspend
         case resume(trusted: Bool)
-        /// The Settings switch.
-        case userEnabled(Bool)
         case terminate
     }
 
@@ -125,7 +123,6 @@ public struct TapLifecycle: Equatable, Sendable {
 
     public private(set) var phase: Phase = .off(.notStarted)
 
-    private var userEnabled: Bool
     /// ⇧ Shift is down with neither ⌥ Option nor ⌃ Control: the one state of the modifier keys in which the
     /// click tap has any business being enabled.
     private var keysAskForIt = false
@@ -150,9 +147,7 @@ public struct TapLifecycle: Equatable, Sendable {
     /// When macOS took a tap away, inside `K.breakerWindow`.
     private var trips: [TimeInterval] = []
 
-    public init(userEnabled: Bool) {
-        self.userEnabled = userEnabled
-    }
+    public init() {}
 
     public var status: Status {
         switch phase {
@@ -220,7 +215,7 @@ public struct TapLifecycle: Equatable, Sendable {
         case .modifiers(let shift, let optionOrControl):
             keysAskForIt = shift && !optionOrControl
             switch phase {
-            case .idle where keysAskForIt && userEnabled && !sentinelIsDown:
+            case .idle where keysAskForIt && !sentinelIsDown:
                 if let verified = trustVerifiedAt, (0...K.trustFreshness).contains(now - verified) {
                     return arm(now: now)
                 }
@@ -232,7 +227,7 @@ public struct TapLifecycle: Equatable, Sendable {
                 return []
             case .armed where !keysAskForIt && outstandingPress == nil:
                 return disarm()
-            case .suspended where keysAskForIt && userEnabled:
+            case .suspended where keysAskForIt:
                 // Somebody at the keyboard while the Mac is said to be away: a notification that would have
                 // said otherwise may have been lost, so the session is looked at itself, and no more often
                 // than the interval, because a password typed on the lock screen is ⇧ Shift too.
@@ -262,7 +257,7 @@ public struct TapLifecycle: Equatable, Sendable {
                     effects.append(.enableSentinel)
                 }
                 // The keys are asked again, not remembered: they may have moved while the answer was fetched.
-                if phase == .arming { effects += keysAskForIt && userEnabled ? arm(now: now) : stopArming() }
+                if phase == .arming { effects += keysAskForIt ? arm(now: now) : stopArming() }
                 return effects
             case .unknown:
                 guard generation == probeGeneration else { return [] }
@@ -307,7 +302,7 @@ public struct TapLifecycle: Equatable, Sendable {
                 // fetched. And the question only on behalf of keys that still ask for it: a tap that was only
                 // still armed for the release of a swallowed press has nothing to be armed again for.
                 var effects = disarm()
-                if keysAskForIt && userEnabled {
+                if keysAskForIt {
                     phase = .arming
                     effects.append(askAboutTheGrant())
                 }
@@ -380,20 +375,6 @@ public struct TapLifecycle: Equatable, Sendable {
             forgetTrust()
             sentinelIsDown = false
             return [.enableSentinel]
-
-        case .userEnabled(let enabled):
-            userEnabled = enabled
-            guard !enabled else { return [] }
-            switch phase {
-            case .armed:
-                return disarm()
-            case .arming:
-                phase = .idle
-                probeGeneration += 1
-                return []
-            default:
-                return []
-            }
 
         case .terminate:
             var effects = phase == .armed ? disarm() : []

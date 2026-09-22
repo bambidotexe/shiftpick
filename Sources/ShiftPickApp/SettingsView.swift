@@ -38,9 +38,8 @@ struct SettingsView: View {
     @ViewBuilder private var page: some View {
         switch selection.page {
         case .general: GeneralPage(store: store, status: status, engine: engine)
-        case .selection: SelectionPage(store: store)
         case .system: SystemPage(status: status, engine: engine)
-        case .health: HealthPage(store: store, status: status, engine: engine, health: health)
+        case .health: HealthPage(status: status, engine: engine, health: health)
         case .tip: TipPage()
         }
     }
@@ -49,16 +48,14 @@ struct SettingsView: View {
 /// The pages, in toolbar order. The raw value is the toolbar item's identifier, so the toolbar and the
 /// selection cannot disagree about which page a click means.
 ///
-/// General first, then the one feature, then what the app needs from the system, then its health, then the
-/// tip jar.
+/// General first, then what the app needs from the system, then its health, then the tip jar.
 enum SettingsPageID: String, CaseIterable, Sendable {
-    case general, selection, system, health, tip
+    case general, system, health, tip
 
     /// The toolbar item's label, and the window's title while the page is shown.
     var title: String {
         switch self {
         case .general: Loc.settings.pageGeneral
-        case .selection: Loc.settings.pageSelection
         case .system: Loc.settings.pageSystem
         case .health: Loc.settings.pageHealth
         case .tip: Loc.settings.pageTip
@@ -69,7 +66,6 @@ enum SettingsPageID: String, CaseIterable, Sendable {
     var symbol: String {
         switch self {
         case .general: "gearshape"
-        case .selection: "square.stack.3d.up"
         case .system: "checkmark.shield"
         case .health: "stethoscope"
         case .tip: "mug"

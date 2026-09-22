@@ -29,18 +29,18 @@ final class SettingsStoreTests: XCTestCase {
 
     func testAChangeIsWrittenAtOnceAndReadBack() {
         let store = SettingsStore(defaults: defaults)
-        store.settings.enabled = false
-        store.settings.commandShiftAdds = false
-        XCTAssertEqual(SettingsStore(defaults: defaults).settings.enabled, false)
-        XCTAssertEqual(SettingsStore(defaults: defaults).settings.commandShiftAdds, false)
+        store.settings.showInMenuBar = false
+        store.settings.onboardingCompleted = true
+        XCTAssertEqual(SettingsStore(defaults: defaults).settings.showInMenuBar, false)
+        XCTAssertEqual(SettingsStore(defaults: defaults).settings.onboardingCompleted, true)
     }
 
     /// A blob written by an older build keeps what it says and defaults the rest, rather than throwing the
     /// whole file away.
     func testAnOlderBlobIsReadAsFarAsItGoes() {
-        defaults.set(Data(#"{"enabled": false}"#.utf8), forKey: SettingsStore.defaultsKey)
+        defaults.set(Data(#"{"enabled": false, "onboardingCompleted": true}"#.utf8), forKey: SettingsStore.defaultsKey)
         let store = SettingsStore(defaults: defaults)
-        XCTAssertFalse(store.settings.enabled)
+        XCTAssertTrue(store.settings.onboardingCompleted)
         XCTAssertTrue(store.settings.showInMenuBar)
     }
 

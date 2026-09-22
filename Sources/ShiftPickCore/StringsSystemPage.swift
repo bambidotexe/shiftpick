@@ -53,6 +53,41 @@ public struct SystemPageStrings {
         }
     }
 
+    // MARK: The click listener
+
+    public var listenerTitle: String {
+        switch language {
+        case .en: "Click listener"
+        case .fr: "Écoute des clics"
+        }
+    }
+
+    public var listenerHint: String {
+        switch language {
+        case .en: "\(AppIdentity.name) listens for ⇧ Shift while you click. When macOS interrupts that "
+            + "listener too often, \(AppIdentity.name) stops it and waits for you to start it again."
+        case .fr: "\(AppIdentity.name) surveille ⇧ Majuscule pendant vos clics. Quand macOS interrompt "
+            + "cette écoute trop souvent, \(AppIdentity.name) l'arrête et attend que vous la relanciez."
+        }
+    }
+
+    public var listenerStoppedWarning: String {
+        switch language {
+        case .en: "macOS interrupted \(AppIdentity.name) \(K.breakerTrips) times in "
+            + "\(Int(K.breakerWindow)) seconds. ⇧ Shift clicks are Finder's until you start listening again."
+        case .fr: "macOS a interrompu \(AppIdentity.name) \(K.breakerTrips) fois en "
+            + "\(Int(K.breakerWindow)) secondes. Les clics avec ⇧ Majuscule reviennent au Finder jusqu'à "
+            + "ce que vous relanciez l'écoute."
+        }
+    }
+
+    public var startListeningButton: String {
+        switch language {
+        case .en: "Start Listening Again"
+        case .fr: "Réécouter les clics"
+        }
+    }
+
     // MARK: Start over
 
     public var startOverTitle: String {

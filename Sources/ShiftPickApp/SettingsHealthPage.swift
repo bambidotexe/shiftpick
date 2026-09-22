@@ -16,7 +16,6 @@ import SwiftUI
 /// has found it gone itself, that is what is shown. `SafetyNetTests` pins it. Nothing here asks anything of
 /// the taps' thread: the listener's state is what the engine already published on the main actor.
 struct HealthPage: View {
-    @ObservedObject var store: SettingsStore
     @ObservedObject var status: SystemStatus
     @ObservedObject var engine: ShiftPickEngine
     @ObservedObject var health: HealthCheck
@@ -24,8 +23,7 @@ struct HealthPage: View {
     var body: some View {
         let t = Loc.settings.health
         let granted = engine.status.showsGrant(systemSays: status.accessibilityGranted)
-        let facts = health.facts(status, granted: granted, listener: engine.status,
-                                 userEnabled: store.settings.enabled)
+        let facts = health.facts(status, granted: granted, listener: engine.status)
         let checks = HealthReport.checks(for: facts)
         let readings = HealthReport.readings(for: facts)
         SettingsPage {

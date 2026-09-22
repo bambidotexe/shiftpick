@@ -50,12 +50,6 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         menu.removeAllItems()
         let words = Loc.menu
 
-        let enable = NSMenuItem(title: words.enable, action: #selector(toggleEnabled), keyEquivalent: "")
-        enable.target = self
-        enable.state = store?.settings.enabled == true ? .on : .off
-        menu.addItem(enable)
-        menu.addItem(.separator())
-
         let login = NSMenuItem(title: words.launchAtLogin, action: #selector(toggleLaunchAtLogin),
                                keyEquivalent: "")
         login.target = self
@@ -91,13 +85,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         }
         if engine?.tapWasRefused == true { return words.statusNoTap }
         if engine?.breakerIsOpen == true { return words.statusStoppedByMacOS }
-        if store?.settings.enabled != true { return words.statusOff }
         return engine?.isWatching == true ? words.statusWatching : words.statusNoTap
-    }
-
-    @objc private func toggleEnabled() {
-        guard let store else { return }
-        store.settings.enabled.toggle()
     }
 
     /// The system's answer is what the menu shows next time, so nothing is mirrored here. A refusal is

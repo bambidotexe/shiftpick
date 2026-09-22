@@ -46,12 +46,6 @@ final class ShiftClickResolver: @unchecked Sendable {
     private var anchor: Anchor?
     private var finderPID: pid_t?
 
-    func update(_ settings: Settings) {
-        options.withLock {
-            $0 = Options(enabled: settings.enabled, commandShiftAdds: settings.commandShiftAdds)
-        }
-    }
-
     /// A launch, a grant that has just arrived, a Mac that has just woken: whatever was clicked before says
     /// nothing about what is selected now.
     func forgetAnchor() {

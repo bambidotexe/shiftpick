@@ -6,13 +6,6 @@ public struct MenuStrings {
     private let language: Language
     init(_ language: Language) { self.language = language }
 
-    public var enable: String {
-        switch language {
-        case .en: "Enable \(AppIdentity.name)"
-        case .fr: "Activer \(AppIdentity.name)"
-        }
-    }
-
     public var launchAtLogin: String {
         switch language {
         case .en: "Launch at Login"
@@ -39,13 +32,6 @@ public struct MenuStrings {
         switch language {
         case .en: "Watching for ⇧ Shift clicks"
         case .fr: "Surveille les clics avec ⇧ Majuscule"
-        }
-    }
-
-    public var statusOff: String {
-        switch language {
-        case .en: "Off: Finder handles every click"
-        case .fr: "Désactivé : le Finder gère tous les clics"
         }
     }
 

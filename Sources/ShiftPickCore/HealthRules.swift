@@ -17,14 +17,11 @@ public enum HealthRules {
 
 extension HealthRules {
     /// The click listener, as the engine reports it (`TapLifecycle.Status`). **It is the mechanism the whole
-    /// app rests on**: while *Enable ShiftPick* is on, a listener macOS refused, or one the breaker stopped,
-    /// is an app that does nothing at all, red.
-    ///
-    /// Nil is no line at all, and it is three cases: switched off by the user, which is a preference and the
-    /// state they asked for; waiting for the permission, which the permission's own line already says (one
-    /// cause, one line); and nothing reported yet, before the first start and after the quit.
-    public static func listener(_ status: TapLifecycle.Status, userEnabled: Bool) -> HealthLevel? {
-        guard userEnabled else { return nil }
+    /// app rests on**: a listener macOS refused, or one the breaker stopped, is an app that does nothing at
+    /// all, red. Nil is no line at all, and it is two cases: waiting for the permission, which the
+    /// permission's own line already says (one cause, one line); and nothing reported yet, before the first
+    /// start and after the quit.
+    public static func listener(_ status: TapLifecycle.Status) -> HealthLevel? {
         switch status {
         case .watching: return .good
         case .refused, .breakerOpen: return .failure

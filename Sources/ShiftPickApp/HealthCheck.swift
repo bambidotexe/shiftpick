@@ -32,11 +32,10 @@ final class HealthCheck: ObservableObject {
     /// Everything the page reports: the polled grant from `status`, the grant as the page shows it
     /// (`granted`, which the page gets through `TapLifecycle.Status.showsGrant`), the listener as the engine
     /// last reported it, and the rest from here.
-    func facts(_ status: SystemStatus, granted: Bool, listener: TapLifecycle.Status,
-               userEnabled: Bool) -> HealthFacts {
+    func facts(_ status: SystemStatus, granted: Bool, listener: TapLifecycle.Status) -> HealthFacts {
         HealthFacts(accessibilityGranted: granted, accessibilitySystemSays: status.accessibilityGranted,
                     accessibilityRequired: GrantCatalogue.accessibilityRequired,
-                    listener: listener, userEnabled: userEnabled, finderRunning: readings.finderRunning,
+                    listener: listener, finderRunning: readings.finderRunning,
                     runningSeconds: readings.runningSeconds, memoryBytes: readings.memoryBytes,
                     recentCrashes: readings.recentCrashes)
     }
