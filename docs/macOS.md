@@ -61,7 +61,7 @@ AXApplication (Finder)
          └ AXImage                   AXURL, AXFilename, AXTitle, AXSelected
 ```
 
-### The five facts the code leans on
+### The six facts the code leans on
 
 1. **An item's frame is the icon's own box, never the cell and never the label.** A file called
    `file-01.txt` and one called `a-file-with-a-rather-long-name-that-wraps.txt`, side by side, both report
@@ -83,6 +83,11 @@ AXApplication (Finder)
 5. **`AXIndex` on an item is its position inside its section**, and it is the order the view draws them in;
    a group's header takes index 0 when there is one. It is used as evidence about the fill direction and
    never as the answer, because a view with one row of icons has an `AXIndex` and no direction at all.
+6. **A messaging timeout set on the system-wide element is inherited by every element read after it.** The
+   hit test sets `K.axTimeout` on the system-wide element at its start, which is what gives every element
+   copied out of Finder during that click a deadline; the per-element `AXUIElementSetMessagingTimeout` calls
+   in the hit test and in the item read are belt-and-braces. `FinderAX.isScrolled` and `isRenaming` rely on
+   the inheritance, and so does `Tools/axdump`, which sets five seconds the same way.
 
 ### An Open or Save panel is the same shape
 
@@ -116,6 +121,60 @@ role descriptions beside them.
   appear.
 - A window element's `AXRole` can read as `AXApplication` for a moment after Finder relaunches. Walk **up**
   from a hit test; never index into the application's children.
+- **Whether `AXSelectedChildren` ever names an item Finder has not built is not measured.** It may, since
+  the selection is Finder's own state and the icons are only what it is drawing. ShiftPick keeps every
+  selected element it cannot map to an icon on screen and hands it back to the one call that sets the
+  selection, unchanged, so the rule costs nothing whichever way the measurement falls.
+- **Nothing says whether a view is scrolled.** There is no attribute for it, so it is read from the geometry:
+  a window's icon view sits directly under an `AXScrollArea`, and a view scrolled away from its top has its
+  container's top edge above that area's (`containerFrame.minY < areaFrame.minY - 1`). The Desktop is not in
+  a scroll area and never scrolls. **This one is owed a measurement**: if the container turns out not to
+  move, the vertical `AXScrollBar`'s `AXValue` is the reading to use instead. A frame that cannot be read
+  answers nothing either way, and the click goes through.
+
+## The selection model
+
+**What a ⇧ Shift click means is AppKit's, not this app's, and it was measured rather than remembered.**
+Finder's list view is an `NSOutlineView`, and its column and gallery views select through the same AppKit
+machinery, so `NSTableView` was driven directly: a throwaway harness — a real window, a real `NSTableView`
+with `allowsMultipleSelection`, and synthetic `NSEvent` press-and-release pairs sharing one event number,
+posted to the **process's own** queue with `NSApplication.postEvent` and pumped through `sendEvent`, so
+nothing touched the system event stream and no tap was involved — ran fifteen hand-written sequences and
+then, for 22 constructed states, one ⇧ Shift click and one ⌘ Command ⇧ Shift click from every one of twelve
+rows. The data is Appendix A of
+`docs/superpowers/specs/2026-09-22-native-selection-model-design.md`. **The same sequences in a Finder list
+view are still owed**; where Finder turns out to differ, Finder wins and this section is corrected with it.
+
+**The trap, if it is ever measured again**: activate the application and make the window key first
+(`activate(ignoringOtherApps:)`, then `makeKeyAndOrderFront`). On a window that is not key, every plain and
+⇧ Shift press is eaten as the activation click while ⌘ Command presses go through, which reads exactly like a
+broken model. Calling `mouseDown(with:)` directly does not help: `NSTableView` reads the current event from
+the application.
+
+The state is two things and nothing else: **the set of selected rows** and **one anchor row**, which may be
+deselected and may not exist. Nothing about an earlier range is remembered — three histories that reach the
+same selection and the same anchor answer every later click identically.
+
+| Click | The selection | The anchor |
+|---|---|---|
+| **plain click on r** | becomes {r} | r |
+| **⌘ Command click on r** | r is toggled; nothing else moves | r, whether r ended selected or not |
+| **⌘ Command ⇧ Shift click on r** | **the same as a ⌘ Command click**: r is toggled | r |
+| **⇧ Shift click on t** | the runs the range touches, replaced by the range | the row the range was measured from |
+
+With the effective anchor *e* and the target *t*, the range is **R = [min(e, t), max(e, t)]** and the new
+selection is **(the old selection, minus every maximal run of consecutive selected rows that meets R) ∪ R**.
+A run R touches goes whole, including the part of it outside R; a run R does not touch stays. So {1,2,3,5}
+with the anchor at 5 and a ⇧ Shift click on 7 gives {1,2,3,5,6,7}, and {2,5,6,7,8} with the anchor at 8 and a
+⇧ Shift click on 10 gives {2,8,9,10}, the run 5 to 7 going with the 8 the range reached.
+
+The **effective anchor** is the anchor while it is selected; else the first selected row after it, whatever
+the distance ({2,7} with the anchor at 4 measures from 7); else the last selected row before it; else,
+nothing being selected at all, the first row. An anchor that does not exist behaves as one before every row.
+**After the click the anchor is the row the range was measured from**, the stand-in included.
+
+`Core/ShiftClick.swift` is that model as a value, over any dense order; `docs/functional.md` §2.1 and §2.2
+are what ShiftPick does with it, and §3 is the order it runs over in an icon view.
 
 ## The event taps
 
@@ -169,6 +228,10 @@ role descriptions beside them.
   the hardware state. The watch kept while armed believes either.
 - **A press and its release carry the same `mouseEventNumber`**, which is how the release of a swallowed
   press is recognised and nobody else's is.
+- **The sentinel hears the modifier keys on the press itself**, which covers a key event that was never
+  heard, and it notes the anchor for every press that is not a plain ⇧ Shift one: a press without ⇧ Shift,
+  and a press with ⌘ Command whether or not ⇧ Shift is held. A plain ⇧ Shift press is the one the click tap
+  decides.
 - **The callbacks recover `self` from an unretained pointer**, so a tap left running would outlive the
   object and call into freed memory. `ClickGuard` disables and invalidates both in `deinit`, and
   `CGEvent.tapEnable` and `CFMachPortInvalidate` are honoured from any thread.

@@ -113,17 +113,18 @@ and the newer of a request and a written rule wins only after the owner has said
 
 | To change… | Edit | Then document in |
 |---|---|---|
-| what counts as a range: the lattice, the flow, the rubber band | `Core/LayoutModel.swift`, `Core/Lattice.swift`, `Core/LayoutItem.swift` — pinned by `RangeSelectionTests`, `LatticeTests` | `functional.md` §3 |
-| where a range is measured from | `Core/LayoutModel.derivedAnchor`, `App/ShiftClickResolver` (`anchor`, `notePlainClick`) — `AnchorTests`. **`ShiftClickResolver` is a file of the safety layer**: invoke `shiftpick-safety-nets` first, and a change to it owes §9 of the checklist before the next release | `functional.md` §2 |
+| what counts as a range: the lattice, the flow, the clusters and their grids, the rubber band | `Core/LayoutModel.swift`, `Core/Lattice.swift`, `Core/LayoutItem.swift`, `Core/Clusters.swift`, `Core/Grid.swift`, `Core/LayoutConstants.swift` — pinned by `RangeSelectionTests`, `LatticeTests`, `ClustersTests`, `GridTests` | `functional.md` §3 |
+| what a ⇧ Shift click leaves selected: the runs it replaces, the band it adds | `Core/ShiftClick.resolve`, `Core/LayoutModel.shiftClick` — `ShiftClickTests`, `RangeSelectionTests`. It is AppKit's own rule, measured: `macOS.md` *The selection model* is the data, and a change to it needs a new measurement | `functional.md` §2.2 |
+| where a range is measured from | `Core/LayoutModel.effectiveAnchor` and `firstItem`, `Core/ShiftClick.standIn`, `App/ShiftClickResolver` (`anchor`, `notePlainClick`) — `StandInTests`. **`ShiftClickResolver` is a file of the safety layer**: invoke `shiftpick-safety-nets` first, and a change to it owes §9 of the checklist before the next release | `functional.md` §2.1 |
 | **when the click tap may be enabled**: arming, a tap macOS took away, the breaker, the grant going or coming, sleep and the lock screen | **Invoke `shiftpick-safety-nets` and read `architecture.md` *The safety model* first.** `Core/TapLifecycle.swift`, and nowhere else: a new way for the tap's state to move is a new `Event`, its scenario in `TapLifecycleTests`, and a line in `TapLifecycleInvariantTests`' generator | `functional.md` §0, §1 and §7 |
 | the taps themselves, their thread, what is swallowed, the click's budget | **Invoke `shiftpick-safety-nets` first.** `Platform/ClickGuard.swift` (it executes `TapLifecycle`'s effects and decides nothing), `TapThread.swift`, `DeadlineGate.swift` — `DeadlineGateTests`, `TapThreadTests`, `SafetyNetTests` | `functional.md` §0, §1 and §2, `macOS.md` *The event taps* |
 | **a feature that listens to, swallows, delays or posts input** | **Invoke `shiftpick-safety-nets` first, and design it with the owner.** Listening goes through the sentinel and swallowing through the click tap, both under `TapLifecycle`; never a tap, an `NSEvent` global monitor or a `CGEvent.post` of its own | `functional.md` §0 and §1 |
 | how the grant is read, asked about live, or lost | **Invoke `shiftpick-safety-nets` first.** `Platform/Permissions.swift` (`liveVerdict`, `verdict(for:)`), `Platform/AX.swift` (`refusalCount`) — `TrustVerdictTests` | `macOS.md` *The permission*, `functional.md` §7 |
 | how Finder is read and written | `Platform/FinderAX.swift`, `Platform/AX.swift`. **`AX.swift` is a file of the safety layer**: every call it makes carries `K.axTimeout` and is a witness to the grant through `refusalCount`, so invoke `shiftpick-safety-nets` before touching it | **`macOS.md` first**, then `functional.md` §4 |
-| what one ⇧ Shift click does, end to end | **Invoke `shiftpick-safety-nets` first.** `App/ShiftClickResolver.shiftClick`, which runs on the worker and answers through its `ClickTicket`; the one line that swallows and its order behind `commit()` and `FinderAX.select` are pinned by `SafetyNetTests`, and the file is in the safety layer | `functional.md` §1–2, `architecture.md` *The click path* |
-| a timing, a budget, a threshold | **Invoke `shiftpick-safety-nets` first.** `Core/Constants.swift`, with its measurement in the comment. **The order of the safety numbers is pinned** (`SafetyNetTests.testTheSafetyNumbersKeepTheirOrder`), and a value that moves them is the owner's call | the section that states it |
-| a user setting | **Invoke the `macos-building-settings-pages` skill first.** `Core/Settings.swift` + a row on its page + `SettingsTests` | `functional.md` §5 |
-| the Settings window's pages, look or copy | **Invoke the `macos-building-settings-pages` skill first**: it holds every rule of the window's structure, numbers and wording. `App/SettingsKit.swift` (the kit and `SettingsMetrics`), `App/SettingsView.swift` (`SettingsPageID`, `SystemStatus`), `App/SettingsWindow.swift` (the toolbar, the height that follows the page), `App/Settings…Page.swift`. Two nets live in these pages and `SafetyNetTests` pins both: the System and Health pages' permission rows show the grant through `TapLifecycle.Status.showsGrant`, and the Uninstall group of the General page destroys the taps before anything else. **The words are not in the page files**: they are `Core/Strings<Page>Page.swift` | `functional.md` §5 |
+| what one ⇧ Shift click does, end to end | **Invoke `shiftpick-safety-nets` first.** `App/ShiftClickResolver.shiftClick`, which runs on the worker and answers through its `ClickTicket`: ⌘ Command with ⇧ Shift passes, `FinderAX.selection` is read once, `LayoutModel.shiftClick` answers, and the anchor becomes what the range was measured from. The one line that swallows and its order behind `commit()` and `FinderAX.select` are pinned by `SafetyNetTests`, and the file is in the safety layer | `functional.md` §1–2, `architecture.md` *The click path* |
+| a timing, a budget, a threshold | **Invoke `shiftpick-safety-nets` first.** `Core/Constants.swift`, with its measurement in the comment. **The order of the safety numbers is pinned** (`SafetyNetTests.testTheSafetyNumbersKeepTheirOrder`), and a value that moves them is the owner's call. The inferred grids' tolerances are **not** in that file: they are `Core/LayoutConstants.swift`, out of the safety layer as `HealthConstants.swift` is | the section that states it |
+| a user setting | **Invoke the `macos-building-settings-pages` skill first.** `Core/Settings.swift` + a row on its page + `SettingsTests`. **ShiftPick has no setting about what it does**, and the owner's word comes before adding one | `functional.md` §5 |
+| the Settings window's pages, look or copy | **Invoke the `macos-building-settings-pages` skill first**: it holds every rule of the window's structure, numbers and wording. `App/SettingsKit.swift` (the kit and `SettingsMetrics`), `App/SettingsView.swift` (`SettingsPageID`, `SystemStatus`), `App/SettingsWindow.swift` (the toolbar, the height that follows the page), `App/Settings…Page.swift`. Three nets live in these pages and `SafetyNetTests` pins all three: the System and Health pages' permission rows show the grant through `TapLifecycle.Status.showsGrant`, the Uninstall group of the General page destroys the taps before anything else, and the System page's *Start Listening Again* button reaches the breaker only through `ShiftPickEngine.tryAgain`. **The words are not in the page files**: they are `Core/Strings<Page>Page.swift` | `functional.md` §5 |
 | the Health page: a row, its colour, its sentence, a reading | **Invoke the `macos-building-settings-pages` skill first** (*The Health page*). The page is two tables and nothing else: the checks (`HealthReport.checks(for:)`, green, orange or red, never a preference) and the readings (`readings(for:)`, blue), built from plain facts in `Core/HealthReport.swift`, coloured by `Core/HealthRules.swift` (which also colours the System page's permission row), and held under `HealthLimits` by `HealthTests`; the words are `Core/StringsHealthPage.swift`. The page's own readings are `App/HealthCheck.swift`, read when the page is shown and on Check Again, never on a timer, from `Platform/CrashReports`, `ProcessStats`, `FinderProcess`; the view is `App/SettingsHealthPage.swift`. **A reading comes from what the engine already publishes on the main actor, or from a read that cannot block**: never an Accessibility call, never the taps' thread, never a request API. A reading that needs a file of `SAFETY_FILES` (the last ⇧ Shift click, the breaker's trips) is a change to the safety layer: `shiftpick-safety-nets` first, and the drill before the next release | `functional.md` §5 |
 | the menu-bar item or its menu | `App/MenuBarController.swift`, `Core/StringsMenu.swift`. Its status line shows the grant through `TapLifecycle.Status.showsGrant`, never the cached answer alone, which `SafetyNetTests` pins | `functional.md` §6 |
 | onboarding, or what happens when the permission moves | **Invoke the `macos-building-onboarding` skill first**: it holds every rule of the wizard, who is in front, and what a grant button may do. `App/OnboardingWindow.swift` (the controller, the pages, the row, `OnboardingMetrics`), `App/GrantCatalogue.swift` (what a grant is, the two lists), `App/AppDelegate` (`showOnboarding`, `watchTheGrant`, `grantChanged`), `Platform/Permissions.swift`. **`AppDelegate` and `Permissions.swift` are files of the safety layer**: invoke `shiftpick-safety-nets` as well, and a change to either owes §9 of the checklist before the next release. **The words are not in the page files**: they are `Core/StringsOnboarding.swift` | `functional.md` §7, `macOS.md` *The permission* |
@@ -148,16 +149,17 @@ make release     # skill: macos-publish-release. The same, plus tag, push, GitHu
 
 - `swift build` — the three code targets and the probe. **This is the truth**; editor diagnostics are
   frequently stale.
-- `swift test` — two bundles, and **one summary line each: count two.** `ShiftPickCoreTests` (262) runs in
-  about three seconds; `ShiftPickPlatformTests` (38) spawns real subprocesses and threads and takes a moment
+- `swift test` — two bundles, and **one summary line each: count two.** `ShiftPickCoreTests` (323) runs in
+  about four seconds; `ShiftPickPlatformTests` (38) spawns real subprocesses and threads and takes a moment
   longer.
   `swift test --filter <SuiteName>` runs one suite; `swift test --filter SafetyNetTests` is the quick look
   after any change near a net.
 - `swift run axdump <command>` — the Accessibility probe (`Tools/axdump`, never shipped). `trust`, `views`,
-  `at <x> <y>`, `range <x> <y>`, `tree [depth]`. **A command-line tool inherits the Accessibility grant of
-  the terminal that starts it**, which is the only way to read Finder's hierarchy before the app itself is
-  allowed to. `axdump range` works a ⇧ Shift click out exactly as the app does and prints it instead of
-  applying it, which is how a doubt about a layout is settled.
+  `at <x> <y>`, `range <x> <y> [ax ay]`, `tree [depth]`. **A command-line tool inherits the Accessibility
+  grant of the terminal that starts it**, which is the only way to read Finder's hierarchy before the app
+  itself is allowed to. `axdump range` works a ⇧ Shift click out exactly as the app does — the reading order,
+  the stand-in, the shape and the selection it would leave — and prints it instead of applying it, which is
+  how a doubt about a layout is settled.
 - `make install` (`scripts/install.sh`) — **one of the two ways a build of this app reaches a Mac.** It
   refuses a tree whose tests fail, builds the real thing — Release, Developer ID, Hardened Runtime,
   notarized, stapled, wrapped in the disk image — takes the bundle out of that image into `/Applications`,
@@ -197,8 +199,12 @@ Three code targets, dependencies pointing one way: Core ← Platform ← App. Fu
 `docs/architecture.md`.
 
 - **`Sources/ShiftPickCore`** — pure rules, **Foundation and CoreGraphics only** (`PurityTests` fails the
-  build otherwise), and it never reads a clock. `LayoutItem` + `Lattice` + **`LayoutModel`** (the whole of
-  the selection maths: classify a set of icon frames, order them, and answer with a range) · `Settings` ·
+  build otherwise), and it never reads a clock. `LayoutItem` + `Lattice` + `Clusters` + `Grid` +
+  **`LayoutModel`** (the whole of the selection maths: classify a set of icon frames, put every one of them
+  in one reading order — the flow, or clusters fitted with grids — and answer with a range) + **`ShiftClick`**
+  (AppKit's own selection model as a value over any order: the stand-in for a deselected anchor, and the runs
+  a range replaces) + `LayoutConstants` (the inferred grids' tolerances, an extension of `K` kept out of the
+  safety layer's `Constants.swift`) · `Settings` ·
   `Constants` (`K`, every number with its measurement) · `AppIdentity` + `Paths` · `QuietLaunch` ·
   `PathRules` + `UninstallPlan` · the update's rules (`UpdateCheck`, `UpdateSchedule`, `UpdatePanel`, `UpdateSession`,
   `StagedUpdateCheck`, `UpdateInstallScript`) · the Health page's rules (`Health`, `HealthRules`, `HealthReport`,
@@ -222,7 +228,7 @@ Three code targets, dependencies pointing one way: Core ← Platform ← App. Fu
   (`OnboardingWindow` the controller, the pages, the row and `OnboardingMetrics`; `GrantCatalogue` what a
   grant is and the two lists; `ControlActionHandler`) ·
   `UpdateController` (the update's one owner) + `UpdateNotifier` + `UpdateWindow` · the settings window
-  (`SettingsKit` the kit, `SettingsWindow` the toolbar window whose height follows the page, five
+  (`SettingsKit` the kit, `SettingsWindow` the toolbar window whose height follows the page, four
   `Settings…Page`, `SettingsView` with `SettingsPageID` and `SystemStatus`, `HealthCheck` the Health page's
   own readings).
 - **`Tools/axdump`** — the Accessibility probe. Ships with nothing.
@@ -337,13 +343,19 @@ the log.
 
 ## Status
 
-`swift build` is clean and `swift test` is green (262 + 38) at this commit. The app target has no automated
+`swift build` is clean and `swift test` is green (323 + 38) at this commit. The app target has no automated
 tests; `docs/manual-test-checklist.md` is its verification.
 
+**Five files of the safety layer have changed since the last release** — `TapLifecycle.swift`,
+`ClickGuard.swift`, `ShiftPickEngine.swift`, `ShiftClickResolver.swift`, `AppDelegate.swift` — so **§9 of
+`docs/manual-test-checklist.md` is owed**, walked by the owner on an installed build, before the next
+release. `make release` refuses until the owner says `DRILL=walked` or `DRILL=waived`, which is never an
+agent's to set.
+
 **What is proven and what is not, about the safety model.** The rules are proven: `TapLifecycle` is a value,
-and its 96 scenarios and 80,000 seeded events run on every `swift test`, as do the click's deadline and the
-taps' thread. **The code no test can run is pinned where it stands**: `SafetyNetTests` holds 18 checks over
-it, and each was shown to fail against a copy of the code with its net removed (24 such copies, 24 caught).
+and its scenarios and 80,000 seeded events run on every `swift test`, as do the click's deadline and the
+taps' thread. **The code no test can run is pinned where it stands**: `SafetyNetTests` holds 19 checks over
+it, and each was shown to fail against a copy of the code with its net removed.
 **The taps have been seen on the owner's Mac**, which is the only place they can be:
 `ClickGuard` cannot run in a test, because a test runner has no Accessibility grant to create a tap with. The
 first install found `docs/pitfalls.md` 15 within the millisecond; the builds after it passed the Finder
@@ -368,9 +380,16 @@ Known limitations, in plain words:
   three screens, ⇧ Shift click another, and the click goes to Finder untouched, because the first file is
   no longer something Accessibility can name. Everything between two icons that are both visible is
   complete, which is the ordinary gesture.
-- **The Desktop's flow is inferred, not asked for.** A Desktop sorted by name was measured filling columns
-  from the right; a Desktop nobody sorted is classified hand-placed and gets the rubber band. Both are
-  right for what they are, but neither is something Finder states.
+- **The Desktop's flow is inferred, not asked for**, and so are the grids of a view nobody sorted. A Desktop
+  sorted by name was measured filling columns from the right; a Desktop nobody sorted is classified
+  hand-placed, cut into clusters and fitted with grids from where the icons sit, and a cluster whose rows
+  are too ragged for the tolerances, or a range whose two ends are in different clusters, gets the rubber
+  band. The tolerances hold a twenty-point wobble on the Desktop's 122-point pitch with a fifty-percent
+  margin over forty layouts, and the cliff is a quarter of the pitch. None of it is something Finder states.
+- **Labels on the right are a known gap.** Finder's *Label position: Right* makes cells several icon sides
+  wide, which reads as one cluster per column, so a range across columns is the rubber band. A per-axis
+  pitch was built and removed: it cannot tell a wide-celled grid from two ragged columns at opposite edges
+  of the Desktop, and it would link both of those into one grid.
 - **The update has never been seen end to end in this app.** Its rules are unit-tested and the install
   helper has installed and rolled back a stand-in app for real; the notification, the update window and
   ShiftPick installing over itself are `docs/manual-test-checklist.md` §10. Nothing is published, so every check answers

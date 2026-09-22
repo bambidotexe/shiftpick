@@ -10,14 +10,17 @@ on an installed build of that tree and before it is published: `make release` re
 Two things make it quicker:
 
 ```sh
-swift run axdump views          # every icon view on screen, its items in flow order, and how it was classified
-swift run axdump range <x> <y>  # what a ⇧ Shift click there WOULD select, printed rather than done
+swift run axdump views             # every icon view on screen, its items in reading order, and how it was classified
+swift run axdump range <x> <y>     # what a ⇧ Shift click there WOULD select, printed rather than done
+swift run axdump range <x> <y> <ax> <ay>   # the same, measured from the icon at ax ay
 /usr/bin/log stream --predicate 'subsystem == "dev.rubens.ShiftPick"' --level debug
 ```
 
 `axdump range` is the one to reach for first when a selection is not what you expected: it says whether the
-layout was read as arranged or hand-placed, which way it is filled, and which files the range holds, without
-touching anything.
+layout was read as arranged or hand-placed and how many grids and scatters it holds, what the click is
+measured from and whether that was the anchor or a stand-in, whether the range is a slice of the reading
+order or the rubber band, and the selection the click would leave, with the icons it keeps marked — all
+without touching anything.
 
 ---
 
@@ -26,13 +29,18 @@ touching anything.
 - [ ] A folder in icon view. Click a file, ⇧ Shift click another **further on**: everything between the two
       is selected, both ends included.
 - [ ] ⇧ Shift click a file **before** the first one: the range runs the other way, from the same first file.
-- [ ] ⇧ Shift click again, nearer: the range **shrinks**, still measured from the same first file. The
-      anchor does not move.
-- [ ] ⌘ Command ⇧ Shift click somewhere else: the new range is **added** to what was selected.
-- [ ] Turn *⌘ Command with ⇧ Shift adds the range* off in Settings. The same click now adds **one** file:
-      Finder's own behaviour.
-- [ ] Turn *Enable ShiftPick* off. ⇧ Shift click adds one file. Turn it on: the very next click is a range.
-      No relaunch.
+- [ ] ⇧ Shift click again, nearer: the range **shrinks**, still measured from the same first file.
+- [ ] ⌘ Command click a file elsewhere, then ⇧ Shift click further on: the first range stays, and the new one
+      runs from the ⌘ Command clicked file. ⇧ Shift click back inside the new range: it narrows and the first
+      range still stays. ⌘ Command ⇧ Shift click: Finder toggles the one file, as in a list view.
+- [ ] ⌘ Command click a file inside a range to deselect it, then ⇧ Shift click further on: the range runs
+      from the first selected file after the deselected one, which stays deselected.
+- [ ] Nothing selected, view at the top: ⇧ Shift click selects from the first file. Scroll down first: the
+      click goes to Finder and `log stream --level debug` says `nothing selected, and the first icon may be
+      off screen`.
+- [ ] ⌘ Command click **empty space** in an icon view: write down whether Finder deselects everything, which
+      is not measured. Either way the anchor is cleared, so the next ⇧ Shift click is measured from what is
+      selected then and never from the file clicked before it.
 
 ## 2. Where it works
 
@@ -40,9 +48,17 @@ touching anything.
       spanning several rows. `axdump views` should say `arranged(rowsFromLeft)` for all of them.
 - [ ] **View › Use Groups on.** A range **inside** one group. A range that **crosses** two groups: it holds
       the end of the first, all of the second up to the target, and nothing from a group above or below.
-- [ ] **View › Sort By › None**, icons dragged about by hand. `axdump views` should say `handPlaced`. A
-      ⇧ Shift click now draws a **rubber band** between the two icons: icons inside the rectangle they span
-      are selected, icons outside it are not, whatever their name.
+- [ ] **View › Sort By › None**, icons dragged into a rough grid by hand: `axdump views` says
+      `handPlaced(grids: 1, scatters: 0)`, and a range reads along the rows, the first icon of one row
+      following the last of the row above. Drag two groups apart, an empty column between them: two grids,
+      and a ⇧ Shift click from one into the other draws the **rubber band** between the two icons — the
+      rectangle they span, icons inside it selected and icons outside it not, whatever their name.
+- [ ] The same folder with **one icon dragged well off every line** of its group: `scatters: 1`, and every
+      range in that group is the rubber band. Icons dragged into no pattern at all: the same, with no grid
+      anywhere.
+- [ ] A hand-placed view with **nothing selected**: the ⇧ Shift click is measured from the **first cluster's
+      first icon**, so a target in another cluster gets the rubber band from there rather than a run of any
+      row. `axdump range <x> <y>` says which it was before you commit to it.
 - [ ] A **search result** window, **Recents**, a **tag**, **iCloud Drive**. Each in icon view.
 - [ ] A window in **list, column and gallery** view: ⇧ Shift does what it always did, and the `click` log
       says nothing at all.
@@ -52,7 +68,10 @@ touching anything.
 - [ ] Desktop **sorted** (View › Sort By › Name, with the Desktop frontmost). A range down one column. A
       range that **runs off the bottom of one column and into the next one to its left**: that is the order
       the Desktop fills, and it is what the range must follow.
-- [ ] Desktop **hand-placed** (Sort By None): the rubber band again.
+- [ ] Desktop **hand-placed** (Sort By None), icons tidied into rough rows: `axdump views` says
+      `handPlaced(grids: 1, scatters: 0)` and a range reads along the rows. Drag a group off on its own: two
+      grids, and a range from one into the other is the **rubber band**. Scatter a group with no pattern at
+      all: `scatters: 1`, and every range in it is the rubber band.
 - [ ] Desktop with **Use Stacks on**. ⇧ Shift click a stack: nothing happens and the click reaches Finder
       (the stack toggles as it always did). A range **across** a stack: the files are selected and the
       stack is not.
@@ -90,15 +109,17 @@ touching anything.
       the click belongs to the text field. Press ⎋ Escape.
 - [ ] **⌥ Option ⇧ Shift** and **⌃ Control ⇧ Shift** clicks: Finder's.
 - [ ] ⇧ Shift click in the **sidebar**, the **toolbar**, the **path bar**, another **application**.
-- [ ] A plain click on empty space, then ⇧ Shift click a file: **one** file is selected. The empty click
-      cleared the anchor along with the selection.
+- [ ] A plain click on empty space, then ⇧ Shift click a file: the empty click cleared the selection and the
+      anchor, so with the window at the top the range runs **from the first file in the view**, and with the
+      window scrolled the click goes to Finder (§1).
 
 ## 7. The edges
 
 - [ ] A **2,000+ item folder**. Two files both on screen: the range is right. Now click one, **scroll three
       screens**, ⇧ Shift click another: **the click goes to Finder untouched** and only that one file is
-      added. `log stream --level debug` says `let through: no anchor and nothing selected`. That is the
-      known limit, not a bug (`docs/pitfalls.md` 1).
+      added. `log stream --level debug` says `let through: nothing selected, and the first icon may be off
+      screen` — the file clicked first is still selected, but Finder no longer names it among the icons on
+      screen. That is the known limit, not a bug (`docs/pitfalls.md` 1).
 - [ ] A folder with **one file**. ⇧ Shift click it: it is selected, nothing else happens.
 - [ ] A folder with **one row** of files, and one with **one column**.
 - [ ] Files whose names wrap to **two lines** beside files whose names do not: the range does not skip or
@@ -189,7 +210,10 @@ checklist with it.
       for an enable made a moment before, which is measured nowhere else.
 - [ ] Hold ⇧ Shift with ⌥ Option or ⌃ Control: nothing is armed. Hold ⇧ Shift alone, then add ⌥ Option:
       `disarmed`. Let go of ⌥ Option with ⇧ Shift still down: `armed`.
-- [ ] *Enable ShiftPick* off: pressing ⇧ Shift arms nothing. On again: the next press arms.
+- [ ] **Breaker open**, after the drill's three timeouts: Settings › System shows the *Click listener* row
+      red *Stopped* with the warning under it and **Start Listening Again** beneath that. Press it: the log
+      says `another try was asked for` and then `listening for ⇧ Shift`, the button and the warning go, and
+      the row turns green.
 - [ ] Hold ⇧ Shift for more than a minute without clicking: `disarmed: ⇧ Shift held with nothing clicked`.
       Press it again: `armed`.
 - [ ] ⇧ Shift click a file, let go of ⇧ Shift **before** the mouse button, then let go of the button: the
@@ -297,8 +321,15 @@ SHIFTPICK_UPDATE_FEED=file:///tmp/latest.json /Applications/ShiftPick.app/Conten
 
 ## 12. The rest of the window
 
-- [ ] Every page: nothing is cut off, nothing is truncated, and the window's height follows the page around
-      its top-left corner.
+- [ ] The toolbar carries **four** pages and no more: General, System, Health, Tip. Every page: nothing is
+      cut off, nothing is truncated, and the window's height follows the page around its top-left corner.
+      Nothing anywhere in the window is a setting about what ShiftPick does.
+- [ ] **Settings › System**, the *Click listener* group, in each state it can reach. Everything in place:
+      one green row, *Enabled*, with no warning and no button. macOS having refused the listener: red
+      *Failed*, the Health page's refused fix sentence as the warning, and **no** button, because the fix is
+      the Accessibility group's own button above. The breaker open: red *Stopped*, the stopped warning, and
+      the **Start Listening Again** button (§9). The permission missing: no group at all, the Accessibility
+      row saying it instead.
 - [ ] **Launch at login** on, log out and in: the app starts and **opens no window**.
 - [ ] **Show in menu bar** off: the icon goes and the app keeps working. Open the app again from the
       Applications folder: the Settings window comes back.
@@ -309,9 +340,8 @@ SHIFTPICK_UPDATE_FEED=file:///tmp/latest.json /Applications/ShiftPick.app/Conten
       *Enabled* (its tooltip `watching`), both green, then **Check Again**; no warning under it. **Information**:
       *Running for* and *Memory used*, blue. No preference, no version, no update, no macOS version anywhere on
       the page. **Check Again**: a spinner beside the button for about half a second, the button disabled
-      meanwhile. Turn *Enable ShiftPick* off on the Selection page: the listener's line goes and the table is
-      the permission alone; on again, it comes back green. Turn *Launch at login* off on General: the page does
-      not change. **The red line** (the stop sign, *Accessibility permission* red *Denied* with the switch named
+      meanwhile. Turn *Launch at login* off on General: the page does not change, because a preference is
+      never a check. **The red line** (the stop sign, *Accessibility permission* red *Denied* with the switch named
       under the table, and no listener line) is seen on a Mac where the grant has not been given yet, or with
       the window open during §9's step A. **Never take the grant away to see it outside §9**: here, the shared
       checklist's *break a required one* is that grant, and it reads one red line, because the listener says

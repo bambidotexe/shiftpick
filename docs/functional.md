@@ -4,8 +4,9 @@
 the code in the same commit as any change, and it never carries an outdated rule: one the owner has
 overruled is replaced, not annotated.
 
-Numbers are interpolated from `Sources/ShiftPickCore/Constants.swift` (`K`) wherever one appears; the value
-in the code is the one that counts.
+Numbers are interpolated from `Sources/ShiftPickCore/Constants.swift` (`K`) wherever one appears, and the
+inferred grids' tolerances from `LayoutConstants.swift`, which extends the same `K`; the value in the code is
+the one that counts.
 
 ---
 
@@ -56,25 +57,25 @@ ShiftPick holds **two session event taps**, and nothing else that touches the ev
 **Both taps are created on a live answer about the grant, never on the cached one alone.** The one
 exception is the launch itself: a process that has just started reads the grant as it is. After that, a start
 asked for by a grant that seems to have arrived, by the wizard's poll or by another try first asks the live
-question of step 3 below, and creates nothing unless the answer is yes. A tap macOS refuses to create is said
+question of step 2 below, and creates nothing unless the answer is yes. A tap macOS refuses to create is said
 once in the log, however often it is asked for again.
 
 **Arming**, when ⇧ Shift goes down:
 
-1. **The kill switch is read first.** With *Enable ShiftPick* off nothing is armed, every click goes straight
-   to the system, and no anchor is looked for. It takes effect on the next press of ⇧ Shift, not on the next
-   launch.
-2. **⌥ Option or ⌃ Control held with it arms nothing, and pressing either while armed disarms**: both mean
+1. **⌥ Option or ⌃ Control held with it arms nothing, and pressing either while armed disarms**: both mean
    something else in Finder, and neither is ShiftPick's to take. Letting go of it with ⇧ Shift still down arms
    again.
-3. **The grant is asked about first, live.** A real Accessibility request is made of the Dock, and an answer
+2. **The grant is asked about first, live.** A real Accessibility request is made of the Dock, and an answer
    no older than **`K.trustFreshness` (2 s)** is reused, so a burst of capital letters asks once. **An answer
    only counts if it was asked after the grant was last put in doubt**: a privacy notification, a tap macOS
    took away and a Mac coming back each make every answer still on its way worthless. A refusal takes both
    taps down (§7). No answer within **`K.trustProbeTimeout` (50 ms)** arms nothing and takes the last
    answer's word away too, so the next press asks again. The keys are looked at again when the answer comes:
    a key let go meanwhile arms nothing.
-4. The click tap is enabled. Releasing ⇧ Shift disables it again.
+3. The click tap is enabled. Releasing ⇧ Shift disables it again.
+
+**Nothing a user sets stops any of that.** ShiftPick has no setting about what it does (§5): a ⇧ Shift press
+arms whenever the keys ask for it and the grant answers.
 
 While it is armed, a click **with ⇧ Shift and without ⌥ Option or ⌃ Control** is a **⇧ Shift click**, and §2
 decides it. Any other click is returned at once.
@@ -106,10 +107,10 @@ reasons, and they are not alike:
   enabled tap looks like. macOS disabling that tap is the system's own safety net, and it is left whole. The
   tap stays disabled, the log says so, the grant is looked at again, and the next press of ⇧ Shift arms it
   through the same questions as any other. **`K.breakerTrips` (3) timeouts inside `K.breakerWindow` (60 s)**
-  and ShiftPick destroys both taps and stops creating them: the menu and Settings › Health say so, and turning
-  *Enable ShiftPick* off and on again is what asks for another try, which still asks the live question first.
-  Nothing else closes it and nothing else starts the count over: not a launch of the wizard, not the grant
-  going and coming back.
+  and ShiftPick destroys both taps and stops creating them: the menu and Settings › Health and System say so,
+  and **Start Listening Again**, on the System page, is what asks for another try, which still asks the live
+  question first. That button is the only thing that closes it, and nothing else starts the count over: not a
+  launch of the wizard, not the grant going and coming back.
 - **User input** is also what macOS says back to a tap ShiftPick disables itself, which it does right after
   creating the click tap and at every disarm. **It is never counted.** Heard with the tap armed, it disarms;
   heard otherwise, it is the tap's own disable and nothing is done, above all not a second disable, which
@@ -137,23 +138,28 @@ leaves before it has created anything.
 In this order. **Any step that cannot answer returns the event unmodified**, and Finder does what it has
 always done.
 
-1. **Find Finder.** Its pid is remembered until the process it names has gone.
-2. **Hit-test the point.** The result has to be an icon in a Finder icon view: an item in a window's icon
+1. **⌘ Command held with ⇧ Shift is Finder's own toggle**, measured in its list view: the event is returned
+   before anything is asked of anybody, and the sentinel, which heard the same press, notes the anchor
+   (§2.1).
+2. **Find Finder.** Its pid is remembered until the process it names has gone.
+3. **Hit-test the point.** The result has to be an icon in a Finder icon view: an item in a window's icon
    view or on the Desktop. A hit on the gap between two icons, on a group's header, on the space under the
    last row, on a list view, on the sidebar, on a toolbar or on another application is not.
-3. **Refuse a rename.** While a name is being typed in place, Finder's focused element is a text field and
+4. **Refuse a rename.** While a name is being typed in place, Finder's focused element is a text field and
    the click belongs to it.
-4. **Read the view.** Every icon it is showing, each one's frame, which group it is in and the order
+5. **Read the view.** Every icon it is showing, each one's frame, which group it is in and the order
    Accessibility listed it in. On the Desktop, also whether it is a file at all.
-5. **Find the anchor** (§2.1).
-6. **Work out the range** (§3).
-7. **Set the selection.** One call, whatever the size of the range. With ⌘ Command held and the switch on,
-   the range is added to what was already selected instead of replacing it; with the switch off, a ⌘ Command
-   ⇧ Shift click is left to Finder entirely.
-8. **Swallow the click**, and its release.
-9. **Do what the click would have done besides selecting**: bring Finder forward, and raise the window
-   that was clicked. The Desktop has no window, so making Finder frontmost is the whole of it. The press has
-   been answered by then, so nobody's click waits for this part.
+6. **Read the selection.** One round trip, and it is the whole of the state besides the anchor: the icons on
+   screen Finder names as selected, and every selected element it names that is not one of them.
+7. **Find the anchor** (§2.1).
+8. **Work out the range and what it leaves selected** (§3, §2.2).
+9. **Set the selection.** One call, whatever its size: the selection §2.2 describes, with every selected
+   element Finder named that is not on screen handed back as it came.
+10. **Swallow the click**, and its release.
+11. **Do what the click would have done besides selecting**: bring Finder forward, and raise the window
+    that was clicked. The Desktop has no window, so making Finder frontmost is the whole of it. The press has
+    been answered by then, so nobody's click waits for this part.
+12. **The anchor becomes the icon the range was measured from** (§2.1). Nobody waits for this part either.
 
 **The work happens on a worker, and the thread that holds the click waits for it `K.clickBudget` (150 ms)
 and no longer.** Past that the event is returned whatever the worker is doing; the worker is told, stops at
@@ -163,30 +169,60 @@ through then would have Finder toggle the clicked file on top of the range. **A 
 that arrives while the worker is still busy with the click before is returned at once. Every Accessibility
 element is given **`K.axTimeout` (100 ms)**, which sits under the budget so that one call that never answers
 cannot spend all of it. Measured: one frame read costs about 0.06 ms warm, so a full screen of icons costs 6
-to 20 ms.
+to 20 ms. The selection is one round trip per click on top of that, and the question about whether the view
+is scrolled is one parent, one role and two frames, asked only when nothing is selected.
 
 ### 2.1 Where a range is measured from
 
-- **A plain click or a ⌘ Command click on an icon sets the anchor.** The sentinel hears it, and the click
-  itself is never held. The anchor is looked for **`K.anchorDelay` (60 ms) later**, on the worker, and only if
-  the application that owns the view is frontmost by then, so an ordinary click gains no latency and a click
-  that went to another application sets nothing.
-- **A plain click on empty space inside an icon view clears the anchor.** Finder has just deselected
-  everything. A click outside Finder leaves it alone.
-- **A ⇧ Shift click does not move the anchor.** Widening and narrowing a range are both measured from the
-  same file.
+ShiftPick keeps **one anchor per container** and nothing else: the selection is read from Finder at every
+⇧ Shift click, and nothing about an earlier range is remembered. Whatever the user did meanwhile with the
+mouse, the keyboard, a drag or ⌘ A is simply what is selected now. This is the list view's own model,
+measured on AppKit's `NSTableView` (`docs/macOS.md`, *The selection model*).
+
+- **Every click ShiftPick does not decide sets the anchor**: a plain click, a ⌘ Command click and a
+  ⌘ Command ⇧ Shift click on an icon all do, and only a plain ⇧ Shift press does not, because that is the one
+  §2 answers. The sentinel hears it, and the click itself is never held. The anchor is looked for
+  **`K.anchorDelay` (60 ms) later**, on the worker, and only if the application that owns the view is
+  frontmost by then, so an ordinary click gains no latency and a click that went to another application sets
+  nothing.
+- **A click on empty space inside an icon view clears the anchor.** Finder has just deselected everything.
+  A click outside Finder leaves it alone.
 - **The anchor is per container**: each window has its own, and the Desktop has its own.
-- **If the stored anchor is gone, stale, or in another container**, it is derived from what is selected in
-  the container that was clicked: **the selected file farthest from the target**. That is one rule, and it
-  gives the selected file nearest the start of the range when the target comes after the selection, the one
-  nearest the end when it comes before, and the widest range the selection justifies when the target is
-  inside it. Distance is counted in flow order where there is one and across the screen where there is not.
-- **If nothing is selected there either, the click goes through.**
+- **The click is measured from the anchor while the anchor is selected.** When it is not, a **stand-in**
+  takes its place: the first selected file after it in reading order (§3), however far; else the last
+  selected file before it. An anchor that is gone, stale, in another container or not a file counts as one
+  before everything, so the first selected file in reading order stands in. A stand-in may be in another
+  cluster, and the range to it is then the rubber band (§3). **After the click, the anchor is the icon the
+  range was measured from**, the stand-in included, so the next click is measured from where this one was.
+- **Nothing selected**: the click is measured from the first file in reading order **while the view is not
+  scrolled** (its container's top edge at or below its scroll area's top edge, within a point; the Desktop
+  never scrolls). A scrolled view may hold its first icon off screen, so the click goes through and
+  the log says `nothing selected, and the first icon may be off screen`.
+
+### 2.2 What the click leaves selected
+
+With the range R between the icon the click was measured from and the target (§3):
+
+- **Inside one reading order** (an arranged view, or one grid of a hand-placed one): **the old selection,
+  minus every run of consecutive selected files that R touches, plus R.** A run R touches goes whole, the
+  part of it outside R included; a run R does not touch stays, whatever ⌘ Command clicks built it with. The
+  selection in any other cluster is never touched. **A selected collapsed stack is never touched either**: it
+  stays exactly as it was, wherever it is, and its place is not a selected position, so two selected files on
+  either side of it are two runs and not one.
+- **A rubber band** (§3): the old selection **plus** the files inside the rectangle. Nothing is remembered
+  about the band before it.
+
+The whole of it is AppKit's own rule, measured. On a 3 × 4 window filling rows from the left: click 1,
+⇧ Shift click 5 leaves {1…5}; ⌘ Command click 8 leaves {1…5, 8} with the anchor at 8; ⇧ Shift click 10 leaves
+{1…5, 8, 9, 10}; and ⇧ Shift click 6 has R = [6, 8] touch the run {8, 9, 10}, which goes whole, so {1…8}.
 
 ## 3. What "between" means
 
 There is no order Finder can be asked for in every context, so the range is worked out from where the icons
-are. All of it is pure arithmetic over rectangles (`Core/LayoutModel.swift`), and all of it is unit-tested.
+are. All of it is pure arithmetic over rectangles (`Core/LayoutModel.swift`, `Clusters.swift`, `Grid.swift`,
+`ShiftClick.swift`), and all of it is unit-tested. The numbers the inferred grids are built on live in
+`Core/LayoutConstants.swift`, apart from the safety layer's own: they are **best-effort tolerances for a
+view somebody laid out by hand, not guarantees**.
 
 1. **The reference point of an icon is the centre of its frame.** Measured: Finder reports the icon's own
    box and not its cell, so a name that wraps to two lines does not move it.
@@ -196,30 +232,75 @@ are. All of it is pure arithmetic over rectangles (`Core/LayoutModel.swift`), an
 3. **The layout is one of two things.**
    - **Arranged**: inside every group, the occupied cells are the first *n* cells of some fill order. No
      hole, nothing off the lattice; a partial last line is allowed and every group starts a new line.
-     Finder is laying these out, so the order is meaningful.
+     Finder is laying these out, so the order is meaningful. Groups that fill the lattice cell for cell read
+     as arranged whether they sit side by side or one above the other with an empty band between them: what
+     is asked is that the occupied cells be the first *n* of a fill order, not that the lines be evenly
+     spaced.
    - **Hand-placed**: anything else. Holes in the lattice, icons that are not on one, a line that only
-     exists because a scatter chained together.
+     exists because a scatter chained together. Its icons are cut into clusters, and each cluster is fitted
+     with a grid or found to be a scatter (5. and 6.).
 4. **The fill order**, for an arranged layout, is one of four: rows down the screen filled from the left or
    from the right, or columns filled downwards with the next column to the right or to the left. It is
    inferred from the icons; where several fit, which is what one row, one column and a single icon always
    look like, the order Accessibility listed the items in decides, and where that says nothing the
    container's own default does: **rows from the leading edge in a window, columns from the trailing edge
    on the Desktop**, both measured, and both flipped for a right-to-left layout.
-5. **The range.**
-   - **Arranged**: every icon between the anchor and the target in fill order, inclusive. Groups count from
-     the top of the view downwards, with the fill order inside each of them.
-   - **Hand-placed**: the anchor, the target, and every icon whose reference point falls inside the
-     rectangle their two frames span. A rubber band drawn between the two icons.
-6. **A collapsed Desktop stack is not a file.** It is never in a range, and a ⇧ Shift click whose anchor or
-   target is one goes through. It does hold its place in the lattice, because that is where it is drawn.
-7. **Three properties, pinned by `RangeSelectionTests`.** The range always holds both ends; anchor to
-   target is the same set as target to anchor; and it is `O(n log n)`, worked out for five thousand icons
-   in a test that runs in milliseconds.
+5. **The pitch, and the clusters**, for a hand-placed layout. For every icon, the nearest other icon in each
+   of the four directions (left, right, above and below, each a quarter of the plane around it, a neighbour
+   exactly on a diagonal counting for both), within **`K.neighbourReachSides` (3)** icon sides, gives one
+   sample, its distance along that direction's axis. One sample per direction rather than the nearest
+   neighbour alone is what lets an icon wobbled towards this one and an icon wobbled away from it cancel;
+   the nearest of four is always the one that came closer, and it reads a hand-placed grid's pitch low. Two
+   icons whose centres are within **`K.overlapSides` (1)** icon side of each other on both axes overlap: one
+   was dropped on the other, a pile, and it is passed over for the nearest icon that does not. **The pitch**
+   is the median of the samples no farther than **`K.gridLinkPitches` (1.5)** coarse pitches, the coarse
+   pitch being the median, over the icons, of the distance to the nearest one of all; with no neighbour
+   within reach anywhere it is **`K.lonePitchSides` (1.5)** icon sides, and never under a point. An icon's
+   side is the median frame height. Two icons are then **linked** when their
+   centres are within **`K.gridLinkPitches` (1.5)** pitches of each other on both axes, and a **cluster** is
+   a connected set of links: a grid's orthogonal and diagonal neighbours are one pitch apart and a wobble,
+   while an empty row or column between two groups is two pitches less a wobble and breaks the link. **A gap
+   of two pitches or more inside a row breaks the cluster the same way**: the icons beyond it are another
+   cluster, and a range across the gap is the rubber band. An icon far from everyone is a cluster of one.
+6. **A grid, or a scatter.** Inside a cluster the centres' *y* values are cut into rows at every gap wider
+   than **`K.gridLineTolerancePitches` (0.5)** of a pitch, the *x* values into columns the same way. The
+   cluster is a **grid** when **no row is wider than that tolerance** (an icon a quarter pitch off its row
+   is on it, and a row that only exists because a scatter chained together is wider) and, past
+   **`K.gridAlwaysCount` (2)** icons, when **some row or some column holds two of them**: icons that share no
+   line with anyone, a staircase however even its steps, give nothing to read along and are a **scatter**. A
+   cluster of one or two icons is always a grid. A column's width is no verdict, because the reading runs
+   along rows: an icon dropped between two columns, or rows packed tighter than the pitch, change nothing
+   about which icon follows which. Measured on the Desktop's 122-point pitch: a wobble of twenty points holds
+   through both the clusters and the grid over forty layouts, and the cliff is a quarter of the pitch.
+7. **The reading order.** Every icon has exactly one place in it. **Arranged**: the fill order, groups from
+   the top of the view downwards. **Hand-placed**: cluster by cluster, the clusters ordered by their top edge
+   and then by their leading edge; inside a grid, rows top to bottom and along each row from the leading
+   edge, a column no wider than the tolerance counting as one cell whose icons read in the order
+   Accessibility listed them; inside a scatter, by top edge then leading edge. **A range never crosses a
+   cluster**: the order across clusters exists only so that a stand-in can be named (§2.1).
+8. **The range.**
+   - **Both ends in one reading order** (an arranged view, or one grid of a hand-placed one): every file
+     between them in that order, inclusive. Groups count from the top of the view downwards, with the fill
+     order inside each of them.
+   - **Anything else** (two clusters, or a scatter): **the rubber band**, the anchor, the target, and every
+     file whose reference point falls inside the rectangle their two frames span. Best effort, and never a
+     guess outside the rectangle.
+9. **What the range leaves selected is §2.2.**
+10. **A collapsed Desktop stack is not a file.** It is never in a range, and a ⇧ Shift click whose anchor or
+    target is one goes through. It does hold its place in the lattice and in the reading order, because that
+    is where it is drawn, and a stack somebody selected stays selected wherever it is.
+11. **Every selected element Finder names that is not on screen is kept**, handed back unchanged to the one
+    call that sets the selection. Whether Finder ever names one is not measured; the rule costs nothing
+    either way.
+12. **Three properties, pinned by `RangeSelectionTests`.** The range always holds both ends; anchor to
+    target is the same set as target to anchor; and it is `O(n log n)`, worked out for five thousand icons
+    in a test that runs in milliseconds.
 
 **A range is only ever as complete as what Finder is showing.** Finder builds the icons that are on screen
-and a little beyond, and no more, so both ends have to be visible. When one is not, the anchor reads as
-gone, nothing usable is selected, and the click goes through: a smaller selection nobody noticed was
-smaller would be worse. `docs/pitfalls.md` has the measurement.
+and a little beyond, and no more, so both ends have to be visible. An anchor that is not reads as gone and a
+stand-in is named from what is selected on screen; when nothing is selected there either, the click is
+measured from the first icon while the view is not scrolled and otherwise goes through, because a smaller
+selection nobody noticed was smaller would be worse. `docs/pitfalls.md` has the measurement.
 
 ## 4. Where it works
 
@@ -241,8 +322,9 @@ List, column and gallery views are untouched: Finder already selects a range in 
 
 ## 5. Settings
 
-A window of five pages, opened from the menu-bar item (⌘,) or by opening the app again. Its shape, its
-numbers and its copy are the `macos-building-settings-pages` skill's, not this document's.
+A window of four pages, opened from the menu-bar item (⌘,) or by opening the app again. Its shape, its
+numbers and its copy are the `macos-building-settings-pages` skill's, not this document's. **Nothing in it is
+a setting about what ShiftPick does**: the feature is always on, and it does one thing one way.
 
 | Page | Group | Rows |
 |---|---|---|
@@ -251,17 +333,17 @@ numbers and its copy are the `macos-building-settings-pages` skill's, not this d
 | | Updates | `ShiftPick <version>` with the last answer as its mark · one button, *Check for Updates* or *Update* |
 | | Quit | one destructive button |
 | | Uninstall | one destructive button, with a warning that never goes away |
-| **Selection** | ⇧ Shift-click | Enable ShiftPick · ⌘ Command with ⇧ Shift adds the range to the selection, under it and disabled with it |
 | **System** | Accessibility | the permission, live and **as ShiftPick can use it**: macOS's answer, except once ShiftPick has found the grant gone itself, which that answer can go on hiding for seconds (§7). Red *Denied* while it is missing, with a button to the pane and a warning naming the switch; once granted both go and the row stays. |
+| | Click listener | *Watching for ⇧ Shift clicks*, the Health page's row in the same colour and with the same word, whenever the listener is past waiting for the permission. **The warning follows the status**, so a red row is never silent: a listener macOS refused and one the breaker stopped each get their own sentence, and the hint covers both ways it can be down. **The button belongs to the breaker alone**: while it is open, *Start Listening Again* under the row, which asks for another try (§1) and nothing else. No group at all while the permission is missing: the permission's own row says it. |
 | | Start over | one button, *Show Onboarding Again*, which opens a fresh wizard at its first page |
-| **Health** | Health | the checks, **green, orange or red and never blue**, at most four lines, then **Check Again** (a spinner beside it for at least `K.healthMinimumBusy`, 0.5 s). **Always**: *Accessibility permission*, the System page's row in the same colour (below). **While *Enable ShiftPick* is on and the listener is past waiting for the permission**: *Watching for ⇧ Shift clicks*, green *Enabled* while it listens, red *Failed* when macOS refused the taps, red *Stopped* when macOS kept taking the click tap away (§1); its tooltip is the engine's own name for the state. No line while the switch is off (a preference), while the permission is missing (the permission's line says it: one cause, one line) or before the first start. **Only while wrong**: *Finder*, orange *Stopped* (without it only Open and Save panels are left); *Crashes in the last 7 days* (`K.healthCrashWindow`), an orange count with the last one's date in its tooltip, read from `~/Library/Logs/DiagnosticReports`. Every orange or red line's fix is a warning under the table. |
+| **Health** | Health | the checks, **green, orange or red and never blue**, at most four lines, then **Check Again** (a spinner beside it for at least `K.healthMinimumBusy`, 0.5 s). **Always**: *Accessibility permission*, the System page's row in the same colour (below). **While the listener is past waiting for the permission**: *Watching for ⇧ Shift clicks*, green *Enabled* while it listens, red *Failed* when macOS refused the taps, red *Stopped* when macOS kept taking the click tap away (§1), whose fix names the System page's *Start Listening Again* button; its tooltip is the engine's own name for the state. No line while the permission is missing (the permission's line says it: one cause, one line) or before the first start. **Only while wrong**: *Finder*, orange *Stopped* (without it only Open and Save panels are left); *Crashes in the last 7 days* (`K.healthCrashWindow`), an orange count with the last one's date in its tooltip, read from `~/Library/Logs/DiagnosticReports`. Every orange or red line's fix is a warning under the table. |
 | | Information | the readings, blue: *Running for* · *Memory used* |
 | **Tip** | the app icon beside one sentence, in a card with no title | every feature is free and stays free, and a coffee is how the project is supported |
 | | One-time tip | the Ko-fi cup, *A cup of coffee*, what it is, and a button naming the smallest tip the page takes (`SupportLink.smallestTip`, 5 €). It opens `https://ko-fi.com/bambidotexe` in the browser; nothing is paid inside the app. |
 
 **One colour rule, on every page.** Green is as it should be. Blue is a reading, or a switch the user turned
-off (*Enable ShiftPick*, Launch at login): the state they asked for. Orange is not as it should be while ⇧ Shift
-clicks still work. Red, the stop sign, is what stops them. A permission missing is red when the wizard marks
+off (Launch at login): the state they asked for. Orange is not as it should be while ⇧ Shift clicks still
+work. Red, the stop sign, is what stops them. A permission missing is red when the wizard marks
 it required and orange otherwise, never blue: Accessibility is required, so it is red on the System page and
 on the Health page alike. **The Health page is two tables and nothing else**: *Health*, the checks, and
 *Information*, the readings. A preference is on neither, whichever way it is set, and neither are the version
@@ -271,20 +353,19 @@ from what the engine already publishes, and its own readings when the window ope
 and on Check Again, never on a timer**: none of them asks anything that can block, calls Accessibility or asks
 for a permission.
 
-Defaults: **Enable ShiftPick on**, **⌘ Command adds on**, **Show in menu bar on**. Launch at login is the
-system's answer and is not stored here. `onboardingCompleted` is stored beside the three switches and is not
-a setting: no window shows it, and Start over opens the wizard rather than clearing it.
+Defaults: **Show in menu bar on**. Launch at login is the system's answer and is not stored here.
+`onboardingCompleted` is stored beside the one switch and is not a setting: no window shows it, and Start
+over opens the wizard rather than clearing it.
 
 Settings are one JSON blob in `UserDefaults`. A key missing from a file written by an older build falls back
-to its default instead of resetting the others.
+to its default instead of resetting the others, and a key such a file carries that no longer exists is
+ignored.
 
 ## 6. The menu-bar item
 
 Rebuilt from scratch every time it is opened, so it is never a language or a state behind.
 
 ```
-Enable ShiftPick            ✓
-──────────
 Launch at Login             ✓
 ──────────
 <what it is doing right now>        (not clickable)
@@ -294,9 +375,8 @@ Settings…                   ⌘,
 Quit ShiftPick              ⌘Q
 ```
 
-The status line is one of five: *Watching for ⇧ Shift clicks*, *Off: Finder handles every click*, *Waiting
-for the Accessibility permission*, *macOS refused the click listener*, *Stopped: macOS kept interrupting the
-click listener*.
+The status line is one of four: *Watching for ⇧ Shift clicks*, *Waiting for the Accessibility permission*,
+*macOS refused the click listener*, *Stopped: macOS kept interrupting the click listener*.
 
 Hiding the icon leaves the app working. Opening the bundle again from the Applications folder or Spotlight
 is then the way back to the Settings window.

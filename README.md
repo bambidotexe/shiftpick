@@ -18,7 +18,7 @@
   <img alt="No dependencies" src="https://img.shields.io/badge/dependencies-none-1f6feb">
   <img alt="One permission" src="https://img.shields.io/badge/permissions-Accessibility-8250df">
   <img alt="English and French" src="https://img.shields.io/badge/languages-English%20%C2%B7%20Fran%C3%A7ais-333333">
-  <img alt="Unit tests" src="https://img.shields.io/badge/tests-283%20passing-2ea44f">
+  <img alt="Unit tests" src="https://img.shields.io/badge/tests-361%20passing-2ea44f">
 </p>
 
 ## The problem
@@ -37,7 +37,8 @@ The Desktop is icon view too, so it has the same gap.
 | Click a file | Nothing changes. That file is where the next range will be measured from. |
 | ⇧ Shift click another file | Everything between the two is selected. |
 | ⇧ Shift click again, somewhere else | A new range, measured from the **same** first file, so you can widen and narrow it without starting over. |
-| ⌘ Command with ⇧ Shift | The range is **added** to what is already selected. |
+| ⌘ Command click, then ⇧ Shift click | The earlier selection stays; the range runs from the ⌘ Command clicked file, exactly as in a list view. |
+| ⌘ Command ⇧ Shift | Finder's own: the one file is toggled. |
 | Anything else | Finder gets the click exactly as it always did. |
 
 It works in **every Finder icon view**: folders, search results, Recents, tags, iCloud Drive, and the
@@ -48,9 +49,13 @@ is no place it does not.
 
 - **Between** means what you would expect it to mean. In a sorted view it is the reading order: across the
   row, down to the next, on to the end of the group and into the next one. On a sorted Desktop it is down
-  the column and on to the column at its left, which is the order the Desktop fills. In a folder whose
-  icons somebody put where they wanted them, there is no order to follow, so it is the rectangle drawn
-  between the two icons, as if you had dragged one.
+  the column and on to the column at its left, which is the order the Desktop fills. In a folder whose icons
+  somebody put where they wanted them, the grids they made are worked out from where the icons sit and read
+  along their rows; where no one grid holds both icons, it is the rectangle drawn between the two, as if you
+  had dragged one.
+- **What is left selected is what a list view would leave.** A ⇧ Shift click replaces the runs of selected
+  files it reaches, whole, and leaves every other one alone, so a range you built with ⌘ Command clicks
+  survives the next ⇧ Shift click. That is AppKit's own rule, measured rather than guessed at.
 - **A stack is never selected.** A collapsed stack on the Desktop is not a file, so it is never in a range,
   and ⇧ Shift clicking one is left to Finder.
 - **It never gets in the way.** With no finger on ⇧ Shift, no click on your Mac passes through ShiftPick at
@@ -61,19 +66,19 @@ is no place it does not.
 
 ## Settings
 
-A five-page window, opened from the menu-bar item (⌘,) or by opening the app again, which is the way in
-when the icon is hidden. Every change applies as you make it.
+A four-page window, opened from the menu-bar item (⌘,) or by opening the app again, which is the way in
+when the icon is hidden. Every change applies as you make it. **Nothing in it is a setting about what
+ShiftPick does**: the feature is always on and does one thing one way.
 
 | Page | What is on it |
 |---|---|
 | **General** | Launch at login · Show in menu bar · Updates · Quit · Uninstall |
-| **Selection** | Enable ShiftPick · whether ⌘ Command with ⇧ Shift adds the range to the selection |
-| **System** | the Accessibility permission, live, with the way to grant it · the way back to the welcome wizard |
+| **System** | the Accessibility permission, live, with the way to grant it · whether ShiftPick is listening for ⇧ Shift clicks, and the button that starts it listening again if macOS kept interrupting it · the way back to the welcome wizard |
 | **Health** | whether ShiftPick works, at a glance, in two tables. *Health*: the permission, whether it is watching for ⇧ Shift clicks, and, only while something is wrong, Finder and this week's crashes, each green, orange or red with what to do about it · Check Again. *Information*: how long it has run, its memory |
 | **Tip** | everything is free and stays free · a one-time tip on Ko-fi |
 
-The menu-bar item carries the same enable switch, Launch at Login, one line saying what the app is doing
-right now, Settings and Quit.
+The menu-bar item carries Launch at Login, one line saying what the app is doing right now, Settings and
+Quit.
 
 ShiftPick speaks **English and French**, following the language your Mac is set to.
 
@@ -145,11 +150,13 @@ that Finder does not toggle the file on top of it, brings Finder forward and rai
 happens on the thread that holds your click: it waits 150 ms for an answer, and then gives the click back.
 
 Where the icons sit is the whole input. They are clustered into rows and columns, and the layout is read as
-either *arranged*, which has a reading order to slice, or *hand-placed*, which does not and gets the
-rubber band instead. That is pure arithmetic over rectangles, so all of it is unit-tested: a perfect grid, a
-partial last row, a grid with holes, a scatter, a Desktop filling columns from the right, a right-to-left
-window, grouped sections, one row, one column, and five thousand icons. See `docs/architecture.md` and
-`docs/macOS.md`.
+either *arranged*, which Finder is laying out and which has a reading order to slice, or *hand-placed*,
+whose icons are cut into groups and each group fitted with a grid read along its rows; where no one grid
+holds both ends, the rubber band answers instead. What the click then leaves selected is AppKit's own rule,
+measured on `NSTableView`. That is all pure arithmetic over rectangles, so all of it is unit-tested: a
+perfect grid, a partial last row, a grid with holes, a hand-tidied grid however it wobbles, two groups with a
+gap between them, a scatter, a Desktop filling columns from the right, a right-to-left window, grouped
+sections, one row, one column, and five thousand icons. See `docs/architecture.md` and `docs/macOS.md`.
 
 ## Limitations
 
@@ -157,6 +164,9 @@ window, grouped sections, one row, one column, and five thousand icons. See `doc
   has scrolled out of view is not something ShiftPick can name. Click, scroll three screens, ⇧ Shift click,
   and the click goes to Finder untouched rather than selecting a range that quietly leaves files out.
   `docs/pitfalls.md` has the measurement and why Apple events are not the way around it.
+- **A grid nobody sorted is inferred, not asked for.** A group of icons whose rows are too ragged for the
+  tolerances reads as a scatter, and a range in it is the rubber band rather than a run of a row. So does a
+  range whose two ends are in groups far enough apart to be two grids.
 - Finder's own ⇧ Shift behaviour in list, column and gallery views is untouched: those views already do
   this, and ShiftPick never looks at them.
 - In an Open or Save panel it only works where the panel allows several files at once. A panel that asks
@@ -182,7 +192,7 @@ ShiftPick is free and carries no ads. If it saves you trouble, you can leave a t
 ## Notes
 
 - Personal build: English and French.
-- `swift test` runs 310 tests across the two library targets (272 + 38); the app target's verification is
+- `swift test` runs 361 tests across the two library targets (323 + 38); the app target's verification is
   `docs/manual-test-checklist.md`, the log, and `swift run axdump range`.
 - The app icon is a placeholder, generated from the same three-bar mark the menu-bar item draws. See
   `Resources/ICON-NOTES.md`.

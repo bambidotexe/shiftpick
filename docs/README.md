@@ -24,7 +24,7 @@ SwiftPM, no Xcode project. Accessibility is the only permission it needs.
 swift build                                     # three targets and the probe
 swift test                                      # two bundles; count two summary lines
 swift run axdump trust                          # can this terminal ask Finder anything
-swift run axdump views                          # every icon view on screen, and its items in flow order
+swift run axdump views                          # every icon view on screen, and its items in reading order
 make install                                    # production build, notarized, into /Applications
 /usr/bin/log stream --predicate 'subsystem == "dev.rubens.ShiftPick"' --level debug
 ```
@@ -38,9 +38,10 @@ Accessibility grant.
 ## The shape in one paragraph
 
 `ShiftPickCore` decides everything that can be decided from values: from rectangles, where the rows and
-columns are, whether a layout is arranged or hand-placed, which way it is filled, and which icons lie between
-two others; from events and the time, **when the one tap that can swallow a click may be enabled**
-(`TapLifecycle`). It imports Foundation and CoreGraphics and nothing else, so every rule in it is testable
+columns are, whether a layout is arranged or hand-placed, its clusters and grids, which way it is filled,
+which icons lie between two others and what a ⇧ Shift click leaves selected; from events and the time, **when
+the one tap that can swallow a click may be enabled** (`TapLifecycle`). It imports Foundation and
+CoreGraphics and nothing else, so every rule in it is testable
 without a Mac in the state it describes. `ShiftPickPlatform` is the only code that talks to the system: two
 event taps on a thread of their own, a listener and the click tap, with a deadline between them and the
 worker (`ClickGuard`, `TapThread`, `DeadlineGate`); one file that knows the shape of Finder's icon views; the

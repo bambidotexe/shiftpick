@@ -23,13 +23,15 @@ beyond it and nothing else. There is no attribute, and no option, that makes the
 `AXEnhancedUserInterface` cannot even be set on Finder (`-25208`).
 
 **What follows.** A range is only ever as complete as what is on screen. Both ends have to be visible, and
-that is a real guarantee rather than a hope: the in-between icons of an arranged layout lie geometrically
-between the two ends, and the rubber band of a hand-placed one is bounded by their two frames, so an
-in-between icon cannot be off screen when both ends are on it.
+that is a real guarantee rather than a hope: the in-between icons of an arranged layout, and of one inferred
+grid of a hand-placed one, lie in the band of lines between the two ends, and the rubber band is bounded by
+their two frames, so an in-between icon cannot be off screen when both ends are on it.
 
-When an end is **not** on screen, its stored anchor reads as gone and nothing usable is selected, so the
-click goes through. **That is deliberate.** A range that quietly left files out would be worse than no
-range at all: nobody would notice until they had moved or deleted the wrong set.
+When an end is **not** on screen it is not something Accessibility can name, so a stored anchor that has
+scrolled away reads as gone and a stand-in is taken from what is still selected on screen. With nothing
+selected there either, the click is measured from the first icon while the view is at its top, and otherwise
+goes through. **That is deliberate.** A range that quietly left files out would be worse than no range at
+all: nobody would notice until they had moved or deleted the wrong set.
 
 ## 2. Apple events are not the way around that, although they look like it
 

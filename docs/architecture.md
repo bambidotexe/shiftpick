@@ -21,7 +21,7 @@ ShiftPickCore  ←  ShiftPickPlatform  ←  ShiftPickApp
 
 | Layer | Files | What they own |
 |---|---|---|
-| Core | `LayoutItem`, `Lattice`, **`LayoutModel`** | The selection maths. Frames in, a classified layout and a range out. |
+| Core | `LayoutItem`, `Lattice`, **`LayoutModel`**, `Clusters`, `Grid`, `ShiftClick`, `LayoutConstants` | The selection maths. Frames in, a classified layout, one reading order, a range and the selection a ⇧ Shift click leaves out. `ShiftClick` is AppKit's measured rule over any order; `Clusters` and `Grid` infer the order of a view Finder is not laying out, on the tolerances `LayoutConstants` holds apart from the safety layer's own `Constants.swift`. |
 | | **`TapLifecycle`**, `TrustVerdict` | When the click tap may be enabled, and what every event does to it. An event and the time in, the new state and what to do about it out. |
 | | `Settings`, `Constants` (`K`), `AppIdentity`, `Paths`, `QuietLaunch`, `SupportLink` | The values the rest of the app is built on. |
 | | `UpdateCheck`, `UpdateSchedule`, `UpdatePanel`, `UpdateSession`, `StagedUpdateCheck`, `UpdateInstallScript` | Every rule of the update that does not need a network or a disk. |
@@ -37,7 +37,7 @@ ShiftPickCore  ←  ShiftPickPlatform  ←  ShiftPickApp
 | | `UpdateChecker` + `UpdateDownload`, `UpdateStager`, `CodeSignature`, `UpdateInstaller`, `DetachedProcess` | The update's I/O. The only network code in the app. |
 | | `Uninstall` | The registrations an uninstall gives back. |
 | App | `ShiftPickMain`, `AppDelegate`, `MenuBarController` | The app: one instance, its windows, and what it does when the Mac sleeps, locks or quits. |
-| | **`ShiftPickEngine`**, **`ShiftClickResolver`** | The one behaviour. The engine wires and publishes a status; the resolver is what one ⇧ Shift click does, and makes every Accessibility call. |
+| | **`ShiftPickEngine`**, **`ShiftClickResolver`** | The one behaviour. The engine wires the guard, the gate and the resolver, publishes one status and owns `tryAgain`, the System page's way to close the breaker; it reads no setting. The resolver is what one ⇧ Shift click does, makes every Accessibility call, and keeps one anchor per container and nothing else. |
 | | `OnboardingWindow` + `GrantCatalogue` + `ControlActionHandler`, `SettingsKit`, `SettingsWindow`, `SettingsView`, `Settings…Page`, `HealthCheck` | The windows. The wizard is the one hand-built AppKit window; everything else is SwiftUI in a hosting controller. `HealthCheck` holds the Health page's own readings, taken when the page is shown and on Check Again. |
 | | `UpdateController`, `UpdateNotifier`, `UpdateWindow` | The update's one owner and its two surfaces. |
 
@@ -66,7 +66,7 @@ at that moment**, and then layers what is left:
 | 6 | **The budget is kept by whoever waits.** The taps' thread hands a click to a worker and waits 150 ms. | A Finder, or an Accessibility call, that never answers. |
 
 **The rules are a value.** `Core/TapLifecycle` decides all of layers 0 to 5 from an event and the time, with
-no tap, no thread and no clock in sight, which is what lets every scenario be a unit test: 96 of them by
+no tap, no thread and no clock in sight, which is what lets every scenario be a unit test: 93 of them by
 name, and a seeded run of 80,000 events in an order nobody would write, after each of which ten sentences
 have to hold: the click tap is enabled in exactly one phase, only ever while the keys ask for it, and taps
 are only ever created on a live answer. `Platform/ClickGuard` executes what it says, in order. What it
@@ -95,26 +95,32 @@ what pins it; it comes before any change near one.
 
 ```
 sentinel tap (.listenOnly: flagsChanged | leftMouseDown)          always on, holds nothing up
-  ├─ ⇧ Shift down  → TapLifecycle: kill switch? ⌥/⌃? grant vouched for within 2 s?
+  ├─ ⇧ Shift down  → TapLifecycle: ⌥/⌃? grant vouched for within 2 s?
   │                    └─ no  → ask the worker for a live answer, arm when it says trusted
   │                    └─ yes → enable the click tap, start the watch
   ├─ ⇧ Shift up    → disable the click tap, stop the watch   (after a swallowed press: once its release has come)
-  └─ a plain press → the worker looks for the anchor 60 ms later; the click itself was never held
+  └─ a press without ⇧ Shift, or one with ⌘ Command → the worker looks for the anchor 60 ms later;
+                                                      the click itself was never held
 
 click tap (.defaultTap: leftMouseDown | leftMouseUp)              enabled only while armed
   ├─ no ⇧ Shift, or ⌥ Option / ⌃ Control → return the event
   ├─ DeadlineGate.run                     the worker busy with the click before → return the event at once
   │    └─ on the worker: ShiftClickResolver.shiftClick
+  │         ├─ ⌘ Command with ⇧ Shift       Finder's own toggle → return the event, ask nobody anything
   │         ├─ FinderAX.hit(at:)            the element the window server draws there
   │         ├─ FinderAX.isRenaming          a text field has focus → no answer
   │         ├─ FinderAX.items(in:)          one AXFrame read per icon, stopping if nobody is waiting any more
-  │         ├─ LayoutModel(items:)          rows, columns, arranged or not, the fill order
-  │         ├─ the anchor                   stored, or derived from the selection
-  │         ├─ LayoutModel.range(from:to:)  the answer
+  │         ├─ LayoutModel(items:)          the reading order: the flow, or clusters fitted with grids
+  │         ├─ FinderAX.selection           one round trip: what Finder has selected now, on screen and not
+  │         ├─ LayoutModel.effectiveAnchor  the anchor, or its stand-in in reading order
+  │         │    └─ nothing selected → FinderAX.isScrolled, then LayoutModel.firstItem
+  │         ├─ LayoutModel.shiftClick       the runs the range touches replaced, or the band added
   │         ├─ ticket.commit()              refused when the click has already been given back → set nothing
-  │         ├─ FinderAX.select              one call
+  │         ├─ FinderAX.select              one call: the outcome's icons, plus the selected elements
+  │         │                               Finder named that are not on screen, unchanged
   │         ├─ ticket.finish(swallow: true) ← the waiting thread wakes here
-  │         └─ FinderAX.raise               Finder forward, the window up; nobody waits for this
+  │         ├─ FinderAX.raise               Finder forward, the window up; nobody waits for this
+  │         └─ the anchor                   the icon the range was measured from
   │    └─ the taps' thread waits 150 ms (100 ms more only if the selection is being set), then returns the event
   ├─ swallow the press, and the release that carries the same event number
   └─ tapDisabledByTimeout / ByUserInput → reported to TapLifecycle, and NEVER enabled here
@@ -123,16 +129,19 @@ click tap (.defaultTap: leftMouseDown | leftMouseUp)              enabled only w
 **Costs, measured on macOS 27 on an M-series Mac.** One `AXFrame` read of a Finder icon is about 0.06 ms
 warm, so a full screen of icons is 6 to 20 ms. `AXFrame` is asked for rather than `AXPosition` and
 `AXSize` because it is one round trip instead of two, and the path asks it of every icon on screen. The
-budget belongs to the thread that waits and not to the work, so a Finder that has stopped answering costs a
-click its range rather than the Mac its mouse.
+selection is one more round trip per click, and `isScrolled` one parent, one role and two frames, asked only
+when nothing is selected. The budget belongs to the thread that waits and not to the work, so a Finder that
+has stopped answering costs a click its range rather than the Mac its mouse.
 
 **An ordinary click never reaches ShiftPick's click tap at all**: with ⇧ Shift up it is disabled. The
 sentinel hears the press, which holds nothing up, and the anchor is looked for on the worker afterwards.
 
 ## The selection maths
 
-`LayoutModel` is built once per click from the icons of one view and answers two questions: where each icon
-sits in fill order, and which icons lie between two of them.
+`LayoutModel` is built once per click from the icons of one view and answers three questions: where each icon
+sits in the view's reading order, the shape of a range between two of them (`RangeShape.ordered` or `.band`),
+and the selection one ⇧ Shift click leaves (`Outcome`: the selection, the icon it was measured from, the
+shape).
 
 1. `Lattice.build` clusters the reference points into rows and columns. Two passes, because the tolerance
    the rule asks for is half the median cell size and the cells are not known until the first pass has
@@ -140,11 +149,18 @@ sits in fill order, and which icons lie between two of them.
 2. Each group's cells are held against the four fill orders. A group is *filled* by an order when its
    occupied cells are the first *n* of that order. All four fit a single row, which is why the order
    Accessibility listed the items in, and then the container's own default, break the tie.
-3. A layout no order fits is *hand-placed*, and its range is the rectangle the two icons span.
+3. A layout no order fits is *hand-placed*: `Clusters` cuts it into groups under the link rule (a spatial
+   hash and union-find, `O(n)` expected), `Grid` fits each with rows and columns and reads it along its rows,
+   and the clusters are ordered by top edge then leading edge. A range between two clusters, or to or from a
+   cluster with no grid, is the rubber band, the rectangle the two icons span.
+4. `ShiftClick` is the list view's own rule over whichever of those orders answered: `standIn` names what a
+   deselected anchor is measured from, and `resolve` replaces every run of the selection the range touches.
+   `LayoutModel.shiftClick` runs it over positions relative to the range's own cluster, so the selection in
+   every other cluster is untouched, and adds a band rather than replacing anything.
 
-**`O(n log n)`.** The clustering sorts, the check sorts ranks, and the lattice is never walked cell by
-cell. The numbers every rank is counted from are worked out once per group and not inside a comparator:
-that alone was the difference between 47 seconds and 0.06 for five thousand icons.
+**`O(n log n)`.** The clustering sorts, the check sorts ranks, the spatial hash is linear, and the lattice is
+never walked cell by cell. The numbers every rank is counted from are worked out once per group and not
+inside a comparator: that alone was the difference between 47 seconds and 0.06 for five thousand icons.
 
 ## Threading
 
@@ -177,7 +193,7 @@ that alone was the difference between 47 seconds and 0.06 for five thousand icon
 
 | What | Where |
 |---|---|
-| The three switches, and whether the wizard has been walked | one JSON blob in `UserDefaults`, key `settings.v1` |
+| The one switch, and whether the wizard has been walked | one JSON blob in `UserDefaults`, key `settings.v1` |
 | Launch at login | `SMAppService`, and nowhere else: the system's answer is the only one |
 | The quiet-launch marker, the update's working folder | `~/Library/Application Support/ShiftPick` |
 | The anchor | nowhere. It is two Accessibility elements held in memory, and a launch starts without one |
