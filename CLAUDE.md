@@ -124,7 +124,7 @@ and the newer of a request and a written rule wins only after the owner has said
 | a timing, a budget, a threshold | **Invoke `shiftpick-safety-nets` first.** `Core/Constants.swift`, with its measurement in the comment. **The order of the safety numbers is pinned** (`SafetyNetTests.testTheSafetyNumbersKeepTheirOrder`), and a value that moves them is the owner's call | the section that states it |
 | a user setting | **Invoke the `macos-building-settings-pages` skill first.** `Core/Settings.swift` + a row on its page + `SettingsTests` | `functional.md` §5 |
 | the Settings window's pages, look or copy | **Invoke the `macos-building-settings-pages` skill first**: it holds every rule of the window's structure, numbers and wording. `App/SettingsKit.swift` (the kit and `SettingsMetrics`), `App/SettingsView.swift` (`SettingsPageID`, `SystemStatus`), `App/SettingsWindow.swift` (the toolbar, the height that follows the page), `App/Settings…Page.swift`. Two nets live in these pages and `SafetyNetTests` pins both: the System and Health pages' permission rows show the grant through `TapLifecycle.Status.showsGrant`, and the Uninstall group of the General page destroys the taps before anything else. **The words are not in the page files**: they are `Core/Strings<Page>Page.swift` | `functional.md` §5 |
-| the Health page: a row, its colour, its sentence, a reading | **Invoke the `macos-building-settings-pages` skill first** (*The Health page*). The rows are built from plain facts in `Core/HealthReport.swift` (`HealthFacts` → `groups(for:)`), coloured by `Core/HealthRules.swift` (which also colours the System page's permission row) and pinned by `HealthTests`; the words are `Core/StringsHealthPage.swift`. The page's own readings are `App/HealthCheck.swift`, read when the page is shown and on Check Again, never on a timer, from `Platform/CrashReports`, `ProcessStats`, `InstallLocation`, `FinderProcess`, `LoginItem+State`; the view is `App/SettingsHealthPage.swift`. **A reading comes from what the engine already publishes on the main actor, or from a read that cannot block**: never an Accessibility call, never the taps' thread, never a request API. A reading that needs a file of `SAFETY_FILES` (the last ⇧ Shift click, the breaker's trips) is a change to the safety layer: `shiftpick-safety-nets` first, and the drill before the next release | `functional.md` §5 |
+| the Health page: a row, its colour, its sentence, a reading | **Invoke the `macos-building-settings-pages` skill first** (*The Health page*). The page is two tables and nothing else: the checks (`HealthReport.checks(for:)`, green, orange or red, never a preference) and the readings (`readings(for:)`, blue), built from plain facts in `Core/HealthReport.swift`, coloured by `Core/HealthRules.swift` (which also colours the System page's permission row), and held under `HealthLimits` by `HealthTests`; the words are `Core/StringsHealthPage.swift`. The page's own readings are `App/HealthCheck.swift`, read when the page is shown and on Check Again, never on a timer, from `Platform/CrashReports`, `ProcessStats`, `FinderProcess`; the view is `App/SettingsHealthPage.swift`. **A reading comes from what the engine already publishes on the main actor, or from a read that cannot block**: never an Accessibility call, never the taps' thread, never a request API. A reading that needs a file of `SAFETY_FILES` (the last ⇧ Shift click, the breaker's trips) is a change to the safety layer: `shiftpick-safety-nets` first, and the drill before the next release | `functional.md` §5 |
 | the menu-bar item or its menu | `App/MenuBarController.swift`, `Core/StringsMenu.swift`. Its status line shows the grant through `TapLifecycle.Status.showsGrant`, never the cached answer alone, which `SafetyNetTests` pins | `functional.md` §6 |
 | onboarding, or what happens when the permission moves | **Invoke the `macos-building-onboarding` skill first**: it holds every rule of the wizard, who is in front, and what a grant button may do. `App/OnboardingWindow.swift` (the controller, the pages, the row, `OnboardingMetrics`), `App/GrantCatalogue.swift` (what a grant is, the two lists), `App/AppDelegate` (`showOnboarding`, `watchTheGrant`, `grantChanged`), `Platform/Permissions.swift`. **`AppDelegate` and `Permissions.swift` are files of the safety layer**: invoke `shiftpick-safety-nets` as well, and a change to either owes §9 of the checklist before the next release. **The words are not in the page files**: they are `Core/StringsOnboarding.swift` | `functional.md` §7, `macOS.md` *The permission* |
 | updates: the check, its schedule, the notification | `Core/UpdateCheck.swift`, `UpdateSchedule.swift`, `UpdatePanel.swift`, the `update…` numbers in `Core/Constants.swift`; `Platform/UpdateChecker.swift`; `App/UpdateController.swift` (the one owner), `UpdateNotifier.swift` | `functional.md` §8 |
@@ -148,7 +148,7 @@ make release     # skill: macos-publish-release. The same, plus tag, push, GitHu
 
 - `swift build` — the three code targets and the probe. **This is the truth**; editor diagnostics are
   frequently stale.
-- `swift test` — two bundles, and **one summary line each: count two.** `ShiftPickCoreTests` (272) runs in
+- `swift test` — two bundles, and **one summary line each: count two.** `ShiftPickCoreTests` (262) runs in
   about three seconds; `ShiftPickPlatformTests` (38) spawns real subprocesses and threads and takes a moment
   longer.
   `swift test --filter <SuiteName>` runs one suite; `swift test --filter SafetyNetTests` is the quick look
@@ -212,8 +212,8 @@ Three code targets, dependencies pointing one way: Core ← Platform ← App. Fu
   Finder's icon views: find the view under a point, read its items, read and set its selection) · `AX` (the
   C Accessibility API, one round trip per call) · `Permissions` · `LoginItem` · `SettingsStore` · `Log` ·
   `BoundedWait` (the one way to wait on another process: with a deadline, never on the main thread) ·
-  the Health page's readers (`CrashReports`, `ProcessStats`, `InstallLocation`, `FinderProcess`,
-  `LoginItem+State`, each a read that answers at once) · the update's I/O (`UpdateChecker` + `UpdateDownload`, the only network code; `UpdateStager`,
+  the Health page's readers (`CrashReports`, `ProcessStats`, `FinderProcess`, each a read that answers
+  at once) · the update's I/O (`UpdateChecker` + `UpdateDownload`, the only network code; `UpdateStager`,
   `CodeSignature`, `UpdateInstaller`, `DetachedProcess`) · `Uninstall`.
 - **`Sources/ShiftPickApp`** — `AppDelegate` wires everything, including what happens when the Mac sleeps,
   locks or quits. **`ShiftPickEngine`** wires the guard, the gate and the resolver and publishes one status;
@@ -337,7 +337,7 @@ the log.
 
 ## Status
 
-`swift build` is clean and `swift test` is green (272 + 38) at this commit. The app target has no automated
+`swift build` is clean and `swift test` is green (262 + 38) at this commit. The app target has no automated
 tests; `docs/manual-test-checklist.md` is its verification.
 
 **What is proven and what is not, about the safety model.** The rules are proven: `TapLifecycle` is a value,

@@ -254,12 +254,8 @@ numbers and its copy are the `macos-building-settings-pages` skill's, not this d
 | **Selection** | ⇧ Shift-click | Enable ShiftPick · ⌘ Command with ⇧ Shift adds the range to the selection, under it and disabled with it |
 | **System** | Accessibility | the permission, live and **as ShiftPick can use it**: macOS's answer, except once ShiftPick has found the grant gone itself, which that answer can go on hiding for seconds (§7). Red *Denied* while it is missing, with a button to the pane and a warning naming the switch; once granted both go and the row stays. |
 | | Start over | one button, *Show Onboarding Again*, which opens a fresh wizard at its first page |
-| **Health** | Overview | a row named after the app that sums the page up: *Everything works*, *N things to look at* (the orange rows), or *Not working: N problems* (the red rows; red wins), and *Checking* for at least `K.healthMinimumBusy` (0.5 s) after **Check Again**, its one button |
-| | Permissions | *Accessibility permission*, the System page's row in the same colour (below) |
-| | Clicks | *Watching for clicks*, the click listener as the engine reports it: *Enabled* while it listens; *Waiting* in blue while the permission is missing (the permission's row above is the red one, and it starts on its own once granted); with *Enable ShiftPick* on and nothing listening, red, *Failed* when macOS refused the taps, *Stopped* when macOS kept taking the click tap away (§1), each with the way back in a warning: quit and reopen, or *Enable ShiftPick* off and on again. With the switch off, blue *Disabled*: the user's choice. Its tooltip is the engine's own name for the state. |
-| | Compatibility | *macOS*, the version, blue, with the build in its tooltip · *Finder*, *Running* or orange *Stopped*: without it only Open and Save panels are left |
-| | App | *Launch at login* (green *Enabled*, blue *Disabled*, orange when switched off in System Settings while ShiftPick asked for it) · *Running for* · *Memory used* (both blue) · *Crashes in the last 7 days* (`K.healthCrashWindow`; green *None*, or an orange count with the last one's date in its tooltip, read from `~/Library/Logs/DiagnosticReports`) · *Installed in* (green *Applications*, a folder of the user's in blue, orange from the disk image or a temporary copy, the path in its tooltip) |
-| | Report | one button, **Copy Report**: the page as text on the clipboard, the app's version and macOS's first, a line per row with its level, word and tooltip |
+| **Health** | Health | the checks, **green, orange or red and never blue**, at most four lines, then **Check Again** (a spinner beside it for at least `K.healthMinimumBusy`, 0.5 s). **Always**: *Accessibility permission*, the System page's row in the same colour (below). **While *Enable ShiftPick* is on and the listener is past waiting for the permission**: *Watching for ⇧ Shift clicks*, green *Enabled* while it listens, red *Failed* when macOS refused the taps, red *Stopped* when macOS kept taking the click tap away (§1); its tooltip is the engine's own name for the state. No line while the switch is off (a preference), while the permission is missing (the permission's line says it: one cause, one line) or before the first start. **Only while wrong**: *Finder*, orange *Stopped* (without it only Open and Save panels are left); *Crashes in the last 7 days* (`K.healthCrashWindow`), an orange count with the last one's date in its tooltip, read from `~/Library/Logs/DiagnosticReports`. Every orange or red line's fix is a warning under the table. |
+| | Information | the readings, blue: *Running for* · *Memory used* |
 | **Tip** | the app icon beside one sentence, in a card with no title | every feature is free and stays free, and a coffee is how the project is supported |
 | | One-time tip | the Ko-fi cup, *A cup of coffee*, what it is, and a button naming the smallest tip the page takes (`SupportLink.smallestTip`, 5 €). It opens `https://ko-fi.com/bambidotexe` in the browser; nothing is paid inside the app. |
 
@@ -267,12 +263,13 @@ numbers and its copy are the `macos-building-settings-pages` skill's, not this d
 off (*Enable ShiftPick*, Launch at login): the state they asked for. Orange is not as it should be while ⇧ Shift
 clicks still work. Red, the stop sign, is what stops them. A permission missing is red when the wizard marks
 it required and orange otherwise, never blue: Accessibility is required, so it is red on the System page and
-on the Health page alike. Every orange or red row on the Health page says in a warning under its group how to
-put it right; the page itself changes nothing. **The Health page reads the permission and the login item from
-the window's 2 s poll, the listener from what the engine already publishes, and its own readings when the
-window opens on it, when it is picked and on Check Again, never on a timer**: none of them asks anything that
-can block, calls Accessibility or asks for a permission. The version and the updates are not health: they
-stay on General.
+on the Health page alike. **The Health page is two tables and nothing else**: *Health*, the checks, and
+*Information*, the readings. A preference is on neither, whichever way it is set, and neither are the version
+and the updates, which stay on General. Every orange or red line says in a warning under the table how to put
+it right; the page itself changes nothing. **It reads the permission from the window's 2 s poll, the listener
+from what the engine already publishes, and its own readings when the window opens on it, when it is picked
+and on Check Again, never on a timer**: none of them asks anything that can block, calls Accessibility or asks
+for a permission.
 
 Defaults: **Enable ShiftPick on**, **⌘ Command adds on**, **Show in menu bar on**. Launch at login is the
 system's answer and is not stored here. `onboardingCompleted` is stored beside the three switches and is not

@@ -69,7 +69,7 @@ when the icon is hidden. Every change applies as you make it.
 | **General** | Launch at login · Show in menu bar · Updates · Quit · Uninstall |
 | **Selection** | Enable ShiftPick · whether ⌘ Command with ⇧ Shift adds the range to the selection |
 | **System** | the Accessibility permission, live, with the way to grant it · the way back to the welcome wizard |
-| **Health** | whether ShiftPick is doing its job, at a glance: the permission, whether it is watching for ⇧ Shift clicks, macOS and Finder, launch at login, how long it has run, its memory, its crashes this week and where it is installed, each in green, blue, orange or red with what to do about it · Check Again · Copy Report |
+| **Health** | whether ShiftPick works, at a glance, in two tables. *Health*: the permission, whether it is watching for ⇧ Shift clicks, and, only while something is wrong, Finder and this week's crashes, each green, orange or red with what to do about it · Check Again. *Information*: how long it has run, its memory |
 | **Tip** | everything is free and stays free · a one-time tip on Ko-fi |
 
 The menu-bar item carries the same enable switch, Launch at Login, one line saying what the app is doing

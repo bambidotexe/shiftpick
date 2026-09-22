@@ -1,9 +1,9 @@
 import Foundation
 
-/// The Health page: every state that says whether ShiftPick is doing its job, at a glance.
+/// The Health page: a table of checks that says whether ShiftPick works, and a table of readings.
 ///
 /// A row's word comes from the shared vocabulary (`StatusWords`) wherever one fits; this table holds the
-/// labels, the readings and the sentences that say how to put a row right. The permission's row is labelled
+/// labels, the readings and the sentences that say how to put a row right. The permission's line is labelled
 /// and fixed with the System page's own words, so the two pages say the same thing. Console's own name for
 /// its crash list is quoted from its loctable (`plutil -extract fr xml1` on
 /// `/System/Applications/Utilities/Console.app/Contents/Resources/Localizable.loctable`), like a pane's.
@@ -11,40 +11,19 @@ public struct HealthPageStrings {
     private let language: Language
     init(_ language: Language) { self.language = language }
 
-    // MARK: Overview
+    // MARK: The two tables
 
-    public var overviewTitle: String {
+    public var healthTitle: String {
         switch language {
-        case .en: "Overview"
-        case .fr: "Vue d'ensemble"
+        case .en: "Health"
+        case .fr: "Santé"
         }
     }
 
-    public var everythingWorks: String {
+    public var informationTitle: String {
         switch language {
-        case .en: "Everything works"
-        case .fr: "Tout fonctionne"
-        }
-    }
-
-    public func toLookAt(_ count: Int) -> String {
-        switch language {
-        case .en: count == 1 ? "1 thing to look at" : "\(count) things to look at"
-        case .fr: count == 1 ? "1 point à vérifier" : "\(count) points à vérifier"
-        }
-    }
-
-    public func notWorking(problems count: Int) -> String {
-        switch language {
-        case .en: count == 1 ? "Not working: 1 problem" : "Not working: \(count) problems"
-        case .fr: count == 1 ? "Ne fonctionne pas : 1 problème" : "Ne fonctionne pas : \(count) problèmes"
-        }
-    }
-
-    public var checking: String {
-        switch language {
-        case .en: "Checking"
-        case .fr: "Vérification"
+        case .en: "Information"
+        case .fr: "Informations"
         }
     }
 
@@ -55,15 +34,7 @@ public struct HealthPageStrings {
         }
     }
 
-    // MARK: Permissions
-
-    /// "Permission" in both languages, as the rest of ShiftPick's French says it.
-    public var permissionsTitle: String {
-        switch language {
-        case .en: "Permissions"
-        case .fr: "Permissions"
-        }
-    }
+    // MARK: The permission
 
     /// The tooltip of a permission row that reads *Denied* while macOS's own answer still says granted:
     /// ShiftPick found the grant gone itself, which that answer can go on hiding for seconds.
@@ -74,37 +45,12 @@ public struct HealthPageStrings {
         }
     }
 
-    // MARK: Clicks
-
-    public var clicksTitle: String {
-        switch language {
-        case .en: "Clicks"
-        case .fr: "Clics"
-        }
-    }
-
-    public var clicksHint: String {
-        switch language {
-        case .en: "\(AppIdentity.name) watches for a click with ⇧ Shift held and lets every other "
-            + "click through untouched."
-        case .fr: "\(AppIdentity.name) surveille les clics avec ⇧ Majuscule enfoncée et laisse passer "
-            + "tous les autres clics tels quels."
-        }
-    }
+    // MARK: The click listener
 
     public var clicksRow: String {
         switch language {
-        case .en: "Watching for clicks"
-        case .fr: "Surveillance des clics"
-        }
-    }
-
-    /// The listener is off because the permission is, and starts on its own once it is granted: the
-    /// permission's own row, just above, is the red one and says where it is given.
-    public var waiting: String {
-        switch language {
-        case .en: "Waiting"
-        case .fr: "En attente"
+        case .en: "Watching for ⇧ Shift clicks"
+        case .fr: "Surveillance des clics avec ⇧ Majuscule"
         }
     }
 
@@ -139,33 +85,12 @@ public struct HealthPageStrings {
         }
     }
 
-    // MARK: Compatibility
-
-    public var compatibilityTitle: String {
-        switch language {
-        case .en: "Compatibility"
-        case .fr: "Compatibilité"
-        }
-    }
-
-    public var macOSLabel: String {
-        switch language {
-        case .en: "macOS"
-        case .fr: "macOS"
-        }
-    }
+    // MARK: Finder
 
     public var finderLabel: String {
         switch language {
         case .en: "Finder"
         case .fr: "Finder"
-        }
-    }
-
-    public var running: String {
-        switch language {
-        case .en: "Running"
-        case .fr: "En marche"
         }
     }
 
@@ -177,32 +102,30 @@ public struct HealthPageStrings {
         }
     }
 
-    // MARK: App
+    // MARK: The line every app adds while there is a crash
 
-    public var appTitle: String {
+    public func crashesLabel(days: Int) -> String {
         switch language {
-        case .en: "App"
-        case .fr: "App"
+        case .en: "Crashes in the last \(days) days"
+        case .fr: "Plantages ces \(days) derniers jours"
         }
     }
 
-    public var launchAtLoginLabel: String {
+    public func lastCrash(_ stamp: String) -> String {
         switch language {
-        case .en: "Launch at login"
-        case .fr: "Lancer à la connexion"
+        case .en: "Last one \(stamp)"
+        case .fr: "Le dernier le \(stamp)"
         }
     }
 
-    /// The login item was switched off in System Settings while the app still asks for it. Quoted as the
-    /// Login Items & Extensions pane names its list.
-    public var loginItemNeedsApprovalFix: String {
+    public var crashesFix: String {
         switch language {
-        case .en: "In System Settings › General › Login Items & Extensions, turn on \(AppIdentity.name) "
-            + "under “Open at Login”."
-        case .fr: "Dans Réglages Système › Général › Ouverture et extensions, activez \(AppIdentity.name) "
-            + "sous « Ouvrir avec la session »."
+        case .en: "Console shows what happened, under “Crash Reports”."
+        case .fr: "Console montre ce qui s'est passé, sous « Rapports de blocage »."
         }
     }
+
+    // MARK: Readings
 
     public var runningForLabel: String {
         switch language {
@@ -240,85 +163,6 @@ public struct HealthPageStrings {
         switch language {
         case .en: "\(count) MB"
         case .fr: "\(count) Mo"
-        }
-    }
-
-    public func crashesLabel(days: Int) -> String {
-        switch language {
-        case .en: "Crashes in the last \(days) days"
-        case .fr: "Plantages ces \(days) derniers jours"
-        }
-    }
-
-    public var none: String {
-        switch language {
-        case .en: "None"
-        case .fr: "Aucun"
-        }
-    }
-
-    public func lastCrash(_ stamp: String) -> String {
-        switch language {
-        case .en: "Last one \(stamp)"
-        case .fr: "Le dernier le \(stamp)"
-        }
-    }
-
-    public var crashesFix: String {
-        switch language {
-        case .en: "Console shows what happened, under “Crash Reports”. Copy the report below to send it along."
-        case .fr: "Console montre ce qui s'est passé, sous « Rapports de blocage ». Copiez le rapport "
-            + "ci-dessous pour l'envoyer avec."
-        }
-    }
-
-    public var locationLabel: String {
-        switch language {
-        case .en: "Installed in"
-        case .fr: "Emplacement"
-        }
-    }
-
-    public func locationWord(_ location: AppLocation) -> String {
-        switch (location, language) {
-        case (.applications, _): "Applications"
-        case (.elsewhere(let folder), _): folder
-        case (.diskImage, .en): "Disk image"
-        case (.diskImage, .fr): "Image disque"
-        case (.temporaryCopy, .en): "Temporary copy"
-        case (.temporaryCopy, .fr): "Copie temporaire"
-        }
-    }
-
-    public var locationFix: String {
-        switch language {
-        case .en: "Quit \(AppIdentity.name), drag it to the Applications folder, and open it from there. "
-            + "Where it runs now, it cannot update itself."
-        case .fr: "Quittez \(AppIdentity.name), glissez-le dans le dossier Applications et ouvrez-le "
-            + "depuis là. Là où il tourne, il ne peut pas se mettre à jour."
-        }
-    }
-
-    // MARK: Report
-
-    public var reportTitle: String {
-        switch language {
-        case .en: "Report"
-        case .fr: "Rapport"
-        }
-    }
-
-    public var reportHint: String {
-        switch language {
-        case .en: "Copies everything on this page as text, to paste into a bug report."
-        case .fr: "Copie tout le contenu de cette page sous forme de texte, à coller dans un rapport de bug."
-        }
-    }
-
-    public var copyReportButton: String {
-        switch language {
-        case .en: "Copy Report"
-        case .fr: "Copier le rapport"
         }
     }
 }

@@ -26,14 +26,14 @@ ShiftPickCore  ←  ShiftPickPlatform  ←  ShiftPickApp
 | | `Settings`, `Constants` (`K`), `AppIdentity`, `Paths`, `QuietLaunch`, `SupportLink` | The values the rest of the app is built on. |
 | | `UpdateCheck`, `UpdateSchedule`, `UpdatePanel`, `UpdateSession`, `StagedUpdateCheck`, `UpdateInstallScript` | Every rule of the update that does not need a network or a disk. |
 | | `UninstallPlan` | What an uninstall removes, and the text of the helper that finishes it. |
-| | `Health`, `HealthRules`, `HealthReport`, `HealthConstants` | The Health page as values: plain facts in (`HealthFacts`), its groups of rows out, each with its colour, its word, its tooltip and the sentence that puts it right, and the text Copy Report copies. `HealthRules.grant` is also what colours the System page's permission row. `HealthConstants` holds the page's two numbers as an extension of `K`, out of `Constants.swift`, which is a file of the safety layer. |
+| | `Health`, `HealthRules`, `HealthReport`, `HealthConstants` | The Health page as values: plain facts in (`HealthFacts`), its two tables out, the checks (`checks(for:)`, each with its colour, its word, its tooltip and the sentence that puts it right) and the readings (`readings(for:)`), both held under `HealthLimits` by `HealthTests`. `HealthRules.grant` is also what colours the System page's permission row. `HealthConstants` holds the page's two numbers as an extension of `K`, out of `Constants.swift`, which is a file of the safety layer. |
 | | `Localization`, `Strings*` | Every sentence the user reads, in both languages. |
 | Platform | **`ClickGuard`** | The two event taps, and the only thing that may swallow a click. It does what `TapLifecycle` says and decides nothing. |
 | | `TapThread`, `DeadlineGate` + `ClickTicket` | The thread the taps are served on, and the wait that keeps a click's budget whatever the worker does. |
 | | **`FinderAX`** | The only code that knows the shape of Finder's icon views. |
 | | `AX` | The C Accessibility API, one round trip per call. |
 | | `Permissions`, `LoginItem`, `SettingsStore`, `Log` | The rest of the system boundary. |
-| | `CrashReports`, `ProcessStats`, `InstallLocation`, `FinderProcess`, `LoginItem+State` | The Health page's readers: this app's crash reports, its uptime and memory, where the bundle is, whether Finder is running, and the login item's state with *needs approval* told apart. Each answers at once, asks nothing that can block, and asks for nothing. `LoginItem+State` is an extension in a file of its own, because `LoginItem.swift` is a file of the safety layer. |
+| | `CrashReports`, `ProcessStats`, `FinderProcess` | The Health page's readers: this app's crash reports, its uptime and memory, and whether Finder is running. Each answers at once, asks nothing that can block, and asks for nothing. |
 | | `UpdateChecker` + `UpdateDownload`, `UpdateStager`, `CodeSignature`, `UpdateInstaller`, `DetachedProcess` | The update's I/O. The only network code in the app. |
 | | `Uninstall` | The registrations an uninstall gives back. |
 | App | `ShiftPickMain`, `AppDelegate`, `MenuBarController` | The app: one instance, its windows, and what it does when the Mac sleeps, locks or quits. |
@@ -169,7 +169,7 @@ that alone was the difference between 47 seconds and 0.06 for five thousand icon
   while ⇧ Shift is held; the looks after a privacy notification are three and then nothing. The Settings
   window starts and stops its own two-second poll; the onboarding wizard starts and stops the other, also two
   seconds. **The Health page has no timer**: it reads the listener from `ShiftPickEngine.status`, which is
-  already on the main actor, the permission and the login item from the window's poll, and its own readings
+  already on the main actor, the permission from the window's poll, and its own readings
   (`HealthCheck`) on the main thread when it is shown and on Check Again. None of them calls Accessibility,
   waits on another process or asks for a permission, and none goes near the taps' thread.
 

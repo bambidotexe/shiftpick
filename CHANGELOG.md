@@ -24,10 +24,10 @@ The first build. Nothing is published yet, so every update check answers *No rel
   launch and picked up the moment it is granted, with no relaunch.
 - A menu-bar item with the enable switch, Launch at Login, what the app is doing right now, Settings and
   Quit. A five-page Settings window: General, Selection, System, Health, Tip.
-- A **Health** page: whether ShiftPick is doing its job, at a glance. The permission, whether it is watching
-  for ⇧ Shift clicks and why not, macOS and Finder, launch at login, how long it has run, its memory, its
-  crashes this week and where it is installed, each green, blue, orange or red with what to do about it,
-  Check Again, and a report to copy into a bug report.
+- A **Health** page: whether ShiftPick works, at a glance, in two short tables. *Health*: the permission,
+  whether it is watching for ⇧ Shift clicks and why not, and, only while something is wrong, Finder and this
+  week's crashes, each green, orange or red with what to do about it, and Check Again. *Information*: how
+  long it has run and its memory.
 - Updates from GitHub releases: checked at launch and weekly, announced by one notification, fetched and
   installed from a window of their own, and rolled back if the new version does not start.
 - A **Tip** page: everything is free and stays free, and a one-time tip on Ko-fi if you want to offer a

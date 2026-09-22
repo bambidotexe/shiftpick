@@ -99,7 +99,7 @@ struct SettingsPageHeight: PreferenceKey {
 
 /// The two facts this window reports but does not own: whether Accessibility is granted, and whether
 /// ShiftPick is registered as a login item. Both can change while the window is shut, and neither lives in
-/// `Settings`. The System, General and Health pages all read them from here.
+/// `Settings`. The System, General and Health pages read them from here.
 ///
 /// **The window drives this, not a view.** `.onAppear` fires once per hosting view, and this window is
 /// built once and re-shown, so a view-lifecycle hook would read the system exactly one time in the life of
@@ -114,12 +114,8 @@ final class SystemStatus: ObservableObject {
     /// macOS's cached answer, and only that. **Never shown alone**: every page shows it through
     /// `TapLifecycle.Status.showsGrant`, which knows when ShiftPick has found the grant gone itself.
     @Published private(set) var accessibilityGranted: Bool
-    /// What `SMAppService` says, including the one state the General page's switch cannot show: registered,
-    /// then switched off in System Settings. The Health page reports that one.
-    @Published private(set) var loginItem: LoginItemState
-
     /// The General page's switch: on only while the system would open the app at login.
-    var launchAtLogin: Bool { loginItem == .enabled }
+    @Published private(set) var launchAtLogin: Bool
 
     private var timer: Timer?
 
@@ -129,7 +125,7 @@ final class SystemStatus: ObservableObject {
 
     init() {
         accessibilityGranted = Permissions.accessibilityGranted
-        loginItem = LoginItem.state
+        launchAtLogin = LoginItem.isEnabled
     }
 
     func startPolling() {
@@ -152,8 +148,8 @@ final class SystemStatus: ObservableObject {
     /// `register()` can fail, and a switch showing what the click asked for over a system that refused it
     /// is the worse of the two lies.
     func refreshLoginItem() {
-        let state = LoginItem.state
-        if state != loginItem { loginItem = state }
+        let enabled = LoginItem.isEnabled
+        if enabled != launchAtLogin { launchAtLogin = enabled }
     }
 
     /// Everything, now, rather than at the next tick: the poll's own tick, and the Health page's Check Again.
