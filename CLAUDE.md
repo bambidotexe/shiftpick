@@ -149,7 +149,7 @@ make release     # skill: macos-publish-release. The same, plus tag, push, GitHu
 
 - `swift build` — the three code targets and the probe. **This is the truth**; editor diagnostics are
   frequently stale.
-- `swift test` — two bundles, and **one summary line each: count two.** `ShiftPickCoreTests` (323) runs in
+- `swift test` — two bundles, and **one summary line each: count two.** `ShiftPickCoreTests` (330) runs in
   about four seconds; `ShiftPickPlatformTests` (38) spawns real subprocesses and threads and takes a moment
   longer.
   `swift test --filter <SuiteName>` runs one suite; `swift test --filter SafetyNetTests` is the quick look
@@ -343,7 +343,7 @@ the log.
 
 ## Status
 
-`swift build` is clean and `swift test` is green (323 + 38) at this commit. The app target has no automated
+`swift build` is clean and `swift test` is green (330 + 38) at this commit. The app target has no automated
 tests; `docs/manual-test-checklist.md` is its verification.
 
 **Five files of the safety layer have changed since the last release** — `TapLifecycle.swift`,
