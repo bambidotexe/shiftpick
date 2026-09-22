@@ -36,19 +36,25 @@ struct SystemPage: View {
                 }
             }
 
-            // The click listener is what the whole app rests on, and the one state whose fix is a button
-            // rather than a switch: when macOS has taken the click tap away too often, the breaker stays
-            // open until the user asks for another try (docs/functional.md §1). The row stays once green so
-            // that the link between the app and what it needs from macOS stays visible; the button and the
-            // warning show only while the breaker is open. No line while the permission is missing: the
-            // permission's own row says it.
+            // The click listener is what the whole app rests on, and the two ways it can be down are put
+            // right in different places. **The warning follows the status**, so a red row is never silent:
+            // a listener macOS refused says to quit and reopen, or to turn the switch above off and on; a
+            // listener the breaker stopped says what happened and that the button below is the way back.
+            // **The button belongs to the breaker alone**, because asking for another try is the only thing
+            // it answers (docs/functional.md §1). The row stays once green so that the link between the app
+            // and what it needs from macOS stays visible; no group at all while the permission is missing,
+            // because the permission's own row says it.
             if let level = HealthRules.listener(engine.status) {
-                let stopped = engine.breakerIsOpen
+                let warning: String? = switch engine.status {
+                case .breakerOpen: words.listenerStoppedWarning
+                case .refused: Loc.settings.health.listenerRefusedFix
+                case .watching, .needsPermission, .stopped: nil
+                }
                 SettingsGroup(title: words.listenerTitle, hint: words.listenerHint,
-                              warnings: stopped ? [words.listenerStoppedWarning] : []) {
+                              warnings: warning.map { [$0] } ?? []) {
                     StatusRow(Loc.settings.health.clicksRow,
                               mark: StatusMark(level, HealthReport.listenerWord(engine.status)))
-                    if stopped {
+                    if engine.breakerIsOpen {
                         ButtonRow { Button(words.startListeningButton) { engine.tryAgain() } }
                     }
                 }

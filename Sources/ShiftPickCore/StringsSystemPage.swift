@@ -64,10 +64,10 @@ public struct SystemPageStrings {
 
     public var listenerHint: String {
         switch language {
-        case .en: "\(AppIdentity.name) listens for ⇧ Shift while you click. When macOS interrupts that "
-            + "listener too often, \(AppIdentity.name) stops it and waits for you to start it again."
-        case .fr: "\(AppIdentity.name) surveille ⇧ Majuscule pendant vos clics. Quand macOS interrompt "
-            + "cette écoute trop souvent, \(AppIdentity.name) l'arrête et attend que vous la relanciez."
+        case .en: "\(AppIdentity.name) listens for ⇧ Shift while you click. Without that listener it does "
+            + "nothing at all, so when macOS refuses it, or interrupts it too often, this is where it says so."
+        case .fr: "\(AppIdentity.name) surveille ⇧ Majuscule pendant vos clics. Sans cette écoute, il ne "
+            + "fait plus rien : quand macOS la refuse, ou l'interrompt trop souvent, c'est ici qu'il le signale."
         }
     }
 
