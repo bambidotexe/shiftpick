@@ -17,7 +17,7 @@ import ShiftPickPlatform
 /// swift run axdump trust            # is this terminal allowed to ask at all
 /// swift run axdump views            # every icon view Finder is showing, and its items
 /// swift run axdump at <x> <y>       # what is under a point, and the chain above it
-/// swift run axdump range <x> <y>    # what a ⇧ Shift click there would select, without clicking
+/// swift run axdump range <x> <y> [ax ay]   # what a ⇧ Shift click there would select, without clicking
 /// swift run axdump tree [depth]     # Finder's whole tree, roles and frames
 /// ```
 enum AXDump {
@@ -41,7 +41,11 @@ enum AXDump {
         case "range":
             guard arguments.count >= 4, let x = Double(arguments[2]), let y = Double(arguments[3])
             else { usage(); exit(1) }
-            range(CGPoint(x: x, y: y))
+            var anchorPoint: CGPoint?
+            if arguments.count >= 6, let ax = Double(arguments[4]), let ay = Double(arguments[5]) {
+                anchorPoint = CGPoint(x: ax, y: ay)
+            }
+            range(CGPoint(x: x, y: y), anchorPoint: anchorPoint)
         case "tree":
             tree(depth: arguments.count >= 3 ? Int(arguments[2]) ?? 4 : 4)
         default:
@@ -55,7 +59,7 @@ enum AXDump {
           trust             whether this process may ask Accessibility anything
           views             every Finder icon view on screen, with its items in AX order
           at <x> <y>        what is under a point, and every element above it
-          range <x> <y>     what a Shift-click there would select, computed but not applied
+          range <x> <y> [ax ay]   what a Shift-click there would select, measured from the icon at ax ay or from what is selected
           tree [depth]      Finder's whole element tree
         """)
     }
@@ -85,8 +89,8 @@ enum AXDump {
             print("== \(name): \(items.count) items, \(model.kind), fallback \(view.fallbackFlow.rawValue)")
             for (index, pair) in items.enumerated() {
                 let frame = pair.0.frame
-                print(String(format: "   [%3d] flow %4d  section %d  ax %3d  (%.0f,%.0f %.0fx%.0f)%@%@",
-                             index, model.flowPosition(of: index) ?? -1, pair.0.section, pair.0.axOrder,
+                print(String(format: "   [%3d] place %4d  section %d  ax %3d  (%.0f,%.0f %.0fx%.0f)%@%@",
+                             index, model.readingPosition(of: index) ?? -1, pair.0.section, pair.0.axOrder,
                              frame.minX, frame.minY, frame.width, frame.height,
                              selected.contains(index) ? "  selected" : "",
                              pair.0.isFile ? "" : "  STACK"))
@@ -135,9 +139,10 @@ enum AXDump {
         }
     }
 
-    /// What a ⇧ Shift click at this point would select, worked out exactly as the app works it out, and
-    /// printed rather than applied.
-    static func range(_ point: CGPoint) {
+    /// What a ⇧ Shift click at this point would select, worked out exactly as the app works it out and
+    /// printed rather than applied. With no anchor point the stored anchor reads as gone, which is what a
+    /// fresh launch sees: a stand-in is named from the selection.
+    static func range(_ point: CGPoint, anchorPoint: CGPoint?) {
         let pid = finderPID()
         guard case .item(let target) = FinderAX.hit(at: point, finderPID: pid, timeout: 5) else {
             print("not an item: the click would be let through")
@@ -150,21 +155,40 @@ enum AXDump {
             return
         }
         let model = LayoutModel(items: items.map(\.0), fallbackFlow: target.view.fallbackFlow)
-        let selection = FinderAX.selection(in: target.view, among: elements).indices
-        print("layout: \(model.kind); \(items.count) items; \(selection.count) selected")
-        guard let anchor = model.effectiveAnchor(stored: nil, selection: selection) else {
-            print("nothing selected to measure from: the click would be let through")
-            return
+        let reading = FinderAX.selection(in: target.view, among: elements)
+        print("layout: \(model.kind); \(items.count) items; \(reading.indices.count) selected on screen, "
+              + "\(reading.unmapped.count) selected elsewhere")
+
+        var stored: Int?
+        if let anchorPoint,
+           case .item(let anchorHit) = FinderAX.hit(at: anchorPoint, finderPID: pid, timeout: 5),
+           CFEqual(anchorHit.view.container, target.view.container) {
+            stored = FinderAX.index(of: anchorHit.item, among: elements)
         }
-        guard let range = model.range(from: anchor, to: targetIndex)?.items else {
+        var from = model.effectiveAnchor(stored: stored, selection: reading.indices)
+        if from == nil {
+            let scrolled = FinderAX.isScrolled(target.view)
+            guard scrolled == false, let first = model.firstItem else {
+                print("nothing selected and the view is scrolled or unreadable: the click would be let through")
+                return
+            }
+            print("nothing selected; the view is not scrolled, so the first icon stands in")
+            from = first
+        }
+        guard let from,
+              let outcome = model.shiftClick(from: from, selection: reading.indices, target: targetIndex) else {
             print("the anchor or the target is not a file: the click would be let through")
             return
         }
-        print("anchor \(anchor) -> target \(targetIndex): \(range.count) items")
-        for index in range {
+        let how = stored == from ? "the anchor" : "a stand-in"
+        let shape = if case .band = outcome.shape { "the rubber band" } else { "a slice of the reading order" }
+        print("measured from item \(from) (\(how)) to \(targetIndex), \(shape): "
+              + "\(outcome.shape.items.count) in the range, \(outcome.selection.count) selected afterwards")
+        for index in outcome.selection {
             let name = AX.string(elements[index], "AXIdentifier")
                 ?? AX.string(elements[index], kAXTitleAttribute as String) ?? "?"
-            print("  \(name)")
+            let place = model.readingPosition(of: index).map(String.init) ?? "-"
+            print("  [\(place)] \(name)\(outcome.shape.items.contains(index) ? "" : "   (kept)")")
         }
     }
 
