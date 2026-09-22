@@ -17,9 +17,8 @@ Three changes, asked for together:
    bottom; an icon view's is its grid, read along the lines Finder fills it (§4).
 3. **A view Finder is not laying out gets grids inferred from where the icons are**, one grid per cluster of
    icons, tolerant of a grid somebody placed by hand. A range runs inside one grid, in reading order. When
-   no grid can be made out, or the two ends are in different grids, the range is **a line one icon thick
-   drawn between the two icons**, and everything the line touches is selected. This replaces the rubber
-   band.
+   no grid can be made out, or the two ends are in different grids, the range is **the rubber band, as
+   today**: the rectangle the two icons span, and every icon whose centre falls inside it.
 
 Unchanged: **where it works** (every Finder icon view, the Desktop, and Open and Save panels shown as icons;
 list, column and gallery views are never touched), the safety model and every one of its nets
@@ -126,7 +125,7 @@ whatever the user did meanwhile with the mouse, the keyboard, a drag or ⌘ A is
 - **A plain or ⌘ Command click on an icon sets the anchor**, looked for `K.anchorDelay` later on the worker
   (unchanged). **A ⌘ Command ⇧ Shift click sets it too** and is otherwise Finder's (§2.4).
 - **A plain click on empty space clears the anchor** (unchanged; Finder deselected everything).
-- **A ⇧ Shift click**: the effective anchor (§3.4), the range (§3.5), the new selection (§2.2 or §3.5's line
+- **A ⇧ Shift click**: the effective anchor (§3.4), the range (§3.5), the new selection (§2.2 or §3.5's band
   rule), set in one call, the click swallowed, the anchor set to the icon the range was measured from.
 
 ### 3.4 The effective anchor
@@ -140,12 +139,12 @@ reading order stands in. **Nothing selected** and no anchor: see §3.6.
 
 - **Effective anchor and target in the same order** (an arranged view, or one cluster with a grid): the
   slice of the reading order between them, inclusive, and the new selection is §2.2's, runs replaced.
-- **Otherwise** (two clusters, or a cluster with no grid): **a line**. The segment from the anchor's centre
-  to the target's centre, thickened to the icon's own side (the median icon height of the view), and every
-  icon whose frame intersects that band is in the range. The new selection is **the old selection plus the
-  line** (*recommended*: memoryless, like AppKit, and the line is a fallback; the alternative, replacing the
-  last line ShiftPick drew in that container when the selection is still exactly what that click left,
-  would allow narrowing across clusters at the cost of one remembered range).
+- **Otherwise** (two clusters, or a cluster with no grid): **the rubber band**, unchanged from today: the
+  anchor, the target, and every icon whose centre falls inside the rectangle their two frames span. The new
+  selection is **the old selection plus the band** (*recommended*: memoryless, like AppKit, and the band is
+  a fallback; the alternative, replacing the last band ShiftPick drew in that container when the selection
+  is still exactly what that click left, would allow narrowing across clusters at the cost of one
+  remembered range).
 - **A collapsed Desktop stack is not a file** (unchanged): never in a range, and a click whose anchor or
   target is one goes through.
 - Total, symmetric, deterministic, `O(n log n)`, as today; §7 pins them.
@@ -201,11 +200,9 @@ unchanged; what follows is only for a view it refuses.
    them in. A cluster of one or two icons is always a grid.
 4. **Reading order** inside a grid: row by row from the top, along each row from the leading edge (mirrored
    for a right-to-left layout, like the arranged flows).
-5. **The line** (§3.5): the band is a rectangle of width *side* centred on the segment between the two
-   centres; an icon is on the line when its frame intersects the band, tested exactly (the separating axis
-   test on the band's two axes and the screen's two).
+5. **The rubber band** (§3.5) is the rule the code already has and needs nothing new.
 
-The three numbers (1.5, 1/2, one side) live in a **new `Core/LayoutConstants.swift`**, an extension of `K`
+The three numbers (1.5, 1/2, three sides) live in a **new `Core/LayoutConstants.swift`**, an extension of `K`
 kept out of `Constants.swift`, which is a file of the safety layer, exactly as `HealthConstants.swift` is.
 Each carries the reason above. **They are best-effort tolerances, not guarantees**, and the manual checklist
 says what a wobbly grid looks like when they hold and when they do not.
@@ -235,16 +232,15 @@ says what a wobbly grid looks like when they hold and when they do not.
 
 | Layer | Change |
 |---|---|
-| **Core** | `ShiftClick` (new): §2 as a value over ranks, `resolve(anchor:selection:target:) → (selection, anchor)`. `LayoutModel`: `kind` grows a hand-placed detail (grids, scatters), `place(of:) → (cluster, rank)`, `range(from:to:) → .ordered([Int]) / .line([Int])`, `firstItem`, and the stand-in rule replacing `derivedAnchor`. New `Clusters`, `Grid`, `LineBand`, `LayoutConstants`. `Settings`, `TapLifecycle`, `HealthReport`, `HealthRules`, `Strings*` as §6. |
+| **Core** | `ShiftClick` (new): §2 as a value over ranks, `resolve(anchor:selection:target:) → (selection, anchor)`. `LayoutModel`: `kind` grows a hand-placed detail (grids, scatters), `place(of:) → (cluster, rank)`, `range(from:to:) → .ordered([Int]) / .band([Int])`, `firstItem`, and the stand-in rule replacing `derivedAnchor`. New `Clusters`, `Grid`, `LayoutConstants`. `Settings`, `TapLifecycle`, `HealthReport`, `HealthRules`, `Strings*` as §6. |
 | **Platform** | `FinderAX.selection` also returns the elements it could not map; `FinderAX.isScrolled(view)`; `ClickGuard`: the sentinel notes the anchor for any press with ⌘ Command held or without ⇧ Shift, one condition. |
-| **App** | `ShiftClickResolver.shiftClick`: read the selection, the effective anchor, `LayoutModel.range`, `ShiftClick.resolve` or the line rule, the unmapped elements kept, one `select`, `commit`/`finish` untouched in shape and order, the anchor set to what it measured from; ⌘ Command ⇧ Shift passes. `ShiftPickEngine`: no options, `tryAgain` exposed. Settings pages, menu, Health as §6. |
-| **Tools** | `axdump range` prints the clusters, the shape (ordered or line), the stand-in and the selection §2 would leave, from an optional anchor point. `axdump views` prints each cluster and whether it made a grid. |
+| **App** | `ShiftClickResolver.shiftClick`: read the selection, the effective anchor, `LayoutModel.range`, `ShiftClick.resolve` or the band added, the unmapped elements kept, one `select`, `commit`/`finish` untouched in shape and order, the anchor set to what it measured from; ⌘ Command ⇧ Shift passes. `ShiftPickEngine`: no options, `tryAgain` exposed. Settings pages, menu, Health as §6. |
+| **Tools** | `axdump range` prints the clusters, the shape (ordered or rubber band), the stand-in and the selection §2 would leave, from an optional anchor point. `axdump views` prints each cluster and whether it made a grid. |
 
 Tests: **`ShiftClickTests`** replays Appendix A verbatim over a twelve-item single column (every row of the
 table is one assertion); `GridInferenceTests` (clusters, wobble inside and outside tolerance, two grids, a
-scatter, one or two icons, right to left); `LineBandTests` (touching, not touching, both ends always in,
-symmetry); `RangeSelectionTests` keeps every arranged case and trades its rubber-band cases for grids and
-lines, and keeps its three properties and its five thousand icons; `StandInTests` replaces `AnchorTests`;
+scatter, one or two icons, right to left); `RangeSelectionTests` keeps every arranged case and every
+rubber-band case, adds the grids, and keeps its three properties and its five thousand icons; `StandInTests` replaces `AnchorTests`;
 `SettingsTests`, `HealthTests`, `LocalizationTests`, `TapLifecycleTests`, `TapLifecycleInvariantTests`
 updated. **`SafetyNetTests` moves with the code and asserts the same things**: one swallow line, after
 `commit`, after `select`; and one new pin, that the System page's button reaches the breaker only through
@@ -263,9 +259,9 @@ teardown are exactly as they are. The one wording that moves is *how* the user a
 (the Selection row goes, System gains the row and the button, Health's rule), §6 (the menu), the defaults
 line; `docs/architecture.md` (*The click path*, *The selection maths*, the Core table); `docs/macOS.md`
 (what M1 to M3 measured, and the AppKit model as a platform fact with Appendix A's method); `README.md`,
-`CHANGELOG.md`, `DECISIONS.md` (the anchor rule, the rubber band, the five pages, the listener line: replaced,
+`CHANGELOG.md`, `DECISIONS.md` (the anchor rule, the hand-placed range, the five pages, the listener line: replaced,
 not annotated); `docs/manual-test-checklist.md` (§1 to §3, §6, §7, §12 rewritten for the new gestures, and a
-new section for wobbly grids and lines); `docs/README.md` where it names the rubber band.
+new section for wobbly grids); `docs/README.md` where it describes a hand-placed range.
 
 ## 9. Known limits, stated
 
@@ -275,8 +271,8 @@ new section for wobbly grids and lines); `docs/README.md` where it names the rub
   `rightMouseDown` is a feature that listens to input and is designed with the owner if wanted.
 - Both ends of a range still have to be on screen (`docs/pitfalls.md` 1); the stand-in and §3.6 obey the
   same limit.
-- A grid is inferred, so a grid a person would see and the tolerances do not is a line; a line is never
-  wrong in the sense of selecting something far away, only wider or narrower than a grid would have been.
+- A grid is inferred, so a grid a person would see and the tolerances do not gets the rubber band, which
+  selects the rectangle between the two icons rather than a run of the grid.
 
 ## 10. Rules this design overrules (the owner's word is needed for each)
 
@@ -293,7 +289,9 @@ From `docs/functional.md`:
    the selected file farthest from the target."* → §3.4.
 6. §2.1: *"If nothing is selected there either, the click goes through."* → §3.6.
 7. §3, 5: *"Hand-placed: the anchor, the target, and every icon whose reference point falls inside the
-   rectangle their two frames span. A rubber band drawn between the two icons."* → §3.5 and §5.
+   rectangle their two frames span. A rubber band drawn between the two icons."* → narrowed: a hand-placed
+   **grid** reads along its rows (§3.1), and the rubber band stays for two grids and for a cluster with no
+   grid (§3.5).
 8. §5: the *Selection* row of the table, and *"Defaults: Enable ShiftPick on, ⌘ Command adds on"*.
 9. §6: *Enable ShiftPick ✓* in the menu and the status line *Off: Finder handles every click*.
 

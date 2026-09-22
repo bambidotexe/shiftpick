@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** A ⇧ Shift click in a Finder icon view leaves exactly the selection the same clicks leave in a list view, hand-placed views get inferred grids with a line fallback, and the Selection page with its two switches is gone.
+**Goal:** A ⇧ Shift click in a Finder icon view leaves exactly the selection the same clicks leave in a list view, hand-placed views get inferred grids with the rubber band as the fallback, and the Selection page with its two switches is gone.
 
-**Architecture:** AppKit's measured model (selection + anchor, runs replaced, stand-in for a deselected anchor) becomes a pure value in Core (`ShiftClick`) over one reading order; `LayoutModel` supplies that order (flow order for arranged views, clusters fitted with grids for hand-placed ones) and answers a range as an ordered slice or a line. `ShiftClickResolver` reads Finder's selection live, asks Core, and sets the result in the one call it already makes. The kill switch leaves `TapLifecycle`; the breaker's retry moves to a button on the System page.
+**Architecture:** AppKit's measured model (selection + anchor, runs replaced, stand-in for a deselected anchor) becomes a pure value in Core (`ShiftClick`) over one reading order; `LayoutModel` supplies that order (flow order for arranged views, clusters fitted with grids for hand-placed ones) and answers a range as an ordered slice or the rubber band. `ShiftClickResolver` reads Finder's selection live, asks Core, and sets the result in the one call it already makes. The kill switch leaves `TapLifecycle`; the breaker's retry moves to a button on the System page.
 
 **Tech Stack:** Swift 5.10 SwiftPM, macOS 26+, XCTest, no dependencies. Core imports Foundation and CoreGraphics only.
 
@@ -34,7 +34,6 @@
 | **Create** `Sources/ShiftPickCore/LayoutConstants.swift` | The four geometry numbers, as `extension K`. |
 | **Create** `Sources/ShiftPickCore/Clusters.swift` | Pitch (median nearest-neighbour distance) and connected components under the link rule, via a spatial hash and union-find. |
 | **Create** `Sources/ShiftPickCore/Grid.swift` | One cluster's rows and columns, whether they make a grid, and its reading order. |
-| **Create** `Sources/ShiftPickCore/LineBand.swift` | The one-icon-thick band between two centres and the exact rectangle test. |
 | **Modify** `Sources/ShiftPickCore/LayoutModel.swift` | Positions for every item, `effectiveAnchor`, `range` as a shape, `shiftClick`, `firstItem`. Keeps the arranged path. |
 | **Modify** `Sources/ShiftPickCore/Lattice.swift` | `isTight` becomes internal (Grid uses it). |
 | **Modify** `Sources/ShiftPickCore/Settings.swift`, `TapLifecycle.swift`, `HealthReport.swift`, `HealthRules.swift`, `StringsSettings.swift`, `StringsMenu.swift`, `StringsHealthPage.swift`, `StringsSystemPage.swift`; **delete** `StringsSelectionPage.swift` | The two switches gone; the retry button's words. |
@@ -42,7 +41,7 @@
 | **Modify** `Sources/ShiftPickPlatform/ClickGuard.swift` | `init(hooks:)`; the sentinel notes the anchor for a press with ⌘ Command or without ⇧ Shift. |
 | **Modify** `Sources/ShiftPickApp/ShiftClickResolver.swift`, `ShiftPickEngine.swift`, `MenuBarController.swift`, `SettingsView.swift`, `SettingsSystemPage.swift`, `SettingsHealthPage.swift`, `HealthCheck.swift`; **delete** `SettingsSelectionPage.swift` | The click, the wiring, four pages, the retry button. |
 | **Modify** `Tools/axdump/main.swift` | `range` prints shape, stand-in and the selection the click would leave. |
-| **Tests** create `ShiftClickTests`, `ClustersTests`, `GridTests`, `LineBandTests`, `StandInTests`; modify `RangeSelectionTests`, `LatticeTests`, `SettingsTests`, `HealthTests`, `LocalizationTests`, `TapLifecycleTests`, `TapLifecycleInvariantTests`, `SafetyNetTests`; delete `AnchorTests`. |
+| **Tests** create `ShiftClickTests`, `ClustersTests`, `GridTests`, `StandInTests`; modify `RangeSelectionTests`, `LatticeTests`, `SettingsTests`, `HealthTests`, `LocalizationTests`, `TapLifecycleTests`, `TapLifecycleInvariantTests`, `SafetyNetTests`; delete `AnchorTests`. |
 
 ---
 
@@ -311,7 +310,7 @@ Claude-Session: https://claude.ai/code/session_01NSCoHqcdabAeQULVeTmnKR"
 - Test: `Tests/ShiftPickCoreTests/ClustersTests.swift`
 
 **Interfaces:**
-- Produces: `K.gridLinkPitches`, `K.gridLineTolerancePitches`, `K.lineThicknessSides`, `K.neighbourReachSides` (all `CGFloat`); `struct Clusters { let index: [Int]; let count: Int; let pitch: CGFloat; static func build(_ items: [LayoutItem]) -> Clusters }`. Tasks 3 and 5 use them.
+- Produces: `K.gridLinkPitches`, `K.gridLineTolerancePitches`, `K.neighbourReachSides` (all `CGFloat`); `struct Clusters { let index: [Int]; let count: Int; let pitch: CGFloat; static func build(_ items: [LayoutItem]) -> Clusters }`. Tasks 3 and 5 use them.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -427,9 +426,6 @@ extension K {
     /// row or a column may be before the cluster is a scatter with no grid: a line that only exists because
     /// a scatter chained together is wider than half a pitch.
     public static let gridLineTolerancePitches: CGFloat = 0.5
-
-    /// The thickness of the line drawn between two icons that share no grid, in icon sides.
-    public static let lineThicknessSides: CGFloat = 1
 
     /// How far an icon looks for its nearest neighbour when the pitch is measured, in icon sides. A window's
     /// pitch is under two sides and the Desktop's under two as well; an icon with nothing within three is
@@ -681,7 +677,7 @@ import Foundation
 /// One cluster of a hand-placed view, fitted with rows and columns and read along its rows: rows top to
 /// bottom, each row from the leading edge. A cluster whose rows or columns are too wide to be one line is a
 /// scatter: it keeps an order (top edge, then leading edge) so that a stand-in can be named across it, and
-/// every range to or from it is a line (`docs/functional.md` §3).
+/// every range to or from it is the rubber band (`docs/functional.md` §3).
 struct Grid {
     /// The cluster's items in reading order.
     let order: [Int]
@@ -751,147 +747,9 @@ Claude-Session: https://claude.ai/code/session_01NSCoHqcdabAeQULVeTmnKR"
 
 ---
 
-### Task 4: `LineBand`
+### Task 4: (nothing)
 
-**Files:**
-- Create: `Sources/ShiftPickCore/LineBand.swift`
-- Test: `Tests/ShiftPickCoreTests/LineBandTests.swift`
-
-**Interfaces:**
-- Produces: `struct LineBand { init(from: CGPoint, to: CGPoint, thickness: CGFloat); func intersects(_ rect: CGRect) -> Bool }`. Task 5 uses it.
-
-- [ ] **Step 1: Write the failing tests**
-
-```swift
-import CoreGraphics
-import XCTest
-@testable import ShiftPickCore
-
-/// The line one icon thick between two icons, and what touches it.
-final class LineBandTests: XCTestCase {
-    private func icon(_ x: CGFloat, _ y: CGFloat, side: CGFloat = 64) -> CGRect {
-        CGRect(x: x - side / 2, y: y - side / 2, width: side, height: side)
-    }
-
-    func testBothEndsAlwaysTouch() {
-        let band = LineBand(from: CGPoint(x: 100, y: 100), to: CGPoint(x: 700, y: 500), thickness: 64)
-        XCTAssertTrue(band.intersects(icon(100, 100)))
-        XCTAssertTrue(band.intersects(icon(700, 500)))
-    }
-
-    func testAnIconOnTheSegmentTouches() {
-        let band = LineBand(from: CGPoint(x: 100, y: 100), to: CGPoint(x: 700, y: 500), thickness: 64)
-        XCTAssertTrue(band.intersects(icon(400, 300)))
-    }
-
-    /// Half the thickness plus half the icon: an icon centred one side off a horizontal line just touches
-    /// it, and one a little further does not.
-    func testTheBandIsOneIconThick() {
-        let band = LineBand(from: CGPoint(x: 100, y: 300), to: CGPoint(x: 900, y: 300), thickness: 64)
-        XCTAssertTrue(band.intersects(icon(500, 300 + 63)))
-        XCTAssertFalse(band.intersects(icon(500, 300 + 66)))
-    }
-
-    func testAnIconBeyondAnEndDoesNotTouch() {
-        let band = LineBand(from: CGPoint(x: 100, y: 300), to: CGPoint(x: 900, y: 300), thickness: 64)
-        XCTAssertFalse(band.intersects(icon(100 - 70, 300)))
-        XCTAssertTrue(band.intersects(icon(100 - 60, 300)), "an icon overlapping the end's cap touches")
-    }
-
-    func testADiagonalBandIsExactAndNotItsBoundingBox() {
-        let band = LineBand(from: CGPoint(x: 100, y: 100), to: CGPoint(x: 900, y: 900), thickness: 64)
-        // Inside the bounding box of the segment, far from the line itself.
-        XCTAssertFalse(band.intersects(icon(800, 200)))
-        XCTAssertTrue(band.intersects(icon(500, 540)))
-    }
-
-    func testTheBandIsTheSameEitherWayRound() {
-        let there = LineBand(from: CGPoint(x: 132, y: 132), to: CGPoint(x: 732, y: 652), thickness: 64)
-        let back = LineBand(from: CGPoint(x: 732, y: 652), to: CGPoint(x: 132, y: 132), thickness: 64)
-        for point in [CGPoint(x: 332, y: 292), CGPoint(x: 932, y: 152), CGPoint(x: 400, y: 380), CGPoint(x: 600, y: 700)] {
-            XCTAssertEqual(there.intersects(icon(point.x, point.y)), back.intersects(icon(point.x, point.y)), "\(point)")
-        }
-    }
-
-    func testAZeroLengthBandIsASquareAroundThePoint() {
-        let band = LineBand(from: CGPoint(x: 300, y: 300), to: CGPoint(x: 300, y: 300), thickness: 64)
-        XCTAssertTrue(band.intersects(icon(300, 300)))
-        XCTAssertTrue(band.intersects(icon(300 + 60, 300)))
-        XCTAssertFalse(band.intersects(icon(300 + 70, 300)))
-    }
-}
-```
-
-- [ ] **Step 2: Run to verify it fails**
-
-Run: `swift test --filter LineBandTests`
-Expected: compile error, `cannot find 'LineBand' in scope`.
-
-- [ ] **Step 3: Write `LineBand`**
-
-```swift
-import CoreGraphics
-import Foundation
-
-/// The line drawn between two icons that share no grid: the segment between their centres, thickened to
-/// one icon. An icon is on the line when its frame intersects that rectangle, tested exactly with the
-/// separating axis theorem over the band's two axes and the screen's two.
-struct LineBand {
-    private let start: CGPoint
-    private let along: CGPoint      // unit vector from start to end
-    private let across: CGPoint     // unit vector perpendicular to it
-    private let length: CGFloat
-    private let halfThickness: CGFloat
-
-    init(from start: CGPoint, to end: CGPoint, thickness: CGFloat) {
-        self.start = start
-        halfThickness = thickness / 2
-        let dx = end.x - start.x, dy = end.y - start.y
-        length = hypot(dx, dy)
-        // A zero-length band still has two axes: any pair will do, and the screen's are the obvious ones.
-        along = length > 0 ? CGPoint(x: dx / length, y: dy / length) : CGPoint(x: 1, y: 0)
-        across = CGPoint(x: -along.y, y: along.x)
-    }
-
-    func intersects(_ rect: CGRect) -> Bool {
-        let corners = [CGPoint(x: rect.minX, y: rect.minY), CGPoint(x: rect.maxX, y: rect.minY),
-                       CGPoint(x: rect.minX, y: rect.maxY), CGPoint(x: rect.maxX, y: rect.maxY)]
-        // The band's axes: the rectangle's corners projected onto them must overlap the band's own extent.
-        let alongProjections = corners.map { ($0.x - start.x) * along.x + ($0.y - start.y) * along.y }
-        guard alongProjections.max()! >= 0, alongProjections.min()! <= length else { return false }
-        let acrossProjections = corners.map { ($0.x - start.x) * across.x + ($0.y - start.y) * across.y }
-        guard acrossProjections.max()! >= -halfThickness, acrossProjections.min()! <= halfThickness else { return false }
-        // The screen's axes: the band's corners projected onto x and y must overlap the rectangle.
-        let bandCorners = [
-            CGPoint(x: start.x + across.x * halfThickness, y: start.y + across.y * halfThickness),
-            CGPoint(x: start.x - across.x * halfThickness, y: start.y - across.y * halfThickness),
-            CGPoint(x: start.x + along.x * length + across.x * halfThickness, y: start.y + along.y * length + across.y * halfThickness),
-            CGPoint(x: start.x + along.x * length - across.x * halfThickness, y: start.y + along.y * length - across.y * halfThickness),
-        ]
-        let xs = bandCorners.map(\.x), ys = bandCorners.map(\.y)
-        guard xs.max()! >= rect.minX, xs.min()! <= rect.maxX else { return false }
-        guard ys.max()! >= rect.minY, ys.min()! <= rect.maxY else { return false }
-        return true
-    }
-}
-```
-
-- [ ] **Step 4: Run to verify it passes**
-
-Run: `swift test --filter LineBandTests`
-Expected: `Executed 7 tests, with 0 failures`.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add Sources/ShiftPickCore/LineBand.swift Tests/ShiftPickCoreTests/LineBandTests.swift
-git commit -m "feat(core): the line one icon thick between two icons, and what touches it
-
-Owes docs/functional.md §3 (Task 12).
-
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_01NSCoHqcdabAeQULVeTmnKR"
-```
+A line one icon thick was designed here and withdrawn by the owner before any code: the rubber band, which the code already has, is the fallback for every range that is not inside one grid. The number is kept so that later tasks' references stay right.
 
 ---
 
@@ -905,8 +763,8 @@ Claude-Session: https://claude.ai/code/session_01NSCoHqcdabAeQULVeTmnKR"
 - Delete: `Tests/ShiftPickCoreTests/AnchorTests.swift`
 
 **Interfaces:**
-- Consumes: `ShiftClick` (Task 1), `Clusters` (Task 2), `Grid` (Task 3), `LineBand` (Task 4).
-- Produces, all `public` on `LayoutModel`: `kind: LayoutKind` (`.arranged(Flow)` or `.handPlaced(grids: Int, scatters: Int)`); `flowPosition(of:) -> Int?` (unchanged); `readingPosition(of:) -> Int?`; `firstItem: Int?`; `effectiveAnchor(stored: Int?, selection: [Int]) -> Int?`; `range(from:to:) -> RangeShape?` where `enum RangeShape { case ordered([Int]); case line([Int]); var items: [Int] }`; `shiftClick(from anchor: Int, selection: [Int], target: Int) -> Outcome?` where `struct Outcome { let selection: [Int]; let anchor: Int; let shape: RangeShape }`. Tasks 7 and 11 call these. `derivedAnchor` is gone.
+- Consumes: `ShiftClick` (Task 1), `Clusters` (Task 2), `Grid` (Task 3).
+- Produces, all `public` on `LayoutModel`: `kind: LayoutKind` (`.arranged(Flow)` or `.handPlaced(grids: Int, scatters: Int)`); `flowPosition(of:) -> Int?` (unchanged); `readingPosition(of:) -> Int?`; `firstItem: Int?`; `effectiveAnchor(stored: Int?, selection: [Int]) -> Int?`; `range(from:to:) -> RangeShape?` where `enum RangeShape { case ordered([Int]); case band([Int]); var items: [Int] }`; `shiftClick(from anchor: Int, selection: [Int], target: Int) -> Outcome?` where `struct Outcome { let selection: [Int]; let anchor: Int; let shape: RangeShape }`. Tasks 7 and 11 call these. `derivedAnchor` is gone.
 
 - [ ] **Step 1: Change `LayoutKind` in `LayoutItem.swift`**
 
@@ -920,7 +778,8 @@ public enum LayoutKind: Equatable, Sendable {
     case arranged(Flow)
     /// Holes in the lattice, or items that are not on one at all: *Sort By None*, a Desktop somebody has
     /// arranged by hand. The icons are cut into clusters; `grids` of them read along their rows and
-    /// `scatters` have no grid. A range inside one grid is a slice of its order; any other range is a line.
+    /// `scatters` have no grid. A range inside one grid is a slice of its order; any other range is the
+    /// rubber band.
     case handPlaced(grids: Int, scatters: Int)
 }
 ```
@@ -962,24 +821,38 @@ Then replace the five hand-placed tests (`testAGridWithAHoleIsHandPlaced` throug
         XCTAssertEqual(model(items).range(from: 1, to: 5), .ordered([1, 2, 3, 4, 5]))
     }
 
-    func testIconsTooFarApartForAGridGetALine() {
+    /// Three icons too far apart to share a grid are three grids of one, and a range between two of them is
+    /// the rubber band, the rectangle their frames span.
+    func testIconsTooFarApartForAGridGetTheRubberBand() {
         let items = [Layouts.item(x: 100, y: 100, axOrder: 0),
                      Layouts.item(x: 900, y: 700, axOrder: 1),
                      Layouts.item(x: 100, y: 700, axOrder: 2)]
         let model = model(items)
         XCTAssertEqual(model.kind, .handPlaced(grids: 3, scatters: 0))
-        XCTAssertEqual(model.range(from: 0, to: 1), .line([0, 1]))
-        XCTAssertEqual(model.range(from: 0, to: 2), .line([0, 2]))
+        XCTAssertEqual(model.range(from: 0, to: 1), .band([0, 1, 2]))
+        // A band with nothing inside it is still the two icons.
+        XCTAssertEqual(model.range(from: 0, to: 2), .band([0, 2]))
     }
 
-    func testTwoGridsFarApartGiveALineBetweenThemAndAnOrderInsideEach() {
+    func testTwoGridsFarApartGiveTheRubberBandBetweenThemAndAnOrderInsideEach() {
         var items = Layouts.filled(rows: 2, columns: 2, origin: CGPoint(x: 100, y: 100))
         items += Layouts.filled(rows: 2, columns: 2, origin: CGPoint(x: 900, y: 100), firstAXOrder: 4)
         let model = model(items)
         XCTAssertEqual(model.kind, .handPlaced(grids: 2, scatters: 0))
         XCTAssertEqual(model.range(from: 0, to: 3), .ordered([0, 1, 2, 3]))
-        guard case .line(let touched)? = model.range(from: 0, to: 7) else { return XCTFail("a line") }
-        XCTAssertTrue(touched.contains(0) && touched.contains(7))
+        // From the first grid's top-left to the second's bottom-right: the rectangle holds all eight.
+        XCTAssertEqual(model.range(from: 0, to: 7), .band([0, 1, 2, 3, 4, 5, 6, 7]))
+    }
+
+    /// One icon a good way off every line makes the whole cluster a scatter, and a range in it is the band.
+    func testAClusterWithNoGridGetsTheRubberBand() {
+        var items = Layouts.filled(rows: 2, columns: 3, origin: CGPoint(x: 100, y: 100),
+                                   pitch: CGSize(width: 120, height: 120))
+        items.append(Layouts.item(x: 160, y: 160, axOrder: 6))
+        let model = model(items)
+        XCTAssertEqual(model.kind, .handPlaced(grids: 0, scatters: 1))
+        XCTAssertEqual(model.range(from: 0, to: 5), .band([0, 1, 2, 3, 4, 5, 6]))
+        XCTAssertEqual(model.range(from: 0, to: 1), .band([0, 1]))
     }
 
     func testAWobblyHandPlacedGridIsStillAGrid() {
@@ -1006,13 +879,13 @@ Then replace the five hand-placed tests (`testAGridWithAHoleIsHandPlaced` throug
         guard case .handPlaced = model(items, .columnsFromRight).kind else { return XCTFail("hand-placed") }
     }
 
-    func testALineTakesWhatItTouchesAndNothingElse() {
+    func testTheRubberBandIsBoundedByTheTwoIcons() {
         let items = [Layouts.item(x: 100, y: 100, axOrder: 0),
                      Layouts.item(x: 300, y: 260, axOrder: 1),
                      Layouts.item(x: 700, y: 620, axOrder: 2),
                      Layouts.item(x: 900, y: 120, axOrder: 3)]
-        // The line from the first to the third passes over the second and far from the fourth.
-        XCTAssertEqual(model(items).range(from: 0, to: 2), .line([0, 1, 2]))
+        // The band from the first to the third holds the second and not the fourth.
+        XCTAssertEqual(model(items).range(from: 0, to: 2), .band([0, 1, 2]))
     }
 ```
 
@@ -1046,12 +919,13 @@ Add, before `// MARK: - The three properties`:
         XCTAssertEqual(outcome?.selection, [0, 1, 2, 3, 6])
     }
 
-    func testALineIsAddedToWhatWasSelected() {
+    func testARubberBandIsAddedToWhatWasSelected() {
         let items = [Layouts.item(x: 100, y: 100, axOrder: 0), Layouts.item(x: 900, y: 700, axOrder: 1),
-                     Layouts.item(x: 100, y: 700, axOrder: 2)]
-        let outcome = model(items).shiftClick(from: 0, selection: [2], target: 1)
-        XCTAssertEqual(outcome?.shape, .line([0, 1]))
-        XCTAssertEqual(outcome?.selection, [0, 1, 2])
+                     Layouts.item(x: 100, y: 700, axOrder: 2), Layouts.item(x: 2_000, y: 100, axOrder: 3)]
+        // The fourth icon is outside the rectangle and selected: it stays selected.
+        let outcome = model(items).shiftClick(from: 0, selection: [3], target: 1)
+        XCTAssertEqual(outcome?.shape, .band([0, 1, 2]))
+        XCTAssertEqual(outcome?.selection, [0, 1, 2, 3])
     }
 
     func testAStackInsideTheRangeIsNotSelectedAndASelectedOneOutsideItIsKept() {
@@ -1132,7 +1006,7 @@ final class StandInTests: XCTestCase {
     }
 
     /// Clusters follow one another in reading order, so a stand-in can be found in the next cluster; a
-    /// range to it is then a line, which is the caller's business.
+    /// range to it is then the rubber band, which is the caller's business.
     func testAStandInMayBeInAnotherCluster() {
         var items = Layouts.filled(rows: 2, columns: 2, origin: CGPoint(x: 100, y: 100))
         items += Layouts.filled(rows: 2, columns: 2, origin: CGPoint(x: 900, y: 100), firstAXOrder: 4)
@@ -1165,18 +1039,19 @@ Replace everything from the file's first line down to (not including) `    // MA
 import CoreGraphics
 import Foundation
 
-/// What a range is: the slice of one reading order between two icons, or the icons a line between them
-/// touches. `items` are indices into `LayoutModel.items`, ascending.
+/// What a range is: the slice of one reading order between two icons, or the icons inside the rectangle
+/// the two span. `items` are indices into `LayoutModel.items`, ascending.
 public enum RangeShape: Equatable, Sendable {
     /// Inside one order (an arranged view, or one grid of a hand-placed one). A ⇧ Shift click replaces every
     /// run of the selection it touches with it (`ShiftClick`).
     case ordered([Int])
-    /// Between two grids, or to or from a scatter: a line one icon thick. A ⇧ Shift click adds it.
-    case line([Int])
+    /// Between two grids, or to or from a scatter: the rubber band, the rectangle the two frames span. A
+    /// ⇧ Shift click adds it.
+    case band([Int])
 
     public var items: [Int] {
         switch self {
-        case .ordered(let items), .line(let items): items
+        case .ordered(let items), .band(let items): items
         }
     }
 }
@@ -1221,8 +1096,6 @@ public struct LayoutModel {
     private let clusterStart: [Int]
     private let clusterCount: [Int]
     private let clusterIsGrid: [Bool]
-    /// The icon's own side, which is what a line is as thick as.
-    private let side: CGFloat
     private let lattice: Lattice
 
     /// `fallbackFlow` is what the caller knows about the container and the geometry cannot: a window fills
@@ -1231,7 +1104,6 @@ public struct LayoutModel {
     public init(items: [LayoutItem], fallbackFlow: Flow) {
         self.items = items
         lattice = Lattice.build(items)
-        side = max(Lattice.median(items.map(\.frame.height)) ?? 1, 1)
         guard !items.isEmpty else {
             kind = .handPlaced(grids: 0, scatters: 0)
             position = []
@@ -1324,7 +1196,8 @@ public struct LayoutModel {
 
     /// Every file between the anchor and the target, inclusive, as indices into `items`, ascending, and
     /// how they were found: the slice of the reading order when both are in one grid (or the view is
-    /// arranged), and otherwise the files a line one icon thick between the two centres touches.
+    /// arranged), and otherwise the rubber band: the anchor, the target, and every file whose centre falls
+    /// inside the rectangle their two frames span.
     ///
     /// nil when either end is not an item or is not a file. A collapsed Desktop stack is not a file: it is
     /// never returned inside a range either, although it does hold its place in the order, because that is
@@ -1338,10 +1211,9 @@ public struct LayoutModel {
             let high = max(position[anchor], position[target])
             return .ordered(items.indices.filter { items[$0].isFile && (low...high).contains(position[$0]) })
         }
-        let band = LineBand(from: items[anchor].reference, to: items[target].reference,
-                            thickness: side * K.lineThicknessSides)
-        return .line(items.indices.filter {
-            items[$0].isFile && ($0 == anchor || $0 == target || band.intersects(items[$0].frame))
+        let rectangle = items[anchor].frame.union(items[target].frame)
+        return .band(items.indices.filter {
+            items[$0].isFile && ($0 == anchor || $0 == target || rectangle.contains(items[$0].reference))
         })
     }
 
@@ -1349,7 +1221,7 @@ public struct LayoutModel {
 
     /// What one ⇧ Shift click leaves selected, measured from `anchor` (already the effective one) with
     /// `selection` what Finder has selected now. An ordered range replaces every run of the selection it
-    /// touches inside its own cluster and leaves every other cluster's selection alone; a line is added.
+    /// touches inside its own cluster and leaves every other cluster's selection alone; a band is added.
     /// Selected indices that are not items are dropped; selected items that are not files are kept when
     /// they are outside the range's cluster.
     public func shiftClick(from anchor: Int, selection: [Int], target: Int) -> Outcome? {
@@ -1366,8 +1238,8 @@ public struct LayoutModel {
             let chosen = ranks.map { itemAt[start + $0] }.filter { items[$0].isFile }
             let outside = valid.filter { cluster[$0] != own }
             return Outcome(selection: (chosen + outside).sorted(), anchor: anchor, shape: shape)
-        case .line(let touched):
-            return Outcome(selection: valid.union(touched).sorted(), anchor: anchor, shape: shape)
+        case .band(let inside):
+            return Outcome(selection: valid.union(inside).sorted(), anchor: anchor, shape: shape)
         }
     }
 
@@ -1384,12 +1256,12 @@ Expected: green. If `PurityTests.testCoreNeverReachesForTheClockInARule` complai
 
 ```bash
 git add Sources/ShiftPickCore/LayoutModel.swift Sources/ShiftPickCore/LayoutItem.swift Tests/ShiftPickCoreTests/RangeSelectionTests.swift Tests/ShiftPickCoreTests/StandInTests.swift Tests/ShiftPickCoreTests/AnchorTests.swift
-git commit -m "feat(core): one reading order per view, a range as a slice or a line, and the click's outcome
+git commit -m "feat(core): one reading order per view, a range as a slice or the rubber band, and the click's outcome
 
 A hand-placed view is cut into clusters, each fitted with a grid read along
 its rows; a range inside one grid is a slice of its order and any other
-range is a line one icon thick. The stand-in rule replaces the farthest-
-selected-file rule, and the rubber band is gone.
+range is the rubber band, as before. The stand-in rule replaces the
+farthest-selected-file rule.
 
 Owes docs/functional.md §2.1 and §3 (Task 12).
 
@@ -1565,7 +1437,7 @@ Remove `struct Options`, the `options` lock, `update(_:)`, and the `guard option
         FinderAX.raise(target.view, application: application)
         // The anchor is the icon the range was measured from: the stored one, or its stand-in.
         anchor = Anchor(container: target.view.container, item: elements[outcome.anchor])
-        let shape = if case .line = outcome.shape { "line" } else { "ordered" }
+        let shape = if case .band = outcome.shape { "rubber band" } else { "ordered" }
         Log.click.debug("""
             selected \(outcome.selection.count, privacy: .public) of \(elements.count, privacy: .public) \
             (\(String(describing: model.kind), privacy: .public), \(shape, privacy: .public), measured from \
@@ -2056,7 +1928,7 @@ and in `usage`: `  range <x> <y> [ax ay]   what a Shift-click there would select
             return
         }
         let how = stored == from ? "the anchor" : "a stand-in"
-        let shape = if case .line = outcome.shape { "a line" } else { "a slice of the reading order" }
+        let shape = if case .band = outcome.shape { "the rubber band" } else { "a slice of the reading order" }
         print("measured from item \(from) (\(how)) to \(targetIndex), \(shape): \(outcome.shape.items.count) in the range, "
               + "\(outcome.selection.count) selected afterwards")
         for index in outcome.selection {
@@ -2131,7 +2003,7 @@ With the range R between the icon measured from and the target (§3):
   minus every run of consecutive selected icons that R touches, plus R.** A run R touches goes whole, its part
   outside R included; a run R does not touch stays, whatever ⌘ Command clicks built it with. Selected icons
   in another grid are never touched.
-- **A line** (§3.5): the old selection **plus** the icons the line touches.
+- **A rubber band** (§3.5): the old selection **plus** the icons inside the rectangle.
 ```
 
 §3: renumber the current 5. as *5. The range*, with **Arranged** unchanged and **Hand-placed** replaced by:
@@ -2143,9 +2015,9 @@ With the range R between the icon measured from and the target (§3):
      grid**: rows and columns cut at every gap wider than `K.gridLineTolerancePitches` (half) a pitch, which
      makes sense when no row and no column is wider than that. A grid is read **along its rows from the
      leading edge, rows top to bottom**; clusters follow one another by top edge then leading edge. A range
-     with both ends in one grid is the slice of that order between them. **Any other range is a line**: the
-     segment between the two centres, `K.lineThicknessSides` (one) icon thick, and every icon whose frame it
-     touches. Best effort, and never a guess far from the two icons.
+     with both ends in one grid is the slice of that order between them. **Any other range is the rubber
+     band**: the anchor, the target, and every icon whose centre falls inside the rectangle their two frames
+     span. Best effort, and never a guess outside the rectangle.
 ```
 
 §4: add after the panels paragraph: *"**Where it does nothing**: list, column and gallery views select a range on their own, and ShiftPick never touches them."* (already stated; keep one sentence).
@@ -2162,10 +2034,10 @@ With the range R between the icon measured from and the target (§3):
   │         ├─ FinderAX.selection           one round trip: what Finder has selected now
   │         ├─ LayoutModel(items:)          the reading order: flow, or clusters fitted with grids
   │         ├─ effectiveAnchor              the anchor, or its stand-in in reading order
-  │         ├─ LayoutModel.shiftClick       the runs the range touches replaced, or a line added
+  │         ├─ LayoutModel.shiftClick       the runs the range touches replaced, or the band added
 ```
 
-*The selection maths*: step 3 becomes *"A layout no order fits is hand-placed: `Clusters` cuts it into groups under the link rule, `Grid` fits each with rows and columns and reads it along its rows, and a range between two grids or into a scatter is a `LineBand` one icon thick. `ShiftClick` is the list view's rule over any of those orders."* Add `ShiftClick`, `Clusters`, `Grid`, `LineBand`, `LayoutConstants` to the Core row of *What lives where*. In *Persistence*, the switches row: *"The one switch, and whether the wizard has been walked"*.
+*The selection maths*: step 3 becomes *"A layout no order fits is hand-placed: `Clusters` cuts it into groups under the link rule, `Grid` fits each with rows and columns and reads it along its rows, and a range between two grids or into a scatter is the rubber band, the rectangle the two icons span. `ShiftClick` is the list view's rule over any of those orders."* Add `ShiftClick`, `Clusters`, `Grid`, `LayoutConstants` to the Core row of *What lives where*. In *Persistence*, the switches row: *"The one switch, and whether the wizard has been walked"*.
 
 - [ ] **Step 3: `docs/macOS.md`**
 
@@ -2174,21 +2046,21 @@ Add a section *The selection model* after *Finder's icon views*: how AppKit was 
 - [ ] **Step 4: `docs/manual-test-checklist.md`**
 
 §1: delete the two switch lines; replace the ⌘ Command line with *"⌘ Command click a file elsewhere, then ⇧ Shift click further on: the first range stays, and the new one runs from the ⌘ Command clicked file. ⇧ Shift click back inside the new range: it narrows and the first range still stays. ⌘ Command ⇧ Shift click: Finder toggles the one file, as in a list view."*; add *"⌘ Command click a file inside a range to deselect it, then ⇧ Shift click further on: the range runs from the first selected file after the deselected one, which stays deselected."* and *"Nothing selected, view at the top: ⇧ Shift click selects from the first file. Scroll down first: the click goes to Finder and `log stream --level debug` says `nothing selected, and the first icon may be off screen`."*
-§2 and §3: replace the rubber band lines with *"Sort By None, icons dragged into a rough grid by hand: `axdump views` says `handPlaced(grids: 1, scatters: 0)`, and a range reads along the rows. Drag two groups apart (an empty column between): two grids; a ⇧ Shift click from one into the other selects a **line** one icon thick between the two icons and nothing else."*
+§2 and §3: replace the rubber band lines with *"Sort By None, icons dragged into a rough grid by hand: `axdump views` says `handPlaced(grids: 1, scatters: 0)`, and a range reads along the rows. Drag two groups apart (an empty column between): two grids; a ⇧ Shift click from one into the other draws the **rubber band** between the two icons, as before. Drag one icon well off every line of its group: `scatters: 1`, and every range in that group is the rubber band."*
 §6: the empty-space line's expectation becomes the §1 nothing-selected line. §9 line 192 (*Enable ShiftPick off*): replace with *"Breaker open (after the drill's three timeouts): the System page shows Start Listening Again; press it: the log says `another try was asked for` and then `listening`."* §12: replace the Selection page line with the four-page toolbar.
 
 - [ ] **Step 5: `README.md`, `docs/README.md`, `CHANGELOG.md`, `DECISIONS.md`, `CLAUDE.md`**
 
-`README.md`: the ⌘ Command row of the gesture table becomes *"⌘ Command ⇧ Shift | Finder's own: the one file is toggled"*, a new row *"⌘ Command click, then ⇧ Shift click | The earlier selection stays; the range runs from the ⌘ Command clicked file, exactly as in a list view"*; the Settings table loses the Selection row; the paragraph on arranged/hand-placed replaces *rubber band* with *grids read along their rows, or a line one icon thick between two grids*.
+`README.md`: the ⌘ Command row of the gesture table becomes *"⌘ Command ⇧ Shift | Finder's own: the one file is toggled"*, a new row *"⌘ Command click, then ⇧ Shift click | The earlier selection stays; the range runs from the ⌘ Command clicked file, exactly as in a list view"*; the Settings table loses the Selection row; the paragraph on arranged/hand-placed becomes *grids read along their rows, or the rubber band where no one grid holds both icons*.
 `docs/README.md` line 41: *"…whether a layout is arranged or hand-placed, its clusters and grids, and which icons lie between…"*.
 `CHANGELOG.md`: a new top entry for the version being prepared, one bullet per change of spec §1.
-`DECISIONS.md`: replace the two anchor rows (*farthest from the target*, *distance is flow order…*) with one: *"The anchor rule is the list view's own, measured | AppKit's model, replayed from `NSTableView`: a deselected anchor is stood in by the first selected row after it, and a ⇧ Shift click replaces the runs it touches. One rule for every view Finder has."*; add *"A ⌘ Command ⇧ Shift click is let through | Measured as Finder's own toggle; ShiftPick has no meaning of its own for it."*, *"A hand-placed range is a grid's row order or a line, never a rectangle | The owner asked for grids read as a list is read; the line is the fallback that is never far wrong."*, *"No setting about the feature | The owner asked for a feature enabler with nothing to configure; the two switches went with their page."*; the *Five pages* row becomes *Four pages: General, System, Health, Tip*; the listener-line row loses *"while the switch is off"*; add *"Start Listening Again lives on the System page | The skill's rule for a state the user can fix: the row, and while red a button and a warning. The menu and a relaunch were the alternatives."*
-`CLAUDE.md`: Status counts (from Task 10's two summary lines), the *Where a change usually lands* rows for the range (`Clusters`, `Grid`, `LineBand`, `ShiftClick`) and for the anchor (`effectiveAnchor`, `ShiftClick.standIn`), the *what one ⇧ Shift click does* row (`selection` read, `shiftClick`), and the Settings row (four pages).
+`DECISIONS.md`: replace the two anchor rows (*farthest from the target*, *distance is flow order…*) with one: *"The anchor rule is the list view's own, measured | AppKit's model, replayed from `NSTableView`: a deselected anchor is stood in by the first selected row after it, and a ⇧ Shift click replaces the runs it touches. One rule for every view Finder has."*; add *"A ⌘ Command ⇧ Shift click is let through | Measured as Finder's own toggle; ShiftPick has no meaning of its own for it."*, *"A hand-placed range is a grid's row order, or the rubber band | The owner asked for grids read as a list is read; where no one grid holds both icons, the rectangle they span is the rule that was already there."*, *"No setting about the feature | The owner asked for a feature enabler with nothing to configure; the two switches went with their page."*; the *Five pages* row becomes *Four pages: General, System, Health, Tip*; the listener-line row loses *"while the switch is off"*; add *"Start Listening Again lives on the System page | The skill's rule for a state the user can fix: the row, and while red a button and a warning. The menu and a relaunch were the alternatives."*
+`CLAUDE.md`: Status counts (from Task 10's two summary lines), the *Where a change usually lands* rows for the range (`Clusters`, `Grid`, `ShiftClick`) and for the anchor (`effectiveAnchor`, `ShiftClick.standIn`), the *what one ⇧ Shift click does* row (`selection` read, `shiftClick`), and the Settings row (four pages).
 
 - [ ] **Step 6: Check the documents against the code**
 
-Run: `rg -n "rubber band|Enable ShiftPick|commandShiftAdds|farthest from the target|derivedAnchor|five-page|Five pages|pageSelection" docs README.md CHANGELOG.md DECISIONS.md CLAUDE.md`
-Expected: no line left except in `docs/superpowers/` (the spec and this plan record the change) and `docs/pitfalls.md` 1's sentence about the rubber band, which is rewritten to *"the in-between icons of a slice lie geometrically between the two ends, and a line is bounded by their two centres"*.
+Run: `rg -n "Enable ShiftPick|commandShiftAdds|farthest from the target|derivedAnchor|five-page|Five pages|pageSelection|line one icon" docs README.md CHANGELOG.md DECISIONS.md CLAUDE.md`
+Expected: no line left except in `docs/superpowers/` (the spec and this plan record the change). `docs/pitfalls.md` 1's sentence about the rubber band stays true and stays.
 
 - [ ] **Step 7: Commit**
 
@@ -2237,6 +2109,6 @@ Nothing is installed or published by this plan.
 
 ## Self-review
 
-- **Spec coverage.** §2 → Task 1 (the rule) and 7 (the click); §3.1 → Tasks 3 and 5; §3.2, §3.3 → Task 7 and the sentinel; §3.4 → Tasks 1 and 5 (`effectiveAnchor`); §3.5 → Tasks 4 and 5; §3.6 → Tasks 6 and 7 (`isScrolled`, `firstItem`); §3.7 → Task 6 (`unmapped`); §5 → Tasks 2 to 5; §6 → Tasks 8 to 10; §7 tests → each task; §8 → Task 12; §9 limits → Task 12 (§4 of functional.md and the checklist); §10 → the owner's word, recorded in Task 12's commit; §11 → Task 0.
+- **Spec coverage.** §2 → Task 1 (the rule) and 7 (the click); §3.1 → Tasks 3 and 5; §3.2, §3.3 → Task 7 and the sentinel; §3.4 → Tasks 1 and 5 (`effectiveAnchor`); §3.5 → Task 5 (the rubber band code stays); §3.6 → Tasks 6 and 7 (`isScrolled`, `firstItem`); §3.7 → Task 6 (`unmapped`); §5 → Tasks 2 to 5; §6 → Tasks 8 to 10; §7 tests → each task; §8 → Task 12; §9 limits → Task 12 (§4 of functional.md and the checklist); §10 → the owner's word, recorded in Task 12's commit; §11 → Task 0.
 - **Types.** `RangeShape.items`, `LayoutModel.Outcome { selection, anchor, shape }`, `effectiveAnchor(stored:selection:)`, `shiftClick(from:selection:target:)`, `firstItem`, `readingPosition(of:)`, `FinderAX.SelectionReading { indices, unmapped }`, `FinderAX.isScrolled(_:)`, `HealthRules.listener(_:)`, `HealthReport.listenerWord(_:)`, `ShiftPickEngine.tryAgain()`, `ClickGuard(hooks:)`, `TapLifecycle()` are spelt the same in every task that names them.
 - **Placeholders.** None: every code step carries its code; the documents task carries its replacement sentences.
