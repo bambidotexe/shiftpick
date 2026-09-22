@@ -29,6 +29,16 @@
       "target": "axdump",
       "configuration": "debug",
       "preLaunchTask": "swift: Build Debug axdump"
+    },
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:shiftpick}",
+      "name": "Release axdump",
+      "target": "axdump",
+      "configuration": "release",
+      "preLaunchTask": "swift: Build Release axdump"
     }
   ]
 }
