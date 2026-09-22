@@ -153,16 +153,29 @@ final class GridTests: XCTestCase {
         XCTAssertEqual(grid.order, [1, 0])
     }
 
-    /// One row with the icons one, one and a half and two pitches apart, listed backwards by
-    /// Accessibility: still one row, read left to right by where the icons are.
-    func testOneRowWithIrregularGapsReadsLeftToRight() {
+    /// Four icons in a row, listed backwards by Accessibility, one and a half pitches apart and then two:
+    /// icons a pitch and a half apart still chain into one row (rule 2's link, `K.gridLinkPitches`), but two
+    /// pitches is the gap that separates two groups — an empty column or more between them — so the fourth
+    /// icon is a cluster of its own and a range to it is the rubber band, not a read across the row. Proven
+    /// through the engine, at its own measured pitch (116, 116 and 174 apart at the true 116-point pitch,
+    /// which the two wider gaps pull to a measured 145): `Clusters.build` answers two clusters, the first
+    /// three icons together and the fourth alone; the first three, read at that pitch, are one row left to
+    /// right.
+    func testARowWithGapsOfOneAndAHalfPitchesStaysOneRowAndAGapOfTwoBreaksIt() {
         let offsets: [CGFloat] = [0, 116, 116 + 174, 116 + 174 + 232]
         let items = offsets.enumerated().map { order, offset in
             Layouts.item(x: 100 + offset, y: 100, axOrder: 3 - order)
         }
-        let grid = Grid.fit(members: [0, 1, 2, 3], items: items, pitch: pitch, leadingIsLeft: true)
+        let clusters = Clusters.build(items)
+        XCTAssertEqual(clusters.count, 2)
+        XCTAssertEqual(clusters.index[0], clusters.index[1])
+        XCTAssertEqual(clusters.index[1], clusters.index[2])
+        XCTAssertNotEqual(clusters.index[2], clusters.index[3])
+
+        let row = items.indices.filter { clusters.index[$0] == clusters.index[0] }
+        let grid = Grid.fit(members: row, items: items, pitch: clusters.pitch, leadingIsLeft: true)
         XCTAssertTrue(grid.isGrid)
-        XCTAssertEqual(grid.order, [0, 1, 2, 3])
+        XCTAssertEqual(grid.order, [0, 1, 2])
     }
 
     /// One icon dropped between two columns, hugging the first row (48 points below it, 72 above the
