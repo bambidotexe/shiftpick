@@ -10,7 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     static let openedAgain = Notification.Name("\(AppIdentity.bundleIdentifier).openedAgain")
 
     let store = SettingsStore()
-    private lazy var engine = ShiftPickEngine(store: store)
+    private lazy var engine = ShiftPickEngine()
     private let menuBar = MenuBarController()
 
     private var settingsWindow: SettingsWindow?

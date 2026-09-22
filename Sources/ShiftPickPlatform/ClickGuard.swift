@@ -339,7 +339,10 @@ public final class ClickGuard: @unchecked Sendable {
             let flags = event.flags
             // A press carries the modifier keys as they are, which covers a key event that was never heard.
             feed(Self.modifiers(flags))
-            if !flags.contains(.maskShift) { hooks.plainClick(event.location) }
+            // A plain click and a ⌘ Command click set the anchor, and so does ⌘ Command with ⇧ Shift, which
+            // is Finder's own toggle and passes through the click tap (docs/functional.md §2.1). Only a
+            // plain ⇧ Shift press is not noted here: it is the click the worker decides.
+            if !flags.contains(.maskShift) || flags.contains(.maskCommand) { hooks.plainClick(event.location) }
         default:
             break
         }

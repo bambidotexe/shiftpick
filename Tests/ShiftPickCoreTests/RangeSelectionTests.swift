@@ -24,17 +24,17 @@ final class RangeSelectionTests: XCTestCase {
     func testARangeAcrossARowIsEverythingBetween() {
         let model = model(Layouts.filled(rows: 4, columns: 6))
         // 2 is the third item of the first row, 9 the fourth of the second.
-        XCTAssertEqual(model.range(from: 2, to: 9), [2, 3, 4, 5, 6, 7, 8, 9])
+        XCTAssertEqual(model.range(from: 2, to: 9)?.items, [2, 3, 4, 5, 6, 7, 8, 9])
     }
 
     func testARangeIsTheSameBothWaysRound() {
         let model = model(Layouts.filled(rows: 4, columns: 6))
-        XCTAssertEqual(model.range(from: 17, to: 3), model.range(from: 3, to: 17))
+        XCTAssertEqual(model.range(from: 17, to: 3)?.items, model.range(from: 3, to: 17)?.items)
     }
 
     func testAnchorEqualToTargetSelectsExactlyIt() {
         let model = model(Layouts.filled(rows: 4, columns: 6))
-        XCTAssertEqual(model.range(from: 11, to: 11), [11])
+        XCTAssertEqual(model.range(from: 11, to: 11)?.items, [11])
     }
 
     // MARK: - A partial last row
@@ -43,40 +43,85 @@ final class RangeSelectionTests: XCTestCase {
         // 21 items in a six-wide lattice: three full rows and a row of three.
         let model = model(Layouts.filled(rows: 4, columns: 6, count: 21))
         XCTAssertEqual(model.kind, .arranged(.rowsFromLeft))
-        XCTAssertEqual(model.range(from: 19, to: 20), [19, 20])
-        XCTAssertEqual(model.range(from: 0, to: 20)?.count, 21)
+        XCTAssertEqual(model.range(from: 19, to: 20)?.items, [19, 20])
+        XCTAssertEqual(model.range(from: 0, to: 20)?.items.count, 21)
     }
 
-    // MARK: - Holes
+    // MARK: - Holes and grids nobody arranged
 
-    func testAGridWithAHoleIsHandPlaced() {
+    func testAGridWithAHoleIsOneHandPlacedGrid() {
         var items = Layouts.filled(rows: 3, columns: 4)
         items.remove(at: 5)   // the second item of the second row
-        let model = model(items)
-        XCTAssertEqual(model.kind, .handPlaced)
+        XCTAssertEqual(model(items).kind, .handPlaced(grids: 1, scatters: 0))
     }
 
-    func testAHandPlacedRangeIsTheRubberBandBetweenTwoIcons() {
+    /// The owner's rule: the first icon of one row to the first of the next takes the whole row between.
+    func testAHandPlacedGridReadsAlongItsRows() {
+        var items = Layouts.filled(rows: 2, columns: 3)
+        items.remove(at: 1)   // row 0 holds columns 0 and 2; row 1 is full
+        let model = model(items)
+        XCTAssertEqual(model.range(from: 0, to: 2), .ordered([0, 1, 2]))
+        XCTAssertEqual(model.readingPosition(of: 1), 1)
+        XCTAssertEqual(model.readingPosition(of: 2), 2)
+    }
+
+    func testAGridWithAHoleReadsAcrossTheHole() {
         var items = Layouts.filled(rows: 3, columns: 4)
         items.remove(at: 5)
-        let model = model(items)
         // Indices after the removal: row 0 is 0...3, row 1 is 4, 5, 6 (columns 0, 2, 3), row 2 is 7...10.
-        // The band from the item at (row 0, column 1) to the one at (row 1, column 2) covers columns 1 and
-        // 2 of both rows; the hole is where (row 1, column 1) would have been.
-        let range = model.range(from: 1, to: 5)
-        XCTAssertEqual(range, [1, 2, 5])
+        XCTAssertEqual(model(items).range(from: 1, to: 5), .ordered([1, 2, 3, 4, 5]))
     }
 
-    func testTheRubberBandAlwaysHoldsBothEnds() {
-        // Two icons alone in opposite corners, with nothing between them.
+    /// Three icons too far apart to share a grid are three grids of one, and a range between two of them is
+    /// the rubber band, the rectangle their frames span.
+    func testIconsTooFarApartForAGridGetTheRubberBand() {
         let items = [Layouts.item(x: 100, y: 100, axOrder: 0),
                      Layouts.item(x: 900, y: 700, axOrder: 1),
                      Layouts.item(x: 100, y: 700, axOrder: 2)]
         let model = model(items)
-        XCTAssertEqual(model.kind, .handPlaced)
-        XCTAssertEqual(model.range(from: 0, to: 1), [0, 1, 2])
+        XCTAssertEqual(model.kind, .handPlaced(grids: 3, scatters: 0))
+        XCTAssertEqual(model.range(from: 0, to: 1), .band([0, 1, 2]))
         // A band with nothing inside it is still the two icons.
-        XCTAssertEqual(model.range(from: 0, to: 2), [0, 2])
+        XCTAssertEqual(model.range(from: 0, to: 2), .band([0, 2]))
+    }
+
+    /// Two groups whose rows do not line up: two grids. (Two groups on the very same rows, whatever the gap
+    /// between them, fill one lattice and read as arranged, which is the lattice pass's rule and not this one.)
+    func testTwoGridsFarApartGiveTheRubberBandBetweenThemAndAnOrderInsideEach() {
+        var items = Layouts.filled(rows: 2, columns: 2, origin: CGPoint(x: 100, y: 100))
+        items += Layouts.filled(rows: 2, columns: 2, origin: CGPoint(x: 900, y: 160), firstAXOrder: 4)
+        let model = model(items)
+        XCTAssertEqual(model.kind, .handPlaced(grids: 2, scatters: 0))
+        XCTAssertEqual(model.range(from: 0, to: 3), .ordered([0, 1, 2, 3]))
+        // From the first grid's top-left to the second's bottom-right: the rectangle holds all eight.
+        XCTAssertEqual(model.range(from: 0, to: 7), .band([0, 1, 2, 3, 4, 5, 6, 7]))
+    }
+
+    /// Two stray icons between the rows chain the rows together into one smear wider than half a pitch,
+    /// so no grid makes sense and every range in the cluster is the band. (One stray alone, within half a
+    /// pitch of a row, joins that row, and the cluster stays a grid, which is also right.)
+    func testAClusterWithNoGridGetsTheRubberBand() {
+        var items = Layouts.filled(rows: 3, columns: 4, origin: CGPoint(x: 100, y: 100),
+                                   pitch: CGSize(width: 120, height: 120))
+        items.append(Layouts.item(x: 160, y: 140, axOrder: 12))   // centre (192, 172), between rows 1 and 2
+        items.append(Layouts.item(x: 280, y: 180, axOrder: 13))   // centre (312, 212)
+        let model = model(items)
+        XCTAssertEqual(model.kind, .handPlaced(grids: 0, scatters: 1))
+        XCTAssertEqual(model.range(from: 0, to: 11), .band(Array(0...13)))
+        XCTAssertEqual(model.range(from: 0, to: 1), .band([0, 1]))
+    }
+
+    /// The same wobble `GridTests` fits, through the whole model: the lattice pass refuses it (its rows are
+    /// not exact), the clusters keep it together, and the grid reads along its rows.
+    func testAWobblyHandPlacedGridIsStillAGrid() {
+        let jitter: [(CGFloat, CGFloat)] = [(-20, 15), (10, -25), (25, 20), (-15, -10), (0, 28), (18, -18)]
+        let base = Layouts.filled(rows: 2, columns: 3, pitch: Layouts.desktopPitch, side: Layouts.desktopSide)
+        let items = zip(base, jitter).enumerated().map { order, pair in
+            LayoutItem(frame: pair.0.frame.offsetBy(dx: pair.1.0, dy: pair.1.1), axOrder: order)
+        }
+        let model = model(items, .columnsFromRight)
+        XCTAssertEqual(model.kind, .handPlaced(grids: 1, scatters: 0))
+        XCTAssertEqual(model.range(from: 0, to: 3), .ordered([0, 1, 2, 3]))
     }
 
     // MARK: - A free-form scatter
@@ -88,18 +133,16 @@ final class RangeSelectionTests: XCTestCase {
         let items = positions.enumerated().map { order, position in
             Layouts.item(x: position.0, y: position.1, axOrder: order, side: Layouts.desktopSide)
         }
-        XCTAssertEqual(model(items, .columnsFromRight).kind, .handPlaced)
+        guard case .handPlaced = model(items, .columnsFromRight).kind else { return XCTFail("hand-placed") }
     }
 
-    func testAScatterRangeIsBoundedByTheTwoIcons() {
+    func testTheRubberBandIsBoundedByTheTwoIcons() {
         let items = [Layouts.item(x: 100, y: 100, axOrder: 0),
                      Layouts.item(x: 300, y: 260, axOrder: 1),
                      Layouts.item(x: 700, y: 620, axOrder: 2),
                      Layouts.item(x: 900, y: 120, axOrder: 3)]
-        let model = model(items)
-        XCTAssertEqual(model.kind, .handPlaced)
         // The band from the first to the third holds the second and not the fourth.
-        XCTAssertEqual(model.range(from: 0, to: 2), [0, 1, 2])
+        XCTAssertEqual(model(items).range(from: 0, to: 2), .band([0, 1, 2]))
     }
 
     // MARK: - The Desktop
@@ -112,7 +155,7 @@ final class RangeSelectionTests: XCTestCase {
         let model = model(items, .columnsFromRight)
         XCTAssertEqual(model.kind, .arranged(.columnsFromRight))
         XCTAssertEqual((0..<10).map { model.flowPosition(of: $0) }, (0..<10).map { $0 })
-        XCTAssertEqual(model.range(from: 6, to: 8), [6, 7, 8])
+        XCTAssertEqual(model.range(from: 6, to: 8)?.items, [6, 7, 8])
     }
 
     func testARangeDownADesktopColumnAndIntoTheNext() {
@@ -121,7 +164,7 @@ final class RangeSelectionTests: XCTestCase {
                                    pitch: Layouts.desktopPitch, side: Layouts.desktopSide)
         let model = model(items, .columnsFromRight)
         // The last of the first column and the first of the second are next to each other in flow order.
-        XCTAssertEqual(model.range(from: 6, to: 7), [6, 7])
+        XCTAssertEqual(model.range(from: 6, to: 7)?.items, [6, 7])
     }
 
     // MARK: - Right to left
@@ -163,7 +206,7 @@ final class RangeSelectionTests: XCTestCase {
         XCTAssertEqual(model.kind, .arranged(.rowsFromLeft))
         XCTAssertEqual((0..<12).map { model.flowPosition(of: $0) }, (0..<12).map { $0 })
         // From the last folder to the second file of the second section's second row.
-        XCTAssertEqual(model.range(from: 2, to: 8), [2, 3, 4, 5, 6, 7, 8])
+        XCTAssertEqual(model.range(from: 2, to: 8)?.items, [2, 3, 4, 5, 6, 7, 8])
     }
 
     func testAGroupWhoseSectionNumbersRunBackwardsIsStillOrderedByPosition() {
@@ -192,7 +235,7 @@ final class RangeSelectionTests: XCTestCase {
         }
         let model = model(items)
         XCTAssertEqual(model.kind, .arranged(.rowsFromLeft))
-        XCTAssertEqual(model.range(from: 0, to: 6)?.count, 7)
+        XCTAssertEqual(model.range(from: 0, to: 6)?.items.count, 7)
     }
 
     // MARK: - Degenerate shapes
@@ -200,7 +243,7 @@ final class RangeSelectionTests: XCTestCase {
     func testASingleRow() {
         let model = model(Layouts.filled(rows: 1, columns: 8))
         XCTAssertEqual(model.kind, .arranged(.rowsFromLeft))
-        XCTAssertEqual(model.range(from: 1, to: 6), [1, 2, 3, 4, 5, 6])
+        XCTAssertEqual(model.range(from: 1, to: 6)?.items, [1, 2, 3, 4, 5, 6])
     }
 
     func testASingleColumn() {
@@ -208,23 +251,23 @@ final class RangeSelectionTests: XCTestCase {
         let model = model(items)
         // One column reads the same under every flow, so the caller's fallback stands.
         XCTAssertEqual(model.kind, .arranged(.rowsFromLeft))
-        XCTAssertEqual(model.range(from: 2, to: 5), [2, 3, 4, 5])
+        XCTAssertEqual(model.range(from: 2, to: 5)?.items, [2, 3, 4, 5])
     }
 
     func testASingleItem() {
         let model = model([Layouts.item(x: 540, y: 250)])
-        XCTAssertEqual(model.range(from: 0, to: 0), [0])
+        XCTAssertEqual(model.range(from: 0, to: 0)?.items, [0])
     }
 
     func testNoItemsAtAll() {
         let model = model([])
-        XCTAssertNil(model.range(from: 0, to: 0))
+        XCTAssertNil(model.range(from: 0, to: 0)?.items)
     }
 
     func testAnIndexThatIsNotAnItemIsRefused() {
         let model = model(Layouts.filled(rows: 2, columns: 3))
-        XCTAssertNil(model.range(from: 0, to: 99))
-        XCTAssertNil(model.range(from: -1, to: 2))
+        XCTAssertNil(model.range(from: 0, to: 99)?.items)
+        XCTAssertNil(model.range(from: -1, to: 2)?.items)
     }
 
     // MARK: - Stacks
@@ -234,7 +277,7 @@ final class RangeSelectionTests: XCTestCase {
                                    pitch: Layouts.desktopPitch, side: Layouts.desktopSide)
         items[2] = LayoutItem(frame: items[2].frame, section: 0, axOrder: 2, isFile: false)
         let model = model(items, .columnsFromRight)
-        let range = model.range(from: 0, to: 4)
+        let range = model.range(from: 0, to: 4)?.items
         XCTAssertEqual(range, [0, 1, 3, 4])
     }
 
@@ -243,8 +286,8 @@ final class RangeSelectionTests: XCTestCase {
                                    side: Layouts.desktopSide)
         items[0] = LayoutItem(frame: items[0].frame, section: 0, axOrder: 0, isFile: false)
         let model = model(items)
-        XCTAssertNil(model.range(from: 0, to: 3))
-        XCTAssertNil(model.range(from: 3, to: 0))
+        XCTAssertNil(model.range(from: 0, to: 3)?.items)
+        XCTAssertNil(model.range(from: 3, to: 0)?.items)
     }
 
     func testAStackStillHoldsItsPlaceInTheLattice() {
@@ -252,6 +295,53 @@ final class RangeSelectionTests: XCTestCase {
         var items = Layouts.filled(rows: 3, columns: 4)
         items[5] = LayoutItem(frame: items[5].frame, section: 0, axOrder: 5, isFile: false)
         XCTAssertEqual(model(items).kind, .arranged(.rowsFromLeft))
+    }
+
+    // MARK: - The click
+
+    /// The spec's §4: a 3 × 4 sorted window, icons numbered in reading order.
+    func testTheOwnersExampleOnAnArrangedGrid() {
+        let model = model(Layouts.filled(rows: 3, columns: 4))
+        let first = model.shiftClick(from: 0, selection: [0], target: 4)
+        XCTAssertEqual(first?.selection, [0, 1, 2, 3, 4])
+        XCTAssertEqual(first?.anchor, 0)
+        XCTAssertEqual(first?.shape, .ordered([0, 1, 2, 3, 4]))
+        // ⌘ Command click 8 (index 7), then ⇧ Shift click 10 (index 9): the run {8} is replaced by 8...10.
+        let second = model.shiftClick(from: 7, selection: [0, 1, 2, 3, 4, 7], target: 9)
+        XCTAssertEqual(second?.selection, [0, 1, 2, 3, 4, 7, 8, 9])
+        // ⇧ Shift click 6 (index 5): the range 6...8 touches {8,9,10}, which goes whole.
+        let third = model.shiftClick(from: 7, selection: second!.selection, target: 5)
+        XCTAssertEqual(third?.selection, [0, 1, 2, 3, 4, 5, 6, 7])
+        XCTAssertEqual(third?.anchor, 7)
+    }
+
+    func testASelectedIconInAnotherClusterIsNeverTouched() {
+        var items = Layouts.filled(rows: 2, columns: 2, origin: CGPoint(x: 100, y: 100))
+        items += Layouts.filled(rows: 2, columns: 2, origin: CGPoint(x: 900, y: 160), firstAXOrder: 4)
+        let outcome = model(items).shiftClick(from: 0, selection: [0, 6], target: 3)
+        XCTAssertEqual(outcome?.selection, [0, 1, 2, 3, 6])
+    }
+
+    func testARubberBandIsAddedToWhatWasSelected() {
+        let items = [Layouts.item(x: 100, y: 100, axOrder: 0), Layouts.item(x: 900, y: 700, axOrder: 1),
+                     Layouts.item(x: 100, y: 700, axOrder: 2), Layouts.item(x: 2_000, y: 100, axOrder: 3)]
+        // The fourth icon is outside the rectangle and selected: it stays selected.
+        let outcome = model(items).shiftClick(from: 0, selection: [3], target: 1)
+        XCTAssertEqual(outcome?.shape, .band([0, 1, 2]))
+        XCTAssertEqual(outcome?.selection, [0, 1, 2, 3])
+    }
+
+    func testAStackInsideTheRangeIsNotSelected() {
+        var items = Layouts.filled(rows: 1, columns: 6, flow: .columnsFromRight,
+                                   pitch: Layouts.desktopPitch, side: Layouts.desktopSide)
+        items[2] = LayoutItem(frame: items[2].frame, section: 0, axOrder: 2, isFile: false)
+        let outcome = model(items, .columnsFromRight).shiftClick(from: 0, selection: [0], target: 4)
+        XCTAssertEqual(outcome?.selection, [0, 1, 3, 4])
+    }
+
+    func testAnIndexThatIsNotAnItemIsNeverSelected() {
+        let outcome = model(Layouts.filled(rows: 2, columns: 3)).shiftClick(from: 0, selection: [40, 5], target: 1)
+        XCTAssertEqual(outcome?.selection, [0, 1, 5])
     }
 
     // MARK: - The three properties
@@ -268,11 +358,11 @@ final class RangeSelectionTests: XCTestCase {
             let model = model(items)
             for anchor in items.indices {
                 for target in items.indices {
-                    let range = try? XCTUnwrap(model.range(from: anchor, to: target))
+                    let range = try? XCTUnwrap(model.range(from: anchor, to: target)?.items)
                     guard let range else { return XCTFail("no range for \(anchor) to \(target)") }
                     XCTAssertTrue(range.contains(anchor), "total: \(anchor) to \(target)")
                     XCTAssertTrue(range.contains(target), "total: \(anchor) to \(target)")
-                    XCTAssertEqual(range, model.range(from: target, to: anchor),
+                    XCTAssertEqual(range, model.range(from: target, to: anchor)?.items,
                                    "symmetric: \(anchor) to \(target)")
                     XCTAssertEqual(range, range.sorted(), "ascending: \(anchor) to \(target)")
                 }
@@ -298,7 +388,7 @@ final class RangeSelectionTests: XCTestCase {
         let items = Layouts.filled(rows: 500, columns: 10)
         let started = Date()
         let model = model(items)
-        let range = model.range(from: 137, to: 4_211)
+        let range = model.range(from: 137, to: 4_211)?.items
         let elapsed = Date().timeIntervalSince(started)
         XCTAssertEqual(model.kind, .arranged(.rowsFromLeft))
         XCTAssertEqual(range?.count, 4_211 - 137 + 1)
@@ -308,7 +398,8 @@ final class RangeSelectionTests: XCTestCase {
     }
 
     func testFiveThousandScatteredItems() {
-        // The other shape at that size: nothing on a lattice, so the rubber band is what answers.
+        // The other shape at that size: nothing on a lattice, so whatever clusters the icons chain into, and
+        // the rubber band between them, is what answers.
         var generator = SystemRandomNumberGenerator()
         var items: [LayoutItem] = []
         for order in 0..<5_000 {
@@ -318,7 +409,7 @@ final class RangeSelectionTests: XCTestCase {
         }
         let started = Date()
         let model = model(items)
-        let range = model.range(from: 0, to: 4_999)
+        let range = model.range(from: 0, to: 4_999)?.items
         XCTAssertLessThan(Date().timeIntervalSince(started), 5)
         XCTAssertNotNil(range)
         XCTAssertTrue(range?.contains(0) == true)

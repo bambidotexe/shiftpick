@@ -223,17 +223,32 @@ public enum FinderAX {
         return result
     }
 
-    /// Which of `elements` Finder currently has selected. Elements compare by `CFEqual`, which Finder's own
-    /// answer to `AXSelectedChildren` is built from, so this costs one round trip and no attribute reads.
-    public static func selection(in view: IconView, among elements: [AXUIElement]) -> [Int] {
+    /// What Finder has selected in the view: which of `elements` (by index), and every selected element
+    /// that is not among them, kept so that the one call that sets the selection can hand them back
+    /// unchanged. Finder builds only the icons on screen, and whether it names an off-screen selected item
+    /// here is not promised either way; the rule costs nothing if it never does.
+    public struct SelectionReading {
+        public let indices: [Int]
+        public let unmapped: [AXUIElement]
+    }
+
+    /// Elements compare by `CFEqual`, which Finder's own answer to `AXSelectedChildren` is built from, so
+    /// this costs one round trip and no attribute reads.
+    public static func selection(in view: IconView, among elements: [AXUIElement]) -> SelectionReading {
         let selected = AX.elements(view.container, "AXSelectedChildren")
-        guard !selected.isEmpty else { return [] }
+        guard !selected.isEmpty else { return SelectionReading(indices: [], unmapped: []) }
         var index: [UInt: Int] = [:]
         for (position, element) in elements.enumerated() { index[CFHash(element)] = position }
-        return selected.compactMap { element in
-            guard let candidate = index[CFHash(element)], CFEqual(elements[candidate], element) else { return nil }
-            return candidate
+        var indices: [Int] = []
+        var unmapped: [AXUIElement] = []
+        for element in selected {
+            if let candidate = index[CFHash(element)], CFEqual(elements[candidate], element) {
+                indices.append(candidate)
+            } else {
+                unmapped.append(element)
+            }
         }
+        return SelectionReading(indices: indices, unmapped: unmapped)
     }
 
     /// Replaces the view's selection. One call, whatever the size of the range.
@@ -245,6 +260,16 @@ public enum FinderAX {
     /// Where the stored anchor is now, or nil when Finder no longer has that element.
     public static func index(of anchor: AXUIElement, among elements: [AXUIElement]) -> Int? {
         elements.firstIndex { CFEqual($0, anchor) }
+    }
+
+    /// Whether the view has been scrolled away from its top: its container's top edge then sits above its
+    /// scroll area's. The Desktop never scrolls. nil when a frame cannot be read, which the caller treats
+    /// as "may be scrolled".
+    public static func isScrolled(_ view: IconView) -> Bool? {
+        if view.isDesktop { return false }
+        guard let area = AX.parent(view.container), AX.role(area) == "AXScrollArea",
+              let containerFrame = AX.frame(view.container), let areaFrame = AX.frame(area) else { return nil }
+        return containerFrame.minY < areaFrame.minY - 1
     }
 
     // MARK: - The rest of Finder

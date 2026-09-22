@@ -81,7 +81,7 @@ enum AXDump {
         for (name, view) in found {
             let items = FinderAX.items(in: view, timeout: 5)
             let model = LayoutModel(items: items.map(\.0), fallbackFlow: view.fallbackFlow)
-            let selected = Set(FinderAX.selection(in: view, among: items.map(\.1)))
+            let selected = Set(FinderAX.selection(in: view, among: items.map(\.1)).indices)
             print("== \(name): \(items.count) items, \(model.kind), fallback \(view.fallbackFlow.rawValue)")
             for (index, pair) in items.enumerated() {
                 let frame = pair.0.frame
@@ -150,13 +150,13 @@ enum AXDump {
             return
         }
         let model = LayoutModel(items: items.map(\.0), fallbackFlow: target.view.fallbackFlow)
-        let selection = FinderAX.selection(in: target.view, among: elements)
+        let selection = FinderAX.selection(in: target.view, among: elements).indices
         print("layout: \(model.kind); \(items.count) items; \(selection.count) selected")
-        guard let anchor = model.derivedAnchor(target: targetIndex, selection: selection) else {
+        guard let anchor = model.effectiveAnchor(stored: nil, selection: selection) else {
             print("nothing selected to measure from: the click would be let through")
             return
         }
-        guard let range = model.range(from: anchor, to: targetIndex) else {
+        guard let range = model.range(from: anchor, to: targetIndex)?.items else {
             print("the anchor or the target is not a file: the click would be let through")
             return
         }

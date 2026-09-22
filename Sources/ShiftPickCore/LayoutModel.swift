@@ -1,47 +1,130 @@
 import CoreGraphics
 import Foundation
 
-/// The whole of the selection maths: a set of icon frames in, a classified layout and a range out.
+/// What a range is: the slice of one reading order between two icons, or the icons inside the rectangle
+/// the two span. `items` are indices into `LayoutModel.items`, ascending.
+public enum RangeShape: Equatable, Sendable {
+    /// Inside one order (an arranged view, or one grid of a hand-placed one). A ⇧ Shift click replaces every
+    /// run of the selection it touches with it (`ShiftClick`).
+    case ordered([Int])
+    /// Between two grids, or to or from a scatter: the rubber band, the rectangle the two frames span. A
+    /// ⇧ Shift click adds it.
+    case band([Int])
+
+    public var items: [Int] {
+        switch self {
+        case .ordered(let items), .band(let items): items
+        }
+    }
+}
+
+/// The whole of the selection maths: a set of icon frames in, a reading order, a range and the selection a
+/// ⇧ Shift click leaves out.
 ///
 /// It is pure and it is total. Building one never fails and never throws; asking for a range answers `nil`
 /// for exactly two reasons, both of which mean *let the click through*: an index that is not an item, or an
 /// end of the range that is not a file. Everything else — a grid with holes, a scatter, one row, one
 /// column, five thousand icons — has an answer.
 ///
-/// The three properties the range is held to, and which `RangeSelectionTests` pins:
+/// Every item has one place in **the view's reading order**: flow order for an arranged view; for a
+/// hand-placed one, cluster by cluster (top edge, then leading edge), each grid along its rows from the
+/// leading edge, each scatter by top edge then leading edge. The order is what `ShiftClick`'s rule runs
+/// over, and what names a stand-in for a deselected anchor.
+///
+/// The three properties a range is held to, which `RangeSelectionTests` pins:
 ///
 /// - **Total.** It always contains the anchor and the target.
 /// - **Symmetric.** `range(from: a, to: b)` is `range(from: b, to: a)`.
-/// - **Deterministic**, and `O(n log n)`: the clustering sorts, the contiguity check sorts, nothing walks
-///   the lattice cell by cell.
+/// - **Deterministic**, and `O(n log n)`: the clustering sorts, the contiguity check sorts, the spatial hash
+///   is linear, nothing walks the lattice cell by cell.
 public struct LayoutModel {
     public let items: [LayoutItem]
     public let kind: LayoutKind
 
-    /// For an arranged layout, where each item sits in flow order, sections top to bottom and flow inside
-    /// each of them. Empty when the layout is hand-placed, which is the only thing that distinguishes the
-    /// two paths below.
+    /// The selection a ⇧ Shift click leaves, the icon it was measured from (the anchor from now on), and the
+    /// shape of its range.
+    public struct Outcome: Equatable, Sendable {
+        public let selection: [Int]
+        public let anchor: Int
+        public let shape: RangeShape
+    }
+
+    /// Per item, its place in the reading order; per place, the item.
     private let position: [Int]
+    private let itemAt: [Int]
+    /// Per item, its cluster. Clusters are numbered in reading order and each holds one contiguous run of
+    /// places, `clusterStart[c] ..< clusterStart[c] + clusterCount[c]`. An arranged view is one cluster.
+    private let cluster: [Int]
+    private let clusterStart: [Int]
+    private let clusterCount: [Int]
+    private let clusterIsGrid: [Bool]
     private let lattice: Lattice
 
     /// `fallbackFlow` is what the caller knows about the container and the geometry cannot: a window fills
-    /// rows from its leading edge, the Desktop fills columns from its trailing one. It is used when the
-    /// geometry accepts several flows, which one row, one column and a single item always do.
+    /// rows from its leading edge, the Desktop fills columns from its trailing one. It breaks the tie when
+    /// the geometry accepts several flows, and it says which edge is the leading one for a hand-placed grid.
     public init(items: [LayoutItem], fallbackFlow: Flow) {
         self.items = items
         lattice = Lattice.build(items)
         guard !items.isEmpty else {
-            kind = .handPlaced
+            kind = .handPlaced(grids: 0, scatters: 0)
             position = []
+            itemAt = []
+            cluster = []
+            clusterStart = []
+            clusterCount = []
+            clusterIsGrid = []
             return
         }
         if let (flow, order) = Self.arrangement(items, lattice, fallbackFlow: fallbackFlow) {
             kind = .arranged(flow)
             position = order
-        } else {
-            kind = .handPlaced
-            position = []
+            var inverse = [Int](repeating: 0, count: items.count)
+            for (item, place) in order.enumerated() { inverse[place] = item }
+            itemAt = inverse
+            cluster = [Int](repeating: 0, count: items.count)
+            clusterStart = [0]
+            clusterCount = [items.count]
+            clusterIsGrid = [true]
+            return
         }
+
+        let clusters = Clusters.build(items)
+        let leadingIsLeft = fallbackFlow == .rowsFromLeft || fallbackFlow == .columnsFromRight
+        var members = [[Int]](repeating: [], count: clusters.count)
+        for index in items.indices { members[clusters.index[index]].append(index) }
+        let grids = members.map {
+            Grid.fit(members: $0, items: items, pitch: clusters.pitch, leadingIsLeft: leadingIsLeft)
+        }
+        let inOrder = grids.indices.sorted { a, b in
+            if grids[a].top != grids[b].top { return grids[a].top < grids[b].top }
+            if grids[a].leading != grids[b].leading { return grids[a].leading < grids[b].leading }
+            return a < b
+        }
+        var position = [Int](repeating: 0, count: items.count)
+        var itemAt: [Int] = []
+        var cluster = [Int](repeating: 0, count: items.count)
+        var starts: [Int] = []
+        var counts: [Int] = []
+        var isGrid: [Bool] = []
+        for (number, gridIndex) in inOrder.enumerated() {
+            let grid = grids[gridIndex]
+            starts.append(itemAt.count)
+            counts.append(grid.order.count)
+            isGrid.append(grid.isGrid)
+            for item in grid.order {
+                position[item] = itemAt.count
+                itemAt.append(item)
+                cluster[item] = number
+            }
+        }
+        self.position = position
+        self.itemAt = itemAt
+        self.cluster = cluster
+        clusterStart = starts
+        clusterCount = counts
+        clusterIsGrid = isGrid
+        kind = .handPlaced(grids: isGrid.filter { $0 }.count, scatters: isGrid.filter { !$0 }.count)
     }
 
     /// Where the item sits in flow order, or nil when the layout is hand-placed.
@@ -50,70 +133,76 @@ public struct LayoutModel {
         return position[index]
     }
 
-    // MARK: - The range
-
-    /// Every item between the anchor and the target, inclusive, as indices into `items`, ascending.
-    ///
-    /// Arranged: the slice of flow order between the two. Hand-placed: the anchor, the target, and every
-    /// item whose reference point falls inside the rectangle their two frames span — a rubber band drawn
-    /// between the two icons.
-    ///
-    /// nil when either end is not an item or is not a file. A collapsed Desktop stack is not a file: it is
-    /// never returned inside a range either, although it does hold its place in the lattice, because that
-    /// is where it is drawn.
-    public func range(from anchor: Int, to target: Int) -> [Int]? {
-        guard items.indices.contains(anchor), items.indices.contains(target),
-              items[anchor].isFile, items[target].isFile else { return nil }
-        switch kind {
-        case .arranged:
-            let low = min(position[anchor], position[target])
-            let high = max(position[anchor], position[target])
-            return items.indices.filter { items[$0].isFile && (low...high).contains(position[$0]) }
-        case .handPlaced:
-            let band = items[anchor].frame.union(items[target].frame)
-            return items.indices.filter {
-                guard items[$0].isFile else { return false }
-                if $0 == anchor || $0 == target { return true }
-                return band.contains(items[$0].reference)
-            }
-        }
+    /// Where the item sits in the view's reading order, whatever the layout.
+    public func readingPosition(of index: Int) -> Int? {
+        items.indices.contains(index) ? position[index] : nil
     }
+
+    /// The first file in reading order: what a ⇧ Shift click measures from when nothing is selected and the
+    /// caller knows the first icon is on screen.
+    public var firstItem: Int? { itemAt.first { items[$0].isFile } }
 
     // MARK: - The anchor
 
-    /// The anchor to use when the stored one is gone, stale, or belongs to another container: the selected
-    /// item **farthest from the target**, which is the rule the two cases in the specification describe.
-    /// The target after the selection gives the selected item nearest the start of the range; the target
-    /// before it gives the one nearest the end; and a target inside the selection, which neither case
-    /// covers, gives the widest range the selection can justify.
-    ///
-    /// Distance is measured in flow order when there is one, and across the screen when there is not. nil
-    /// when nothing usable is selected, which means the click is let through.
-    public func derivedAnchor(target: Int, selection: [Int]) -> Int? {
-        guard items.indices.contains(target) else { return nil }
-        let candidates = selection.filter { items.indices.contains($0) && items[$0].isFile }
-        guard !candidates.isEmpty else { return nil }
-        var best = candidates[0]
-        var bestDistance = -CGFloat.greatestFiniteMagnitude
-        for candidate in candidates {
-            let distance = self.distance(from: candidate, to: target)
-            // `>` and not `>=`: a tie keeps the first, and `candidates` is the caller's order, so the
-            // answer does not depend on how the selection was read back.
-            if distance > bestDistance {
-                bestDistance = distance
-                best = candidate
-            }
-        }
-        return best
+    /// The icon a ⇧ Shift click is measured from: the stored anchor while it is a selected file on screen;
+    /// else the first selected file after it in reading order; else the last selected file before it. A
+    /// stored anchor that is gone, stale or not a file counts as one before everything. nil when nothing
+    /// usable is selected.
+    public func effectiveAnchor(stored: Int?, selection: [Int]) -> Int? {
+        let candidates = Set(selection.filter { items.indices.contains($0) && items[$0].isFile }
+            .map { position[$0] })
+        let pivot = stored.flatMap { items.indices.contains($0) && items[$0].isFile ? position[$0] : nil }
+        return ShiftClick.standIn(anchor: pivot, selection: candidates).map { itemAt[$0] }
     }
 
-    private func distance(from index: Int, to target: Int) -> CGFloat {
-        switch kind {
-        case .arranged:
-            return CGFloat(abs(position[index] - position[target]))
-        case .handPlaced:
-            let a = items[index].reference, b = items[target].reference
-            return hypot(a.x - b.x, a.y - b.y)
+    // MARK: - The range
+
+    /// Every file between the anchor and the target, inclusive, as indices into `items`, ascending, and
+    /// how they were found: the slice of the reading order when both are in one grid (or the view is
+    /// arranged), and otherwise the rubber band: the anchor, the target, and every file whose centre falls
+    /// inside the rectangle their two frames span.
+    ///
+    /// nil when either end is not an item or is not a file. A collapsed Desktop stack is not a file: it is
+    /// never returned inside a range either, although it does hold its place in the order, because that is
+    /// where it is drawn.
+    public func range(from anchor: Int, to target: Int) -> RangeShape? {
+        guard items.indices.contains(anchor), items.indices.contains(target),
+              items[anchor].isFile, items[target].isFile else { return nil }
+        let own = cluster[anchor]
+        if own == cluster[target], clusterIsGrid[own] {
+            let low = min(position[anchor], position[target])
+            let high = max(position[anchor], position[target])
+            return .ordered(items.indices.filter { items[$0].isFile && (low...high).contains(position[$0]) })
+        }
+        let rectangle = items[anchor].frame.union(items[target].frame)
+        return .band(items.indices.filter {
+            items[$0].isFile && ($0 == anchor || $0 == target || rectangle.contains(items[$0].reference))
+        })
+    }
+
+    // MARK: - The click
+
+    /// What one ⇧ Shift click leaves selected, measured from `anchor` (already the effective one) with
+    /// `selection` what Finder has selected now. An ordered range replaces every run of the selection it
+    /// touches inside its own cluster and leaves every other cluster's selection alone; a band is added.
+    /// Selected indices that are not items are dropped; selected items that are not files are kept when
+    /// they are outside the range's cluster.
+    public func shiftClick(from anchor: Int, selection: [Int], target: Int) -> Outcome? {
+        guard let shape = range(from: anchor, to: target) else { return nil }
+        let valid = Set(selection.filter { items.indices.contains($0) })
+        switch shape {
+        case .ordered:
+            let own = cluster[anchor]
+            let start = clusterStart[own]
+            let inside = Set(valid.filter { cluster[$0] == own }.map { position[$0] - start })
+            guard let ranks = ShiftClick.resolve(anchor: position[anchor] - start, selection: inside,
+                                                 target: position[target] - start, count: clusterCount[own])
+            else { return nil }
+            let chosen = ranks.map { itemAt[start + $0] }.filter { items[$0].isFile }
+            let outside = valid.filter { cluster[$0] != own }
+            return Outcome(selection: (chosen + outside).sorted(), anchor: anchor, shape: shape)
+        case .band(let inside):
+            return Outcome(selection: valid.union(inside).sorted(), anchor: anchor, shape: shape)
         }
     }
 

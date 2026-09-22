@@ -32,12 +32,10 @@ final class ShiftPickEngine: ObservableObject {
     /// the session again, and calls `resume` if nothing is.
     var onShiftHeardWhileAway: (() -> Void)?
 
-    private let store: SettingsStore
     private let resolver = ShiftClickResolver()
     private let clickGuard: ClickGuard
 
-    init(store: SettingsStore) {
-        self.store = store
+    init() {
         let resolver = self.resolver
         let gate = DeadlineGate(queue: resolver.queue)
         let status = StatusRelay()

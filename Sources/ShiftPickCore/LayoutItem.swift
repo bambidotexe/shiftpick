@@ -60,6 +60,8 @@ public enum LayoutKind: Equatable, Sendable {
     /// last line and a break at every group. Flow order is meaningful, so a range is a slice of it.
     case arranged(Flow)
     /// Holes in the lattice, or items that are not on one at all: *Sort By None*, a Desktop somebody has
-    /// arranged by hand. There is no order to slice, so a range is a rubber band.
-    case handPlaced
+    /// arranged by hand. The icons are cut into clusters; `grids` of them read along their rows and
+    /// `scatters` have no grid. A range inside one grid is a slice of its order; any other range is the
+    /// rubber band.
+    case handPlaced(grids: Int, scatters: Int)
 }
