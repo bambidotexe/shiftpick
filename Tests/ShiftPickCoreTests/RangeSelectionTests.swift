@@ -124,6 +124,30 @@ final class RangeSelectionTests: XCTestCase {
         XCTAssertEqual(model.range(from: 0, to: 3), .ordered([0, 1, 2, 3]))
     }
 
+    /// Clusters follow one another by top edge, then by leading edge, whatever order the items were listed
+    /// in: the reading order runs through the higher cluster first.
+    func testClustersReadByTopEdgeThenLeadingEdge() {
+        var items = Layouts.filled(rows: 2, columns: 2, origin: CGPoint(x: 100, y: 100))
+        items += Layouts.filled(rows: 2, columns: 2, origin: CGPoint(x: 900, y: 160), firstAXOrder: 4)
+        let lower = model(items)
+        XCTAssertEqual(lower.readingPosition(of: 4), 4)
+        XCTAssertEqual(lower.readingPosition(of: 7), 7)
+        // The same two grids with the second one higher on the screen: it comes first.
+        var mirrored = Layouts.filled(rows: 2, columns: 2, origin: CGPoint(x: 100, y: 100))
+        mirrored += Layouts.filled(rows: 2, columns: 2, origin: CGPoint(x: 900, y: 40), firstAXOrder: 4)
+        let higher = model(mirrored)
+        XCTAssertEqual(higher.kind, .handPlaced(grids: 2, scatters: 0))
+        XCTAssertEqual((0..<8).map { higher.readingPosition(of: $0) }, [4, 5, 6, 7, 0, 1, 2, 3])
+        // Two clusters sharing a top edge: the one at the leading edge comes first, which on a right-to-left
+        // layout is the one on the right, and each grid then reads its rows from the right as well.
+        var tied = Layouts.filled(rows: 2, columns: 2, origin: CGPoint(x: 100, y: 100))
+        tied += [Layouts.item(x: 900, y: 100, axOrder: 4), Layouts.item(x: 900, y: 180, axOrder: 5)]
+        XCTAssertEqual(model(tied).kind, .handPlaced(grids: 2, scatters: 0))
+        XCTAssertEqual((0..<6).map { model(tied).readingPosition(of: $0) }, [0, 1, 2, 3, 4, 5])
+        XCTAssertEqual((0..<6).map { model(tied, .rowsFromRight).readingPosition(of: $0) },
+                       [3, 2, 5, 4, 0, 1])
+    }
+
     // MARK: - A free-form scatter
 
     func testAScatterIsHandPlaced() {
@@ -337,6 +361,33 @@ final class RangeSelectionTests: XCTestCase {
         items[2] = LayoutItem(frame: items[2].frame, section: 0, axOrder: 2, isFile: false)
         let outcome = model(items, .columnsFromRight).shiftClick(from: 0, selection: [0], target: 4)
         XCTAssertEqual(outcome?.selection, [0, 1, 3, 4])
+    }
+
+    /// A collapsed stack somebody selected is left exactly as it was, wherever it sits: a range never
+    /// selects one and never deselects one.
+    func testASelectedStackIsNeverTouchedByARange() {
+        func row(stackAt stack: Int) -> [LayoutItem] {
+            var items = Layouts.filled(rows: 1, columns: 6, flow: .columnsFromRight,
+                                       pitch: Layouts.desktopPitch, side: Layouts.desktopSide)
+            items[stack] = LayoutItem(frame: items[stack].frame, section: 0, axOrder: stack, isFile: false)
+            return items
+        }
+        // Selected and outside the range: it stays selected.
+        let outside = model(row(stackAt: 5), .columnsFromRight).shiftClick(from: 0, selection: [0, 5], target: 2)
+        XCTAssertEqual(outside?.selection, [0, 1, 2, 5])
+        // Selected and inside the range: it stays selected too; the files around it are the range's.
+        let inside = model(row(stackAt: 2), .columnsFromRight).shiftClick(from: 0, selection: [0, 2], target: 4)
+        XCTAssertEqual(inside?.selection, [0, 1, 2, 3, 4])
+    }
+
+    /// A selected stack is not a selected position: two selected files on either side of it are two runs,
+    /// and a range touching one of them leaves the other alone (docs/functional.md §3).
+    func testASelectedStackBetweenTwoSelectedFilesDoesNotJoinThemIntoOneRun() {
+        var items = Layouts.filled(rows: 1, columns: 6, flow: .columnsFromRight,
+                                   pitch: Layouts.desktopPitch, side: Layouts.desktopSide)
+        items[2] = LayoutItem(frame: items[2].frame, section: 0, axOrder: 2, isFile: false)
+        let outcome = model(items, .columnsFromRight).shiftClick(from: 3, selection: [1, 2, 3], target: 4)
+        XCTAssertEqual(outcome?.selection, [1, 2, 3, 4])
     }
 
     func testAnIndexThatIsNotAnItemIsNeverSelected() {

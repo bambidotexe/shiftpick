@@ -183,10 +183,11 @@ public struct LayoutModel {
     // MARK: - The click
 
     /// What one ⇧ Shift click leaves selected, measured from `anchor` (already the effective one) with
-    /// `selection` what Finder has selected now. An ordered range replaces every run of the selection it
+    /// `selection` what Finder has selected now. An ordered range replaces every run of selected files it
     /// touches inside its own cluster and leaves every other cluster's selection alone; a band is added.
-    /// Selected indices that are not items are dropped; selected items that are not files are kept when
-    /// they are outside the range's cluster.
+    /// Selected indices that are not items are dropped. A selected item that is not a file (a collapsed
+    /// stack) is never touched: it stays selected wherever it is, a range never selects one, and its place
+    /// is not a selected position, so two selected files on either side of it are two runs and not one.
     public func shiftClick(from anchor: Int, selection: [Int], target: Int) -> Outcome? {
         guard let shape = range(from: anchor, to: target) else { return nil }
         let valid = Set(selection.filter { items.indices.contains($0) })
@@ -194,13 +195,14 @@ public struct LayoutModel {
         case .ordered:
             let own = cluster[anchor]
             let start = clusterStart[own]
-            let inside = Set(valid.filter { cluster[$0] == own }.map { position[$0] - start })
+            let inside = Set(valid.filter { cluster[$0] == own && items[$0].isFile }
+                .map { position[$0] - start })
             guard let ranks = ShiftClick.resolve(anchor: position[anchor] - start, selection: inside,
                                                  target: position[target] - start, count: clusterCount[own])
             else { return nil }
             let chosen = ranks.map { itemAt[start + $0] }.filter { items[$0].isFile }
-            let outside = valid.filter { cluster[$0] != own }
-            return Outcome(selection: (chosen + outside).sorted(), anchor: anchor, shape: shape)
+            let kept = valid.filter { cluster[$0] != own || !items[$0].isFile }
+            return Outcome(selection: (chosen + kept).sorted(), anchor: anchor, shape: shape)
         case .band(let inside):
             return Outcome(selection: valid.union(inside).sorted(), anchor: anchor, shape: shape)
         }

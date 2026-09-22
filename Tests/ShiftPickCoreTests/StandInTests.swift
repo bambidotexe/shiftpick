@@ -62,6 +62,37 @@ final class StandInTests: XCTestCase {
         XCTAssertEqual(model.effectiveAnchor(stored: 6, selection: [1]), 1)
     }
 
+    /// The clusters' order is the screen's, not the order the items were listed in: with the stored anchor
+    /// deselected in the middle of three groups, the stand-in is the selected icon in the group below it,
+    /// and only when there is none there the one in the group above.
+    func testTheStandInAfterADeselectedAnchorIsInTheClusterBelow() {
+        // Listed bottom group first, so that the order of the items disagrees with the order on screen; the
+        // middle group is set off to the right so that no lattice fills.
+        var items = Layouts.filled(rows: 2, columns: 2, origin: CGPoint(x: 100, y: 900))
+        items += Layouts.filled(rows: 2, columns: 2, origin: CGPoint(x: 300, y: 500), firstAXOrder: 4)
+        items += Layouts.filled(rows: 2, columns: 2, origin: CGPoint(x: 100, y: 100), firstAXOrder: 8)
+        let model = LayoutModel(items: items, fallbackFlow: .rowsFromLeft)
+        XCTAssertEqual(model.kind, .handPlaced(grids: 3, scatters: 0))
+        XCTAssertEqual(model.effectiveAnchor(stored: 5, selection: [9, 1]), 1)
+        XCTAssertEqual(model.effectiveAnchor(stored: 5, selection: [9]), 9)
+    }
+
+    /// On a hand-placed view the first item is the first file of the first cluster in reading order: the
+    /// highest cluster on the screen, not the left-most and not the first one listed.
+    func testTheFirstItemOfAHandPlacedViewIsTheFirstClustersFirstFile() {
+        var items = Layouts.filled(rows: 2, columns: 2, origin: CGPoint(x: 100, y: 100))
+        items += Layouts.filled(rows: 2, columns: 2, origin: CGPoint(x: 900, y: 160), firstAXOrder: 4)
+        XCTAssertEqual(LayoutModel(items: items, fallbackFlow: .rowsFromLeft).firstItem, 0)
+        var mirrored = Layouts.filled(rows: 2, columns: 2, origin: CGPoint(x: 100, y: 100))
+        mirrored += Layouts.filled(rows: 2, columns: 2, origin: CGPoint(x: 900, y: 40), firstAXOrder: 4)
+        let higher = LayoutModel(items: mirrored, fallbackFlow: .rowsFromLeft)
+        XCTAssertEqual(higher.kind, .handPlaced(grids: 2, scatters: 0))
+        XCTAssertEqual(higher.firstItem, 4)
+        // A stack at the head of that cluster is passed over for the first file.
+        mirrored[4] = LayoutItem(frame: mirrored[4].frame, section: 0, axOrder: 4, isFile: false)
+        XCTAssertEqual(LayoutModel(items: mirrored, fallbackFlow: .rowsFromLeft).firstItem, 5)
+    }
+
     func testTheFirstItemIsTheFirstFileInReadingOrder() {
         XCTAssertEqual(grid().firstItem, 0)
         var items = Layouts.filled(rows: 1, columns: 3, flow: .columnsFromRight,
