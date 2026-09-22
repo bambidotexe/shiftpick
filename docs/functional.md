@@ -179,9 +179,10 @@ ShiftPick keeps **one anchor per container** and nothing else: the selection is 
 mouse, the keyboard, a drag or ⌘ A is simply what is selected now. This is the list view's own model,
 measured on AppKit's `NSTableView` (`docs/macOS.md`, *The selection model*).
 
-- **Every click ShiftPick does not decide sets the anchor**: a plain click, a ⌘ Command click and a
-  ⌘ Command ⇧ Shift click on an icon all do, and only a plain ⇧ Shift press does not, because that is the one
-  §2 answers. The sentinel hears it, and the click itself is never held. The anchor is looked for
+- **A press without ⇧ Shift, or a press with ⌘ Command, sets the anchor**: a plain click, a ⌘ Command click
+  and a ⌘ Command ⇧ Shift click on an icon all do. **A press with ⇧ Shift and without ⌘ Command does not**,
+  whatever else is held, so an ⌥ Option ⇧ Shift or ⌃ Control ⇧ Shift click leaves the anchor where it was.
+  The sentinel hears it, and the click itself is never held. The anchor is looked for
   **`K.anchorDelay` (60 ms) later**, on the worker, and only if the application that owns the view is
   frontmost by then, so an ordinary click gains no latency and a click that went to another application sets
   nothing.
@@ -233,9 +234,8 @@ view somebody laid out by hand, not guarantees**.
    - **Arranged**: inside every group, the occupied cells are the first *n* cells of some fill order. No
      hole, nothing off the lattice; a partial last line is allowed and every group starts a new line.
      Finder is laying these out, so the order is meaningful. Groups that fill the lattice cell for cell read
-     as arranged whether they sit side by side or one above the other with an empty band between them: what
-     is asked is that the occupied cells be the first *n* of a fill order, not that the lines be evenly
-     spaced.
+     as arranged when they sit one above the other with an empty band between them: what is asked is that
+     each group's occupied cells be the first *n* of a fill order, not that the lines be evenly spaced.
    - **Hand-placed**: anything else. Holes in the lattice, icons that are not on one, a line that only
      exists because a scatter chained together. Its icons are cut into clusters, and each cluster is fitted
      with a grid or found to be a scatter (5. and 6.).
@@ -260,8 +260,10 @@ view somebody laid out by hand, not guarantees**.
    centres are within **`K.gridLinkPitches` (1.5)** pitches of each other on both axes, and a **cluster** is
    a connected set of links: a grid's orthogonal and diagonal neighbours are one pitch apart and a wobble,
    while an empty row or column between two groups is two pitches less a wobble and breaks the link. **A gap
-   of two pitches or more inside a row breaks the cluster the same way**: the icons beyond it are another
-   cluster, and a range across the gap is the rubber band. An icon far from everyone is a cluster of one.
+   of two pitches or more through a cluster breaks it the same way**: the gap has to run through every row,
+   because one link anywhere across it, diagonal included, holds the two sides together; where it does, the
+   icons beyond it are another cluster and a range across the gap is the rubber band. An icon far from
+   everyone is a cluster of one.
 6. **A grid, or a scatter.** Inside a cluster the centres' *y* values are cut into rows at every gap wider
    than **`K.gridLineTolerancePitches` (0.5)** of a pitch, the *x* values into columns the same way. The
    cluster is a **grid** when **no row is wider than that tolerance** (an icon a quarter pitch off its row
@@ -334,7 +336,7 @@ a setting about what ShiftPick does**: the feature is always on, and it does one
 | | Quit | one destructive button |
 | | Uninstall | one destructive button, with a warning that never goes away |
 | **System** | Accessibility | the permission, live and **as ShiftPick can use it**: macOS's answer, except once ShiftPick has found the grant gone itself, which that answer can go on hiding for seconds (§7). Red *Denied* while it is missing, with a button to the pane and a warning naming the switch; once granted both go and the row stays. |
-| | Click listener | *Watching for ⇧ Shift clicks*, the Health page's row in the same colour and with the same word, whenever the listener is past waiting for the permission. **The warning follows the status**, so a red row is never silent: a listener macOS refused and one the breaker stopped each get their own sentence, and the hint covers both ways it can be down. **The button belongs to the breaker alone**: while it is open, *Start Listening Again* under the row, which asks for another try (§1) and nothing else. No group at all while the permission is missing: the permission's own row says it. |
+| | Click listener | *Watching for ⇧ Shift clicks*, the Health page's row in the same colour and with the same word, whenever the listener is past waiting for the permission. No group at all in the two cases that have nothing to say: while the permission is missing, which the row above already says, and before the first start or after the quit. **The warning follows the status**, so a red row is never silent: a listener macOS refused and one the breaker stopped each get their own sentence, and the hint covers both ways it can be down. **The button belongs to the breaker alone**: while it is open, *Start Listening Again* under the row, which asks for another try (§1) and nothing else. |
 | | Start over | one button, *Show Onboarding Again*, which opens a fresh wizard at its first page |
 | **Health** | Health | the checks, **green, orange or red and never blue**, at most four lines, then **Check Again** (a spinner beside it for at least `K.healthMinimumBusy`, 0.5 s). **Always**: *Accessibility permission*, the System page's row in the same colour (below). **While the listener is past waiting for the permission**: *Watching for ⇧ Shift clicks*, green *Enabled* while it listens, red *Failed* when macOS refused the taps, red *Stopped* when macOS kept taking the click tap away (§1), whose fix names the System page's *Start Listening Again* button; its tooltip is the engine's own name for the state. No line while the permission is missing (the permission's line says it: one cause, one line) or before the first start. **Only while wrong**: *Finder*, orange *Stopped* (without it only Open and Save panels are left); *Crashes in the last 7 days* (`K.healthCrashWindow`), an orange count with the last one's date in its tooltip, read from `~/Library/Logs/DiagnosticReports`. Every orange or red line's fix is a warning under the table. |
 | | Information | the readings, blue: *Running for* · *Memory used* |

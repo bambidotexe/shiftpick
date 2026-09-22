@@ -150,7 +150,7 @@ shape).
    occupied cells are the first *n* of that order. All four fit a single row, which is why the order
    Accessibility listed the items in, and then the container's own default, break the tie.
 3. A layout no order fits is *hand-placed*: `Clusters` cuts it into groups under the link rule (a spatial
-   hash and union-find, `O(n)` expected), `Grid` fits each with rows and columns and reads it along its rows,
+   hash and union-find, `O(n log n)`), `Grid` fits each with rows and columns and reads it along its rows,
    and the clusters are ordered by top edge then leading edge. A range between two clusters, or to or from a
    cluster with no grid, is the rubber band, the rectangle the two icons span.
 4. `ShiftClick` is the list view's own rule over whichever of those orders answered: `standIn` names what a

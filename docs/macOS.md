@@ -87,7 +87,8 @@ AXApplication (Finder)
    hit test sets `K.axTimeout` on the system-wide element at its start, which is what gives every element
    copied out of Finder during that click a deadline; the per-element `AXUIElementSetMessagingTimeout` calls
    in the hit test and in the item read are belt-and-braces. `FinderAX.isScrolled` and `isRenaming` rely on
-   the inheritance, and so does `Tools/axdump`, which sets five seconds the same way.
+   the inheritance; `Tools/axdump` sets five seconds on the application element instead, and passes the same
+   five to every call that takes a timeout of its own.
 
 ### An Open or Save panel is the same shape
 
