@@ -327,7 +327,7 @@ anywhere corrects §2 before anything is built.
 | S12 | rubber-band rows 3 to 5 from empty space · ⇧8  /  ⇧1 | {3..8}  /  {1,2,3} |
 | S13 | click 4 · ⌘4 · ⇧7 | {}, {1..7} |
 | S14 | click 1 · ⇧3 · ⌘8 · ⇧10 · ⇧6 · ⇧2 | {1,2,3,8,9,10}, {1,2,3,6,7,8}, {2..8} |
-| W | click 1 · ⇧5 · ⌘3 · ⇧6 · then ⌘3 · ⇧1 | {1,2,4,5,6}, {1,2,3,4,5,6}, then **{1,2,3,4}** if the anchor moved to 4 |
+| W | click 1 · ⇧5 · ⌘3 · ⇧6 | {1,2,4,5,6} (the stand-in 4 measured). The harness then re-selected 3 *programmatically* and ⇧1 gave {1,2,3,4}, which shows the anchor moved to 4; no click can re-select 3 without moving the anchor to it, so that second half is not walkable in Finder and is not asked of the owner |
 
 **M2.** In icon view, select three icons, scroll them off screen, and read `AXSelectedChildren` with the
 probe: does it still name them; set a selection through it: do they stay selected. Decides whether §3.7's
