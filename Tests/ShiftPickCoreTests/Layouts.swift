@@ -53,11 +53,40 @@ enum Layouts {
         }
     }
 
+    /// A lattice tidied by hand: every icon of `filled` moved up to `amplitude` points off its cell on each
+    /// axis, the same way every run for the same `seed`. `axOrder` stays the cell order, so a test can say
+    /// which cell an icon came from.
+    static func wobbled(rows: Int, columns: Int, amplitude: Int, seed: UInt64,
+                        origin: CGPoint = CGPoint(x: 540, y: 250),
+                        pitch: CGSize = desktopPitch, side: CGFloat = desktopSide,
+                        firstAXOrder: Int = 0) -> [LayoutItem] {
+        var generator = SeededGenerator(seed: seed)
+        return filled(rows: rows, columns: columns, origin: origin, pitch: pitch, side: side,
+                      firstAXOrder: firstAXOrder).map { item in
+            let dx = CGFloat(Int.random(in: -amplitude...amplitude, using: &generator))
+            let dy = CGFloat(Int.random(in: -amplitude...amplitude, using: &generator))
+            return LayoutItem(frame: item.frame.offsetBy(dx: dx, dy: dy), axOrder: item.axOrder)
+        }
+    }
+
     /// One item at an arbitrary place, for the layouts nobody arranged.
     static func item(x: CGFloat, y: CGFloat, axOrder: Int = 0, section: Int = 0, isFile: Bool = true,
                      side: CGFloat? = nil) -> LayoutItem {
         let side = side ?? windowSide
         return LayoutItem(frame: CGRect(x: x, y: y, width: side, height: side),
                           section: section, axOrder: axOrder, isFile: isFile)
+    }
+}
+
+/// A generator a test can seed, so a wobble is the same wobble every run.
+struct SeededGenerator: RandomNumberGenerator {
+    private var state: UInt64
+    init(seed: UInt64) { state = seed &+ 0x9E37_79B9_7F4A_7C15 }
+    mutating func next() -> UInt64 {
+        state &+= 0x9E37_79B9_7F4A_7C15
+        var z = state
+        z = (z ^ (z >> 30)) &* 0xBF58_476D_1CE4_E5B9
+        z = (z ^ (z >> 27)) &* 0x94D0_49BB_1331_11EB
+        return z ^ (z >> 31)
     }
 }
