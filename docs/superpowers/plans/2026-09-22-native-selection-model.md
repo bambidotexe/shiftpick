@@ -252,9 +252,11 @@ public enum ShiftClick {
 
     /// The selection after a ⇧ Shift click on `target` measured from `anchor`, ascending: the old selection
     /// minus every maximal run of consecutive selected positions the range `anchor...target` intersects,
-    /// plus the range. A run that intersects the range and reaches outside it is contiguous with the
-    /// position just outside the range, so walking outwards from each end while positions stay selected
-    /// removes exactly the parts of touched runs that the range would not replace anyway.
+    /// plus the range. A run that intersects the range and reaches outside it contains the range's end on
+    /// that side, so when that end is selected, walking outwards from it while positions stay selected
+    /// removes exactly the part of the touched run that the range would not replace anyway. An end that is
+    /// not selected has no run to remove on its side: a selected run next to the range, but not in it,
+    /// stays (measured: {2,5,8} with anchor 8, click 6, leaves 5 selected).
     ///
     /// nil when either end is not a position. Selected positions outside the order are dropped.
     public static func resolve(anchor: Int, selection: Set<Int>, target: Int, count: Int) -> [Int]? {
@@ -262,15 +264,19 @@ public enum ShiftClick {
         guard order.contains(anchor), order.contains(target) else { return nil }
         let range = min(anchor, target)...max(anchor, target)
         var kept = selection.filter { order.contains($0) }
-        var below = range.lowerBound - 1
-        while below >= 0, kept.contains(below) {
-            kept.remove(below)
-            below -= 1
+        if kept.contains(range.lowerBound) {
+            var below = range.lowerBound - 1
+            while below >= 0, kept.contains(below) {
+                kept.remove(below)
+                below -= 1
+            }
         }
-        var above = range.upperBound + 1
-        while above < count, kept.contains(above) {
-            kept.remove(above)
-            above += 1
+        if kept.contains(range.upperBound) {
+            var above = range.upperBound + 1
+            while above < count, kept.contains(above) {
+                kept.remove(above)
+                above += 1
+            }
         }
         kept.formUnion(range)
         return kept.sorted()
@@ -834,9 +840,11 @@ Then replace the five hand-placed tests (`testAGridWithAHoleIsHandPlaced` throug
         XCTAssertEqual(model.range(from: 0, to: 2), .band([0, 2]))
     }
 
+    /// Two groups whose rows do not line up: two grids. (Two groups on the very same rows, whatever the gap
+    /// between them, fill one lattice and read as arranged, which is the lattice pass's rule and not this one.)
     func testTwoGridsFarApartGiveTheRubberBandBetweenThemAndAnOrderInsideEach() {
         var items = Layouts.filled(rows: 2, columns: 2, origin: CGPoint(x: 100, y: 100))
-        items += Layouts.filled(rows: 2, columns: 2, origin: CGPoint(x: 900, y: 100), firstAXOrder: 4)
+        items += Layouts.filled(rows: 2, columns: 2, origin: CGPoint(x: 900, y: 160), firstAXOrder: 4)
         let model = model(items)
         XCTAssertEqual(model.kind, .handPlaced(grids: 2, scatters: 0))
         XCTAssertEqual(model.range(from: 0, to: 3), .ordered([0, 1, 2, 3]))
@@ -844,21 +852,25 @@ Then replace the five hand-placed tests (`testAGridWithAHoleIsHandPlaced` throug
         XCTAssertEqual(model.range(from: 0, to: 7), .band([0, 1, 2, 3, 4, 5, 6, 7]))
     }
 
-    /// One icon a good way off every line makes the whole cluster a scatter, and a range in it is the band.
+    /// Two stray icons between the rows chain the rows together into one smear wider than half a pitch,
+    /// so no grid makes sense and every range in the cluster is the band. (One stray alone gets its own
+    /// row and the cluster stays a grid with holes, which is also right.)
     func testAClusterWithNoGridGetsTheRubberBand() {
-        var items = Layouts.filled(rows: 2, columns: 3, origin: CGPoint(x: 100, y: 100),
+        var items = Layouts.filled(rows: 3, columns: 4, origin: CGPoint(x: 100, y: 100),
                                    pitch: CGSize(width: 120, height: 120))
-        items.append(Layouts.item(x: 160, y: 160, axOrder: 6))
+        items.append(Layouts.item(x: 160, y: 140, axOrder: 12))   // centre (192, 172), between rows 1 and 2
+        items.append(Layouts.item(x: 280, y: 180, axOrder: 13))   // centre (312, 212)
         let model = model(items)
         XCTAssertEqual(model.kind, .handPlaced(grids: 0, scatters: 1))
-        XCTAssertEqual(model.range(from: 0, to: 5), .band([0, 1, 2, 3, 4, 5, 6]))
+        XCTAssertEqual(model.range(from: 0, to: 11), .band(Array(0...13)))
         XCTAssertEqual(model.range(from: 0, to: 1), .band([0, 1]))
     }
 
+    /// The same wobble `GridTests` fits, through the whole model: the lattice pass refuses it (its rows are
+    /// not exact), the clusters keep it together, and the grid reads along its rows.
     func testAWobblyHandPlacedGridIsStillAGrid() {
-        let jitter: [(CGFloat, CGFloat)] = [(-20, 15), (10, -25), (25, 20), (-15, -10), (18, -18)]
-        var base = Layouts.filled(rows: 2, columns: 3, pitch: Layouts.desktopPitch, side: Layouts.desktopSide)
-        base.remove(at: 4)
+        let jitter: [(CGFloat, CGFloat)] = [(-20, 15), (10, -25), (25, 20), (-15, -10), (0, 28), (18, -18)]
+        let base = Layouts.filled(rows: 2, columns: 3, pitch: Layouts.desktopPitch, side: Layouts.desktopSide)
         let items = zip(base, jitter).enumerated().map { order, pair in
             LayoutItem(frame: pair.0.frame.offsetBy(dx: pair.1.0, dy: pair.1.1), axOrder: order)
         }
@@ -914,7 +926,7 @@ Add, before `// MARK: - The three properties`:
 
     func testASelectedIconInAnotherClusterIsNeverTouched() {
         var items = Layouts.filled(rows: 2, columns: 2, origin: CGPoint(x: 100, y: 100))
-        items += Layouts.filled(rows: 2, columns: 2, origin: CGPoint(x: 900, y: 100), firstAXOrder: 4)
+        items += Layouts.filled(rows: 2, columns: 2, origin: CGPoint(x: 900, y: 160), firstAXOrder: 4)
         let outcome = model(items).shiftClick(from: 0, selection: [0, 6], target: 3)
         XCTAssertEqual(outcome?.selection, [0, 1, 2, 3, 6])
     }
@@ -928,7 +940,7 @@ Add, before `// MARK: - The three properties`:
         XCTAssertEqual(outcome?.selection, [0, 1, 2, 3])
     }
 
-    func testAStackInsideTheRangeIsNotSelectedAndASelectedOneOutsideItIsKept() {
+    func testAStackInsideTheRangeIsNotSelected() {
         var items = Layouts.filled(rows: 1, columns: 6, flow: .columnsFromRight,
                                    pitch: Layouts.desktopPitch, side: Layouts.desktopSide)
         items[2] = LayoutItem(frame: items[2].frame, section: 0, axOrder: 2, isFile: false)
@@ -1009,7 +1021,7 @@ final class StandInTests: XCTestCase {
     /// range to it is then the rubber band, which is the caller's business.
     func testAStandInMayBeInAnotherCluster() {
         var items = Layouts.filled(rows: 2, columns: 2, origin: CGPoint(x: 100, y: 100))
-        items += Layouts.filled(rows: 2, columns: 2, origin: CGPoint(x: 900, y: 100), firstAXOrder: 4)
+        items += Layouts.filled(rows: 2, columns: 2, origin: CGPoint(x: 900, y: 160), firstAXOrder: 4)
         let model = LayoutModel(items: items, fallbackFlow: .rowsFromLeft)
         XCTAssertEqual(model.effectiveAnchor(stored: 2, selection: [5]), 5)
         XCTAssertEqual(model.effectiveAnchor(stored: 6, selection: [1]), 1)
