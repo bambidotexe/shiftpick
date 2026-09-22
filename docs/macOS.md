@@ -67,7 +67,9 @@ AXApplication (Finder)
    `file-01.txt` and one called `a-file-with-a-rather-long-name-that-wraps.txt`, side by side, both report
    `64 × 64` at the same `y`, although the second one's name wraps to two lines. That is what makes the
    centre of the frame a stable reference point. The Desktop's icons report `72 × 72` at the icon size the
-   Desktop was set to.
+   Desktop was set to. **The pitch of a view at a smaller icon size is owed**, on both axes: the selection
+   maths takes a cell under 64 points to be a 64-point icon's (`functional.md` §3, `K.cellSideFloor`), which
+   is what a label-driven cell is, and no 16- or 32-point view has been read yet.
 2. **A hit test over an item's label still answers with the item's `AXImage`.** Finder's hit region covers
    the label; only its *frame* does not. So the point ShiftPick decides from is exactly the point Finder
    would have acted on. A gap between two icons answers with the `AXSectionList`; the space under the last
@@ -144,7 +146,9 @@ nothing touched the system event stream and no tap was involved — ran fifteen 
 then, for 22 constructed states, one ⇧ Shift click and one ⌘ Command ⇧ Shift click from every one of twelve
 rows. The data is Appendix A of
 `docs/superpowers/specs/2026-09-22-native-selection-model-design.md`. **The same sequences in a Finder list
-view are still owed**; where Finder turns out to differ, Finder wins and this section is corrected with it.
+view are still owed, and so is M3**: whether a ⌘ Command ⇧ Shift click in Finder's *icon* view toggles the
+icon as its list view does, which is what letting that click through (`functional.md` §1) rests on. Where
+Finder turns out to differ, Finder wins and this section is corrected with it.
 
 **The trap, if it is ever measured again**: activate the application and make the window key first
 (`activate(ignoringOtherApps:)`, then `makeKeyAndOrderFront`). On a window that is not key, every plain and

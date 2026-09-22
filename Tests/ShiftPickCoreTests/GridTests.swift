@@ -157,10 +157,11 @@ final class GridTests: XCTestCase {
     /// icons a pitch and a half apart still chain into one row (rule 2's link, `K.gridLinkPitches`), but two
     /// pitches is the gap that separates two groups — an empty column or more between them — so the fourth
     /// icon is a cluster of its own and a range to it is the rubber band, not a read across the row. Proven
-    /// through the engine, at its own measured pitch (116, 116 and 174 apart at the true 116-point pitch,
-    /// which the two wider gaps pull to a measured 145): `Clusters.build` answers two clusters, the first
-    /// three icons together and the fourth alone; the first three, read at that pitch, are one row left to
-    /// right.
+    /// through the engine, at its own measured pitch: the icons sit 116, 174 and 232 apart at the true
+    /// 116-point pitch, the pass samples the first two gaps from both of their ends, 116, 116, 174 and 174,
+    /// whose median is 145, and the third gap is beyond the reach and gives nothing. `Clusters.build`
+    /// answers two clusters, the first three icons together and the fourth alone; the first three, read at
+    /// that pitch, are one row left to right.
     func testARowWithGapsOfOneAndAHalfPitchesStaysOneRowAndAGapOfTwoBreaksIt() {
         let offsets: [CGFloat] = [0, 116, 116 + 174, 116 + 174 + 232]
         let items = offsets.enumerated().map { order, offset in

@@ -165,22 +165,23 @@ enum AXDump {
            CFEqual(anchorHit.view.container, target.view.container) {
             stored = FinderAX.index(of: anchorHit.item, among: elements)
         }
-        var from = model.effectiveAnchor(stored: stored, selection: reading.indices)
+        let effective = model.effectiveAnchor(stored: stored, selection: reading.indices)
+        var from = effective
         if from == nil {
             let scrolled = FinderAX.isScrolled(target.view)
             guard scrolled == false, let first = model.firstItem else {
                 print("nothing selected and the view is scrolled or unreadable: the click would be let through")
                 return
             }
-            print("nothing selected; the view is not scrolled, so the first icon stands in")
+            print("nothing selected; the view is not scrolled, so the click is measured from the first icon")
             from = first
         }
         guard let from,
               let outcome = model.shiftClick(from: from, selection: reading.indices, target: targetIndex) else {
-            print("the anchor or the target is not a file: the click would be let through")
+            print("the target is not a file: the click would be let through")
             return
         }
-        let how = stored == from ? "the anchor" : "a stand-in"
+        let how = effective == nil ? "the first icon" : stored == from ? "the anchor" : "a stand-in"
         let shape = if case .band = outcome.shape { "the rubber band" } else { "a slice of the reading order" }
         print("measured from item \(from) (\(how)) to \(targetIndex), \(shape): "
               + "\(outcome.shape.items.count) in the range, \(outcome.selection.count) selected afterwards")

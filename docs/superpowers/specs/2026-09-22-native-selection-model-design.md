@@ -207,6 +207,14 @@ kept out of `Constants.swift`, which is a file of the safety layer, exactly as `
 Each carries the reason above. **They are best-effort tolerances, not guarantees**, and the manual checklist
 says what a wobbly grid looks like when they hold and when they do not.
 
+**The engine as built refines this section.** §5.1's pitch takes one sample per icon and per direction, so
+that an icon wobbled towards this one and one wobbled away cancel, passes over an icon that overlaps
+another, and measures its reach and its overlap in sides of an icon no smaller than 64 points, which is what
+a label-driven cell is; §5.3's verdict holds only the rows to the tolerance and, past `K.gridAlwaysCount`
+icons, asks that some row or column be shared by two of them. `docs/functional.md` §3 and the grid engine's
+report (`.superpowers/sdd/2026-09-22-native-selection-model/task-2-3-report.md`) are the statement of
+record; this section is the design they started from.
+
 ## 6. The settings, the menu, the Health page, and the breaker
 
 - **`Core/Settings.swift`** keeps `showInMenuBar` and `onboardingCompleted` and loses `enabled` and

@@ -122,7 +122,8 @@ final class ShiftClickResolver: @unchecked Sendable {
         if let anchor, CFEqual(anchor.container, target.view.container) {
             stored = FinderAX.index(of: anchor.item, among: elements)
         }
-        var measuredFrom = model.effectiveAnchor(stored: stored, selection: reading.indices)
+        let effective = model.effectiveAnchor(stored: stored, selection: reading.indices)
+        var measuredFrom = effective
         if measuredFrom == nil {
             // Nothing is selected: a list view measures from its first row. The first icon is only known to
             // be on screen while the view is not scrolled (docs/pitfalls.md 1); otherwise the click is
@@ -134,7 +135,7 @@ final class ShiftClickResolver: @unchecked Sendable {
         guard let measuredFrom,
               let outcome = model.shiftClick(from: measuredFrom, selection: reading.indices,
                                              target: targetIndex)
-        else { return pass("the anchor or the target is not a file") }
+        else { return pass("the target is not a file") }
         // Selected elements Finder named that are not on screen go back exactly as they came.
         let chosen = outcome.selection.map { elements[$0] } + reading.unmapped
 
@@ -153,10 +154,11 @@ final class ShiftClickResolver: @unchecked Sendable {
         // The anchor is the icon the range was measured from: the stored one, or its stand-in.
         anchor = Anchor(container: target.view.container, item: elements[outcome.anchor])
         let shape = if case .band = outcome.shape { "rubber band" } else { "ordered" }
+        let how = effective == nil ? "the first icon" : stored == outcome.anchor ? "the anchor" : "a stand-in"
         Log.click.debug("""
             selected \(outcome.selection.count, privacy: .public) of \(elements.count, privacy: .public) \
             (\(String(describing: model.kind), privacy: .public), \(shape, privacy: .public), measured from \
-            \(stored == outcome.anchor ? "the anchor" : "a stand-in", privacy: .public))
+            \(how, privacy: .public))
             """)
     }
 

@@ -186,8 +186,10 @@ measured on AppKit's `NSTableView` (`docs/macOS.md`, *The selection model*).
   **`K.anchorDelay` (60 ms) later**, on the worker, and only if the application that owns the view is
   frontmost by then, so an ordinary click gains no latency and a click that went to another application sets
   nothing.
-- **A click on empty space inside an icon view clears the anchor.** Finder has just deselected everything.
-  A click outside Finder leaves it alone.
+- **A click on empty space inside an icon view clears the anchor**, with or without ⌘ Command. A plain click
+  there has just deselected everything; what a ⌘ Command click there leaves selected is not measured, and
+  the anchor goes either way, because a range measured from a file nothing on screen says anything about
+  would be a guess. A click outside Finder leaves it alone.
 - **The anchor is per container**: each window has its own, and the Desktop has its own.
 - **The click is measured from the anchor while the anchor is selected.** When it is not, a **stand-in**
   takes its place: the first selected file after it in reading order (§3), however far; else the last
@@ -195,10 +197,12 @@ measured on AppKit's `NSTableView` (`docs/macOS.md`, *The selection model*).
   before everything, so the first selected file in reading order stands in. A stand-in may be in another
   cluster, and the range to it is then the rubber band (§3). **After the click, the anchor is the icon the
   range was measured from**, the stand-in included, so the next click is measured from where this one was.
-- **Nothing selected**: the click is measured from the first file in reading order **while the view is not
-  scrolled** (its container's top edge at or below its scroll area's top edge, within a point; the Desktop
-  never scrolls). A scrolled view may hold its first icon off screen, so the click goes through and
-  the log says `nothing selected, and the first icon may be off screen`.
+- **Nothing selected**: the click is measured from the first file in reading order **while the view is known
+  not to be scrolled** (its container's top edge at or below its scroll area's top edge, within a point; the
+  Desktop never scrolls). A scrolled view may hold its first icon off screen, and so may a view whose
+  scrolling cannot be read at all (its container not directly under a scroll area, or a frame that does not
+  answer), so in either case the click goes through and the log says `nothing selected, and the first icon
+  may be off screen`.
 
 ### 2.2 What the click leaves selected
 
@@ -264,10 +268,11 @@ view somebody laid out by hand, not guarantees**.
    icons are then **linked** when their centres are within **`K.gridLinkPitches` (1.5)** pitches of each
    other on both axes, and a **cluster** is a connected set of links: a grid's orthogonal and diagonal
    neighbours are one pitch apart and a wobble, while an empty row or column between two groups is two
-   pitches less a wobble and breaks the link. **A gap of two pitches or more through a cluster breaks it the
-   same way**: the gap has to run through every row, because one link anywhere across it, diagonal included,
-   holds the two sides together; where it does, the icons beyond it are another cluster and a range across
-   the gap is the rubber band. An icon far from everyone is a cluster of one.
+   pitches less a wobble and breaks the link. **A gap of more than `K.gridLinkPitches` (1.5) pitches on
+   either axis through a cluster breaks it the same way**: the gap has to run through every row (or, the
+   other way, through every column), because one link anywhere across it, diagonal included, holds the two
+   sides together; where it does, the icons beyond it are another cluster and a range across the gap is the
+   rubber band. An icon far from everyone is a cluster of one.
 6. **A grid, or a scatter.** Inside a cluster the centres' *y* values are cut into rows at every gap wider
    than **`K.gridLineTolerancePitches` (0.5)** of a pitch, the *x* values into columns the same way. The
    cluster is a **grid** when **no row is wider than that tolerance** (an icon a quarter pitch off its row

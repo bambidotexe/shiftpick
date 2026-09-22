@@ -43,6 +43,7 @@ final class HealthTests: XCTestCase {
     func testTheListenerHasNoLineInItsTwoQuietCases() {
         XCTAssertNil(HealthRules.listener(.needsPermission))
         XCTAssertNil(HealthRules.listener(.stopped))
+        XCTAssertNil(check("listener", in: facts(listener: .stopped)), "nothing reported yet is no row")
     }
 
     func testAFixIsShownOnlyWhileItsRowIsOrangeOrRed() {

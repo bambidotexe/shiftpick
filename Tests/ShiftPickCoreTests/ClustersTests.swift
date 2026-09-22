@@ -244,6 +244,32 @@ final class ClustersTests: XCTestCase {
         XCTAssertEqual(clusters.pitch, Layouts.windowPitch.width, accuracy: 0.5)
     }
 
+    /// Accessibility has never answered a frame that is not a number, one that is infinite or one with no
+    /// size, and the maths does not stake the process on that: one of each dropped beside a small grid gets
+    /// a cluster and a place like any other icon, the grid stays one cluster, nothing traps, and every icon
+    /// is ordered exactly once, through the clusters, the grids and the whole model.
+    func testFramesThatAreNotNumbersInfiniteOrEmptyStillGetAClusterAndAPlace() {
+        var items = Layouts.filled(rows: 2, columns: 3)
+        let nan = CGFloat.nan
+        items.append(LayoutItem(frame: CGRect(x: nan, y: nan, width: nan, height: nan), axOrder: 6))
+        items.append(LayoutItem(frame: CGRect(x: CGFloat.infinity, y: 250, width: 64, height: 64), axOrder: 7))
+        items.append(LayoutItem(frame: CGRect(x: 540, y: 250 + 2 * 116, width: 0, height: 0), axOrder: 8))
+        let clusters = Clusters.build(items)
+        XCTAssertEqual(clusters.index.count, 9)
+        XCTAssertEqual(Set(clusters.index), Set(0..<clusters.count))
+        XCTAssertEqual(Set(clusters.index[0..<6]).count, 1, "the grid is still one cluster")
+        XCTAssertGreaterThan(clusters.pitch, 0)
+        for number in 0..<clusters.count {
+            let members = items.indices.filter { clusters.index[$0] == number }
+            let grid = Grid.fit(members: members, items: items, pitch: clusters.pitch, leadingIsLeft: true)
+            XCTAssertEqual(grid.order.count, members.count, "cluster \(number)")
+            XCTAssertEqual(Set(grid.order), Set(members), "cluster \(number)")
+        }
+        let model = LayoutModel(items: items, fallbackFlow: .rowsFromLeft)
+        XCTAssertEqual(Set(items.indices.compactMap { model.readingPosition(of: $0) }), Set(0..<9))
+        XCTAssertEqual(model.range(from: 0, to: 5)?.items.count, 6)
+    }
+
     func testClusterNumbersAreDenseFromZero() {
         var items = Layouts.filled(rows: 1, columns: 2, origin: CGPoint(x: 100, y: 100))
         items += Layouts.filled(rows: 1, columns: 2, origin: CGPoint(x: 1000, y: 100), firstAXOrder: 2)
