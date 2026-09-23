@@ -26,11 +26,12 @@ install:
 	sh scripts/install.sh
 
 # The same install, plus a tagged, pushed GitHub release carrying the disk image, at the version the given
-# LEVEL bumps to (patch, minor or major — required). Only run when the owner has asked for a release. When
+# LEVEL bumps to (patch, minor or major — required); NOTES is the file holding the release notes (required,
+# outside the repository). Only run when the owner has asked for a release. When
 # the safety layer changed since the last release it also needs DRILL=walked or DRILL=waived, which only the
 # owner can say (docs/manual-test-checklist.md §9). scripts/publish.sh has the sequence.
 release:
-	sh scripts/publish.sh $(LEVEL)
+	sh scripts/publish.sh $(LEVEL) --notes=$(NOTES)
 
 # What the Finder cannot do: the login item and the Accessibility grant are registrations, not files.
 # Settings > General > Uninstall is the supported way and removes the preferences too.

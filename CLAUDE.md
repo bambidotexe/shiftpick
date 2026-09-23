@@ -166,13 +166,14 @@ make release     # skill: macos-publish-release. The same, plus tag, push, GitHu
   opens it, and **reads its launch back from the log**: it fails on a tap macOS took away, taps it would not
   create, an open breaker, a second copy or silence, and passes on *listening* or *waiting for the
   permission*. It leaves **no `.app` and no `.dmg` anywhere under the repository**, on any exit path.
-- `make release LEVEL=<patch|minor|major>` (`scripts/publish.sh <level>`) — **the other way.** Refuses on a
-  dirty tree, on a failing test, and **while a file of the safety layer differs from the last release**,
+- `make release LEVEL=<patch|minor|major> NOTES=<file>` (`scripts/publish.sh <level> --notes=<file>`) —
+  **the other way.** Refuses without release notes (written from every commit since the last tag, skill
+  `macos-publish-release`, *Release notes*), on a dirty tree, on a failing test, and **while a file of the safety layer differs from the last release**,
   until the owner says `DRILL=walked` or `DRILL=waived` (never an agent's to set); computes the new version
   and refuses if that tag already exists, then bumps the version by the level given, commits and pushes that
   bump, and only then builds — everything `install` does, plus the tag, the push and the GitHub release
   carrying the image. Nothing bumps the version again afterward. Run it only when the owner has asked for a
-  release, and ask which level if they have not said. `sh scripts/publish.sh <level> --no-install` publishes
+  release, and ask which level if they have not said. `sh scripts/publish.sh <level> --notes=<file> --no-install` publishes
   and leaves `/Applications` alone, which is how the update a user gets is tested.
 - `sh scripts/drill.sh [seconds]` — **the dead-man's switch for the safety drill**
   (`docs/manual-test-checklist.md` §9): it kills ShiftPick after 30 s whatever happens, then follows the log.
