@@ -348,13 +348,12 @@ the log.
 `swift build` is clean and `swift test` is green (345 + 38) at this commit. The app target has no automated
 tests; `docs/manual-test-checklist.md` is its verification.
 
-**Six files of the safety layer have changed since the last release** — `TapLifecycle.swift`,
-`ClickGuard.swift`, `ShiftPickEngine.swift`, `ShiftClickResolver.swift`, `AppDelegate.swift`, and
-`AwayReasons.swift`, which is new — so **§9 of `docs/manual-test-checklist.md` is owed**, walked by the owner
-on an installed build, before the next release. **Its lid step now walks the way back in both orders**: the
-wake-first order once left the listener suspended for good with every window saying it was listening
-(`docs/pitfalls.md` 17), which is fixed and pinned and has not yet been seen on an installed build. `make release` refuses until the owner says `DRILL=walked` or `DRILL=waived`, which is never an
-agent's to set.
+**The safety layer is the one `v1.0.0` released**: nothing in `SAFETY_FILES` (`scripts/safety-gates.sh`)
+differs from that tag, so no drill is owed; the owner walked §9 of `docs/manual-test-checklist.md` on this
+tree before the release. **Its lid step walks the way back in both orders**: the wake-first order once left
+the listener suspended for good with every window saying it was listening (`docs/pitfalls.md` 17), which is
+fixed and pinned. A change to any file of the safety layer from here on owes §9 again, and `make release`
+refuses until the owner says `DRILL=walked` or `DRILL=waived`, which is never an agent's to set.
 
 **What is proven and what is not, about the safety model.** The rules are proven: `TapLifecycle` is a value,
 and its scenarios and 80,000 seeded events run on every `swift test`, as do the click's deadline and the
@@ -394,10 +393,12 @@ Known limitations, in plain words:
   wide, which reads as one cluster per column, so a range across columns is the rubber band. A per-axis
   pitch was built and removed: it cannot tell a wide-celled grid from two ragged columns at opposite edges
   of the Desktop, and it would link both of those into one grid.
-- **The update has never been seen end to end in this app.** Its rules are unit-tested and the install
+- **The update has not yet been seen end to end in this app.** Its rules are unit-tested and the install
   helper has installed and rolled back a stand-in app for real; the notification, the update window and
-  ShiftPick installing over itself are `docs/manual-test-checklist.md` §10. Nothing is published, so every check answers
-  **No release published yet** until the repository is public and carries a release.
+  ShiftPick installing over itself are `docs/manual-test-checklist.md` §10. **1.0.0 is published on the
+  public repository**, and the 0.0.1 still in `/Applications` is the copy it is offered to: the walk of §10
+  against a real release, from *Settings › General › Check for Updates*, is the owner's and has not been
+  reported yet.
 - **The uninstall froze on its first walk and passed its second.** The first waited on its main thread
   (`docs/pitfalls.md` 16). The rework took about fifty milliseconds for its system steps, with no spinning
   wheel, and left nothing behind: the bundle in the Trash, the domain, the support folder, the caches and the
