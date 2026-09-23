@@ -6,7 +6,7 @@
 # The app's name and identifier come from scripts/signing.env, which is the one place they are written.
 set -eu
 
-VERSION="0.0.1"
+VERSION="1.0.0"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 . "$ROOT/scripts/signing.env"
 APP="$ROOT/build/$APP_NAME.app"
