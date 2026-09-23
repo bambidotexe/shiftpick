@@ -18,12 +18,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var trustObserver: NSObjectProtocol?
     private var openedAgainObserver: NSObjectProtocol?
     private var sessionObservers: [(NotificationCenter, NSObjectProtocol)] = []
-    /// Why nobody can be clicking right now. The engine is suspended while this holds anything.
-    private var awayReasons: Set<AwayReason> = []
-
-    private enum AwayReason: String {
-        case asleep, locked, anotherSession
-    }
+    /// Why nobody can be clicking right now, and whether the engine is suspended for it. The rule is
+    /// `Core/AwayReasons`; this only feeds it and does what it says.
+    private var away = AwayReasons()
     private var cancellables: Set<AnyCancellable> = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -230,15 +227,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// session in front. Coming back asks about the grant again before anything arms, because a Mac that has
     /// been away is the one place a grant can have moved with no notification heard.
     ///
-    /// **The reasons are counted, not flagged.** Closing a lid both sleeps and locks, and the way back can wake
-    /// the Mac with the lock screen still up: one flag would call that "back" at the wake. Each reason is put
-    /// down by its own notification, or by the session itself at the next news (`reconcileAway`), and the
-    /// engine resumes when none is left. The order is not relied on: `docs/macOS.md` has the one measured.
+    /// **The reasons are held apart, and no notification is trusted to arrive.** Closing a lid both sleeps
+    /// and locks, and the way back can wake the Mac with the lock screen still up or unlock it before any
+    /// wake notice comes: `docs/macOS.md` has both orders, measured. `Core/AwayReasons` decides what each
+    /// notification does, holds the reasons against what the session says itself at every piece of news, and
+    /// says when the engine is suspended and when it resumes. This feeds it and does what it says.
     private func watchTheSession() {
-        engine.onShiftHeardWhileAway = { [weak self] in self?.reconcileAway(because: "⇧ Shift was pressed") }
+        engine.onShiftHeardWhileAway = { [weak self] in
+            guard let self else { return }
+            self.run(self.away.shiftPressed(session: Self.session()))
+        }
         let workspace = NSWorkspace.shared.notificationCenter
         let distributed = DistributedNotificationCenter.default()
-        let pairs: [(NotificationCenter, Notification.Name, Notification.Name, AwayReason)] = [
+        let pairs: [(NotificationCenter, Notification.Name, Notification.Name, AwayReasons.Reason)] = [
             (workspace, NSWorkspace.willSleepNotification, NSWorkspace.didWakeNotification, .asleep),
             (workspace, NSWorkspace.sessionDidResignActiveNotification,
              NSWorkspace.sessionDidBecomeActiveNotification, .anotherSession),
@@ -246,43 +247,46 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
              Notification.Name("com.apple.screenIsUnlocked"), .locked),
         ]
         for (center, leaving, returning, reason) in pairs {
-            let away = center.addObserver(forName: leaving, object: nil, queue: .main) { [weak self] _ in
+            let leave = center.addObserver(forName: leaving, object: nil, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated { self?.went(away: reason) }
             }
             let back = center.addObserver(forName: returning, object: nil, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated { self?.came(backFrom: reason) }
             }
-            sessionObservers += [(center, away), (center, back)]
+            sessionObservers += [(center, leave), (center, back)]
         }
     }
 
-    private func went(away reason: AwayReason) {
-        guard awayReasons.insert(reason).inserted else { return }
-        Log.app.notice("away (\(reason.rawValue, privacy: .public)); nothing arms until it is over")
-        if awayReasons.count == 1 { engine.suspend() }
+    private func went(away reason: AwayReasons.Reason) {
+        run(away.went(away: reason))
     }
 
-    /// A reason that was never heard going is nothing to come back from. A suspension nobody could see the
-    /// end of would be an app that silently does nothing, so each one is said, and so is its end.
-    private func came(backFrom reason: AwayReason) {
-        guard awayReasons.remove(reason) != nil else { return }
-        reconcileAway(because: "back (\(reason.rawValue))")
+    private func came(backFrom reason: AwayReasons.Reason) {
+        run(away.came(backFrom: reason, session: Self.session()))
     }
 
-    /// **The notifications are not trusted to all arrive.** A lost unlock or wake would keep ShiftPick
-    /// suspended for good, with Settings saying it is listening. So whenever there is news of any kind, a
-    /// notification of coming back or somebody pressing ⇧ Shift, the reasons are held against what the session
-    /// says itself: any news at all is a Mac that is awake, the session says whether its screen is locked,
-    /// and whether it is the one on the console.
-    private func reconcileAway(because news: String) {
-        guard !awayReasons.isEmpty else { return }
-        awayReasons.remove(.asleep)
+    /// What the session says about itself, read whenever there is news: whether its screen is locked
+    /// (`CGSSessionScreenIsLocked`, present and true only while it is) and whether it is the one on the
+    /// console. A dictionary that would not say reads as unlocked, since the key is only there while the
+    /// screen is locked, and as not on the console, which keeps the engine suspended rather than arming it
+    /// in a session nobody can be clicking in.
+    private static func session() -> AwayReasons.Session {
         let session = CGSessionCopyCurrentDictionary() as? [String: Any]
-        if (session?["CGSSessionScreenIsLocked"] as? Bool) != true { awayReasons.remove(.locked) }
-        if (session?[kCGSessionOnConsoleKey as String] as? Bool) == true { awayReasons.remove(.anotherSession) }
-        let left = awayReasons.map(\.rawValue).sorted().joined(separator: ", ")
-        Log.app.notice("\(news, privacy: .public)\(left.isEmpty ? "; nothing is away any more" : "; still away: \(left)", privacy: .public)")
-        if awayReasons.isEmpty { engine.resume() }
+        return AwayReasons.Session(
+            screenIsLocked: (session?["CGSSessionScreenIsLocked"] as? Bool) == true,
+            onConsole: (session?[kCGSessionOnConsoleKey as String] as? Bool) == true)
+    }
+
+    /// What `AwayReasons` decided, done in the order it was decided. The engine is suspended and resumed
+    /// here and nowhere else in this file.
+    private func run(_ effects: [AwayReasons.Effect]) {
+        for effect in effects {
+            switch effect {
+            case .suspend: engine.suspend()
+            case .resume: engine.resume()
+            case .log(let line): Log.app.notice("\(line, privacy: .public)")
+            }
+        }
     }
 
     // MARK: - Updates

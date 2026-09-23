@@ -116,7 +116,7 @@ and the newer of a request and a written rule wins only after the owner has said
 | what counts as a range: the lattice, the flow, the clusters and their grids, the rubber band | `Core/LayoutModel.swift`, `Core/Lattice.swift`, `Core/LayoutItem.swift`, `Core/Clusters.swift`, `Core/Grid.swift`, `Core/LayoutConstants.swift` — pinned by `RangeSelectionTests`, `LatticeTests`, `ClustersTests`, `GridTests` | `functional.md` §3 |
 | what a ⇧ Shift click leaves selected: the runs it replaces, the band it adds | `Core/ShiftClick.resolve`, `Core/LayoutModel.shiftClick` — `ShiftClickTests`, `RangeSelectionTests`. It is AppKit's own rule, measured: `macOS.md` *The selection model* is the data, and a change to it needs a new measurement | `functional.md` §2.2 |
 | where a range is measured from | `Core/LayoutModel.effectiveAnchor` and `firstItem`, `Core/ShiftClick.standIn`, `App/ShiftClickResolver` (`anchor`, `notePlainClick`) — `StandInTests`. **`ShiftClickResolver` is a file of the safety layer**: invoke `shiftpick-safety-nets` first, and a change to it owes §9 of the checklist before the next release | `functional.md` §2.1 |
-| **when the click tap may be enabled**: arming, a tap macOS took away, the breaker, the grant going or coming, sleep and the lock screen | **Invoke `shiftpick-safety-nets` and read `architecture.md` *The safety model* first.** `Core/TapLifecycle.swift`, and nowhere else: a new way for the tap's state to move is a new `Event`, its scenario in `TapLifecycleTests`, and a line in `TapLifecycleInvariantTests`' generator | `functional.md` §0, §1 and §7 |
+| **when the click tap may be enabled**: arming, a tap macOS took away, the breaker, the grant going or coming, sleep and the lock screen | **Invoke `shiftpick-safety-nets` and read `architecture.md` *The safety model* first.** `Core/TapLifecycle.swift`, and nowhere else: a new way for the tap's state to move is a new `Event`, its scenario in `TapLifecycleTests`, and a line in `TapLifecycleInvariantTests`' generator. The reasons a Mac is away, and when the listener is suspended and resumed for them, are `Core/AwayReasons.swift`, pinned by `AwayReasonsTests`; `AppDelegate.watchTheSession` only feeds it | `functional.md` §0, §1 and §7 |
 | the taps themselves, their thread, what is swallowed, the click's budget | **Invoke `shiftpick-safety-nets` first.** `Platform/ClickGuard.swift` (it executes `TapLifecycle`'s effects and decides nothing), `TapThread.swift`, `DeadlineGate.swift` — `DeadlineGateTests`, `TapThreadTests`, `SafetyNetTests` | `functional.md` §0, §1 and §2, `macOS.md` *The event taps* |
 | **a feature that listens to, swallows, delays or posts input** | **Invoke `shiftpick-safety-nets` first, and design it with the owner.** Listening goes through the sentinel and swallowing through the click tap, both under `TapLifecycle`; never a tap, an `NSEvent` global monitor or a `CGEvent.post` of its own | `functional.md` §0 and §1 |
 | how the grant is read, asked about live, or lost | **Invoke `shiftpick-safety-nets` first.** `Platform/Permissions.swift` (`liveVerdict`, `verdict(for:)`), `Platform/AX.swift` (`refusalCount`) — `TrustVerdictTests` | `macOS.md` *The permission*, `functional.md` §7 |
@@ -149,7 +149,7 @@ make release     # skill: macos-publish-release. The same, plus tag, push, GitHu
 
 - `swift build` — the three code targets and the probe. **This is the truth**; editor diagnostics are
   frequently stale.
-- `swift test` — two bundles, and **one summary line each: count two.** `ShiftPickCoreTests` (330) runs in
+- `swift test` — two bundles, and **one summary line each: count two.** `ShiftPickCoreTests` (345) runs in
   about four seconds; `ShiftPickPlatformTests` (38) spawns real subprocesses and threads and takes a moment
   longer.
   `swift test --filter <SuiteName>` runs one suite; `swift test --filter SafetyNetTests` is the quick look
@@ -209,7 +209,9 @@ Three code targets, dependencies pointing one way: Core ← Platform ← App. Fu
   `PathRules` + `UninstallPlan` · the update's rules (`UpdateCheck`, `UpdateSchedule`, `UpdatePanel`, `UpdateSession`,
   `StagedUpdateCheck`, `UpdateInstallScript`) · the Health page's rules (`Health`, `HealthRules`, `HealthReport`,
   and `HealthConstants`, its two numbers as an extension of `K` kept out of the safety layer's `Constants.swift`) · **`TapLifecycle`** + `TrustVerdict` (when the click tap may be
-  enabled, as a value: an event and the time in, the new state and what to do about it out) · `Localization` (`Language`, `Loc`) + `Strings*` (every
+  enabled, as a value: an event and the time in, the new state and what to do about it out) · **`AwayReasons`** (why
+  nobody can be clicking: the reasons a Mac is away, and when the listener is suspended and resumed for them, as a
+  value) · `Localization` (`Language`, `Loc`) + `Strings*` (every
   user-facing string, English and French side by side, one table per surface).
 - **`Sources/ShiftPickPlatform`** — the only code that talks to the system. **`ClickGuard`** (the two event
   taps, and the only thing that may swallow a click; it executes what `Core/TapLifecycle` decides) ·
@@ -343,18 +345,20 @@ the log.
 
 ## Status
 
-`swift build` is clean and `swift test` is green (330 + 38) at this commit. The app target has no automated
+`swift build` is clean and `swift test` is green (345 + 38) at this commit. The app target has no automated
 tests; `docs/manual-test-checklist.md` is its verification.
 
-**Five files of the safety layer have changed since the last release** — `TapLifecycle.swift`,
-`ClickGuard.swift`, `ShiftPickEngine.swift`, `ShiftClickResolver.swift`, `AppDelegate.swift` — so **§9 of
-`docs/manual-test-checklist.md` is owed**, walked by the owner on an installed build, before the next
-release. `make release` refuses until the owner says `DRILL=walked` or `DRILL=waived`, which is never an
+**Six files of the safety layer have changed since the last release** — `TapLifecycle.swift`,
+`ClickGuard.swift`, `ShiftPickEngine.swift`, `ShiftClickResolver.swift`, `AppDelegate.swift`, and
+`AwayReasons.swift`, which is new — so **§9 of `docs/manual-test-checklist.md` is owed**, walked by the owner
+on an installed build, before the next release. **Its lid step now walks the way back in both orders**: the
+wake-first order once left the listener suspended for good with every window saying it was listening
+(`docs/pitfalls.md` 17), which is fixed and pinned and has not yet been seen on an installed build. `make release` refuses until the owner says `DRILL=walked` or `DRILL=waived`, which is never an
 agent's to set.
 
 **What is proven and what is not, about the safety model.** The rules are proven: `TapLifecycle` is a value,
 and its scenarios and 80,000 seeded events run on every `swift test`, as do the click's deadline and the
-taps' thread. **The code no test can run is pinned where it stands**: `SafetyNetTests` holds 19 checks over
+taps' thread. **The code no test can run is pinned where it stands**: `SafetyNetTests` holds 20 checks over
 it, and each was shown to fail against a copy of the code with its net removed.
 **The taps have been seen on the owner's Mac**, which is the only place they can be:
 `ClickGuard` cannot run in a test, because a test runner has no Accessibility grant to create a tap with. The

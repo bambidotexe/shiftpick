@@ -25,6 +25,7 @@
 # second copy, the quit, the uninstall. SafetyNetTests pins the nets in it; the drill is what shows, on a
 # real Mac, that they still hold.
 SAFETY_FILES="
+Sources/ShiftPickCore/AwayReasons.swift
 Sources/ShiftPickCore/Constants.swift
 Sources/ShiftPickCore/TapLifecycle.swift
 Sources/ShiftPickCore/TrustVerdict.swift
@@ -45,7 +46,7 @@ Sources/ShiftPickApp/ShiftPickMain.swift
 
 # The suites that pin the nets. A run that did not include one of them has not checked what it pins, however
 # green the rest is.
-SAFETY_SUITES="SafetyNetTests TapLifecycleTests TapLifecycleInvariantTests DeadlineGateTests TapThreadTests TrustVerdictTests BoundedWaitTests"
+SAFETY_SUITES="SafetyNetTests TapLifecycleTests TapLifecycleInvariantTests AwayReasonsTests DeadlineGateTests TapThreadTests TrustVerdictTests BoundedWaitTests"
 
 tests_pass() {
   root="${1:?tests_pass <root>}"

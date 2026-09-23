@@ -351,13 +351,22 @@ converted anywhere, and no Cocoa rectangle ever reaches the click path.
   twice on a MacBook, the lid closed for about a minute and a half: `NSWorkspace.willSleepNotification` 0.19 s
   and 0.14 s **before** `com.apple.screenIsLocked`, the Mac asleep a few seconds later; on opening,
   `com.apple.screenIsUnlocked` reached the app **before any wake notice did** both times, the first time a
-  second before `pmset` recorded the wake. A design that
-  waited for `didWake` to end the sleep would have waited for a notification that was not coming first, and
-  might not have come at all. `com.apple.screenIsLocked` and `com.apple.screenIsUnlocked` are not documented.
-- So the reasons are held against the session itself at any news (`AppDelegate.reconcileAway`):
-  `CGSessionCopyCurrentDictionary()` says whether the screen is locked (`CGSSessionScreenIsLocked`, present
-  and true only while it is) and whether this session is the one on the console (`kCGSessionOnConsoleKey`),
-  and any news at all is a Mac that is awake.
+  second before `pmset` recorded the wake. **And the other way round**, with the lid closed and the Mac kept
+  awake by another app that was quit and opened again, which starts a sleep the moment its assertion goes
+  and wakes the Mac to its lock screen when it is back: `NSWorkspace.didWakeNotification` reached the app
+  0.8 s after `kIOMessageSystemHasPoweredOn` and **2.9 s before** `com.apple.screenIsUnlocked`, which waited
+  for Touch ID; the system's own log shows the same order in an earlier episode the same morning. A design
+  that waited for `didWake` to end the sleep would have waited for a notification that was not coming first,
+  and might not have come at all; one that resumed only when the unlock cleared everything at once stayed
+  suspended for good in the other order (`pitfalls.md` 17). `com.apple.screenIsLocked` and
+  `com.apple.screenIsUnlocked` are not documented.
+- So the reasons are held against the session itself at any news (`Core/AwayReasons`, fed by
+  `AppDelegate.watchTheSession`): `CGSessionCopyCurrentDictionary()` says whether the screen is locked
+  (`CGSSessionScreenIsLocked`, present and true only while it is) and whether this session is the one on the
+  console (`kCGSessionOnConsoleKey`), and any news at all is a Mac that is awake. The session ends a reason
+  and never begins one, and a reason's own notification of coming back ends it whatever the dictionary reads
+  at that instant: `loginwindow` writes the lock state 6 ms before it sends the unlock, and nothing promises
+  every key before every notice.
 
 ## The uninstall
 

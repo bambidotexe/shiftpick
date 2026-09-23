@@ -222,6 +222,45 @@ with the Settings refresh paused and a line in the log per step. A step that doe
 last alert and the uninstall goes on. `BoundedWaitTests` pins both waits, including that nothing on the
 caller's run loop fires while they wait.
 
+## 17. A reconcile that refused an empty set never resumed the last reason
+
+**Symptom.** The app runs, the menu says it is listening, the Health page is all green, and a ⇧ Shift click
+does exactly what Finder does on its own. It began after the lid had closed and the Mac had been unlocked
+again, and a quit and a relaunch put it right until the next time.
+
+**What the log said**, with what `loginwindow` sent beside it:
+
+```
+10:42:12.397 loginwindow  kIOMessageSystemWillSleep
+10:42:12.404 [app]        away (asleep); nothing arms until it is over
+10:42:12.568 loginwindow  com.apple.screenIsLocked
+10:42:12.569 [app]        away (locked); nothing arms until it is over
+10:42:20.640 loginwindow  kIOMessageSystemHasPoweredOn
+10:42:21.452 [app]        back (asleep); still away: locked
+10:42:24.343 loginwindow  com.apple.screenIsUnlocked                    ← the app said nothing, ever again
+```
+
+**Why.** The reasons were a set in `AppDelegate`, each put down by its own notification and then held against
+the session. The notification of coming back removed its reason first and reconciled after, and the reconcile
+began with `guard !awayReasons.isEmpty else { return }`. So the reason that ended last, ended by its own
+notification, left an empty set that nothing looked at: no log line, no `engine.resume()`, and a lifecycle
+that stayed `.suspended`, whose status is `.watching`, so every window said it was listening. The ⇧ Shift
+press that was meant to catch a lost notification went through the same guard with the same empty set.
+**The order of two notifications decided it**: the unlock first clears both in one reconcile and works, which
+is the order the first walk happened to get (`macOS.md`, *Sleep and the lock screen*); the wake first, then an
+unlock that waits for Touch ID, is the order that fails, and it is the ordinary one when a Mac wakes to its
+lock screen. An earlier episode the same morning ended in the same state with one of the two lines it must
+have logged missing from `log show` (`docs/shared/pitfalls.md` T6); the line that is there is enough.
+
+**What holds.** `Core/AwayReasons` holds the reasons and whether the listener is suspended for them, as a
+value: the first reason suspends, the last to end resumes, whichever it is, in whichever order, whether it
+ends by its own notification or by the session's answer; a reason's own notification of coming back ends it
+whatever the session reads at that instant; and ⇧ Shift heard while the listener is suspended is answered
+from the session alone, whatever the reasons say. `AwayReasonsTests` walks both orders, the log above, a
+reason never heard going, and a seeded run after every step of which the listener is suspended exactly while
+a reason is held. `SafetyNetTests` pins that the delegate suspends and resumes the engine through that value
+and nowhere else.
+
 ---
 
 ## Open issues

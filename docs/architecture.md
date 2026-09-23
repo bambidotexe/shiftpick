@@ -22,7 +22,7 @@ ShiftPickCore  ←  ShiftPickPlatform  ←  ShiftPickApp
 | Layer | Files | What they own |
 |---|---|---|
 | Core | `LayoutItem`, `Lattice`, **`LayoutModel`**, `Clusters`, `Grid`, `ShiftClick`, `LayoutConstants` | The selection maths. Frames in, a classified layout, one reading order, a range and the selection a ⇧ Shift click leaves out. `ShiftClick` is AppKit's measured rule over any order; `Clusters` and `Grid` infer the order of a view Finder is not laying out, on the tolerances `LayoutConstants` holds apart from the safety layer's own `Constants.swift`. |
-| | **`TapLifecycle`**, `TrustVerdict` | When the click tap may be enabled, and what every event does to it. An event and the time in, the new state and what to do about it out. |
+| | **`TapLifecycle`**, `TrustVerdict`, `AwayReasons` | When the click tap may be enabled, and what every event does to it. An event and the time in, the new state and what to do about it out. `AwayReasons` is why nobody can be clicking: the reasons a Mac is away, a notification or the session's answer in, suspend and resume out. |
 | | `Settings`, `Constants` (`K`), `AppIdentity`, `Paths`, `QuietLaunch`, `SupportLink` | The values the rest of the app is built on. |
 | | `UpdateCheck`, `UpdateSchedule`, `UpdatePanel`, `UpdateSession`, `StagedUpdateCheck`, `UpdateInstallScript` | Every rule of the update that does not need a network or a disk. |
 | | `UninstallPlan` | What an uninstall removes, and the text of the helper that finishes it. |
@@ -62,14 +62,17 @@ at that moment**, and then layers what is left:
 | 2 | **Arming asks first, and so does creating the taps**: a live Accessibility request, answered by the Dock, no older than 2 s and asked after the grant was last put in doubt. Only a process that has just started may create them on the cached answer. Any call that comes back refused destroys both taps. | `AXIsProcessTrusted()` going on saying yes after the grant has gone. |
 | 3 | **The privacy notification disarms before anything is asked**, then the grant is looked at three times over three seconds. | The notification arriving before the answer changes. |
 | 4 | **A watch while armed, and only then, that disarms rather than wait**: the keys according to the keyboard itself, a minute with nothing clicked, a question about the grant still unanswered at the next look. | A key release never heard, an ⌥ Option press never heard, a key held down by a bag, Sticky Keys, a worker that has stopped answering. |
-| 5 | **Taps destroyed first** on quit and before an uninstall resets the grant, and nothing created after that whatever the lifecycle believes; nothing armed across sleep, the lock screen, another user's session, each counted apart and held against the session itself at any news. | The app taking its own grant away; a lid that locks, sleeps and wakes still locked; a notification that never arrives. |
+| 5 | **Taps destroyed first** on quit and before an uninstall resets the grant, and nothing created after that whatever the lifecycle believes; nothing armed across sleep, the lock screen, another user's session, each held apart and against the session itself at any news, the last to end resuming the listener whichever it is (`Core/AwayReasons`). | The app taking its own grant away; a lid that locks, sleeps and wakes still locked; the two notices of the way back in either order; a notification that never arrives. |
 | 6 | **The budget is kept by whoever waits.** The taps' thread hands a click to a worker and waits 150 ms. | A Finder, or an Accessibility call, that never answers. |
 
 **The rules are a value.** `Core/TapLifecycle` decides all of layers 0 to 5 from an event and the time, with
 no tap, no thread and no clock in sight, which is what lets every scenario be a unit test: 93 of them by
 name, and a seeded run of 80,000 events in an order nobody would write, after each of which ten sentences
 have to hold: the click tap is enabled in exactly one phase, only ever while the keys ask for it, and taps
-are only ever created on a live answer. `Platform/ClickGuard` executes what it says, in order. What it
+are only ever created on a live answer. The away half of layer 5 is `Core/AwayReasons`, a value of its own:
+thirteen scenarios by name, both orders of the lid's way back among them, and a seeded run of 60,000
+notifications after each of which the listener is suspended exactly while a reason is held.
+`Platform/ClickGuard` executes what it says, in order. What it
 carries itself is what only it can see: which press is ShiftPick's to decide, that the callback never enables
 a tap, and that nothing is created once it has been shut down.
 

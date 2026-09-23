@@ -220,9 +220,14 @@ checklist with it.
       range stays exactly as it was set, and `disarmed` comes after the release.
 - [ ] Close the lid for a minute and open it, lock the screen and unlock it: an `away (asleep)` and an
       `away (locked)` line when the lid closes, in either order, and **one line ending `nothing is away any
-      more`** once the screen is unlocked, never before. A `back (asleep); still away: locked` line may come
-      in between, or not: on the Mac this was walked on the unlock arrived first and cleared both. The first
-      ⇧ Shift click afterwards is a range, and no `macOS took the … tap away` line appears.
+      more`** once the screen is unlocked, never before. **Walk the way back in both orders**: unlock the
+      moment the lock screen shows (the unlock notice arrives first and one `back (locked)` line clears
+      both), and open the lid, wait five seconds on the lock screen, then unlock (`back (asleep); still away:
+      locked`, then `back (locked); nothing is away any more`). The second order once left ShiftPick
+      suspended for good with every window saying it was listening (`docs/pitfalls.md` 17). With the lid
+      closed and the Mac kept awake by KoffeeLid, quitting and reopening KoffeeLid walks the second order
+      without touching the lid. The first ⇧ Shift click after either is a range, and no `macOS took the …
+      tap away` line appears.
 - [ ] Open a second copy (`open -n /Applications/ShiftPick.app`): it leaves at once with `already running as
       pid …; this copy leaves and asks it for its window`, the first copy logs `a second copy asked for the
       window`, and its Settings window comes forward.

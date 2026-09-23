@@ -251,6 +251,28 @@ final class SafetyNetTests: XCTestCase {
         }
     }
 
+    /// The reasons a Mac is away are `Core/AwayReasons`, which `AwayReasonsTests` pins; the delegate feeds
+    /// it and does what it says. A set of the delegate's own, looked at only once it was empty, is what left
+    /// the engine suspended for good with every window saying it was listening (docs/pitfalls.md 17).
+    func testTheSessionIsReconciledThroughOneValue() throws {
+        let path = "Sources/ShiftPickApp/AppDelegate.swift"
+        let delegate = try code(path)
+        XCTAssertTrue(delegate.contains("AwayReasons()"), """
+            AppDelegate no longer holds Core/AwayReasons. The reasons a Mac is away, and when the engine is \
+            suspended and resumed for them, are decided there as a value and pinned by AwayReasonsTests \
+            (docs/functional.md §1; docs/pitfalls.md 17).
+            """)
+        let run = try XCTUnwrap(bodies(after: "func run(_ effects: [AwayReasons.Effect])", in: delegate).first,
+                                "AppDelegate.run(_:) is what does what AwayReasons decided.")
+        for call in ["engine.suspend()", "engine.resume()"] {
+            XCTAssertEqual(occurrences(of: call, in: [(path: path, code: delegate)]), [path], """
+                \(call) is called once in AppDelegate, in run(_:), under the effect AwayReasons decided. A second \
+                call is a way for the engine's state and the reasons to disagree (docs/pitfalls.md 17).
+                """)
+            XCTAssertTrue(run.contains(call), "\(call) is done in run(_:), under AwayReasons' effect.")
+        }
+    }
+
     func testWindowsShowTheGrantThroughOneRule() throws {
         let catalogue = try code("Sources/ShiftPickApp/GrantCatalogue.swift")
         XCTAssertTrue(catalogue.contains("granted: grantIsInPlace") && !catalogue.contains("Permissions.accessibilityGranted"), """

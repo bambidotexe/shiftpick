@@ -117,13 +117,18 @@ reasons, and they are not alike:
   would be heard back in turn.
 
 **Nothing is armed while nobody can be clicking**: the Mac asleep, the screen locked, another user's session
-in front. **The reasons are counted**: closing a lid both sleeps and locks, and the way back can wake the Mac
-with the lock screen still up, so each reason is ended by its own notification and nothing arms until none is
-left. Taps created meanwhile arm nothing either. Coming back asks about the grant again before anything
-arms. **And no notification is trusted to arrive**: whenever there is news of any kind, a notification of
-coming back or somebody pressing ⇧ Shift while the Mac is said to be away (at most every
-**`K.awayCheckInterval` (5 s)**), the reasons are held against what the session says itself. A lost unlock
-therefore costs that one press, which goes to Finder, and never leaves ShiftPick asleep with Settings
+in front. **The reasons are held apart** (`Core/AwayReasons`): closing a lid both sleeps and locks, and the
+way back can wake the Mac with the lock screen still up or unlock it before any wake notice comes, so the
+first reason heard suspends the listener, each reason is ended by its own notification, and **the last one to
+end resumes it, whichever it is and in whichever order they end**. Taps created meanwhile arm nothing either.
+Coming back asks about the grant again before anything arms. **And no notification is trusted to arrive**:
+whenever there is news of any kind, a notification of coming back, whether its reason was heard going or
+not, or somebody pressing ⇧ Shift while the listener is suspended (at most every **`K.awayCheckInterval`
+(5 s)**), the reasons are held against what the session says itself: any news at all is a Mac that is awake,
+and the session says whether its screen is locked and whether it is the one on the console. The session ends
+reasons and never begins one, a reason's own notification of coming back ends it whatever the session reads
+at that instant, and the ⇧ Shift press is answered from the session alone, whatever the reasons say. A lost
+unlock therefore costs that one press, which goes to Finder, and never leaves ShiftPick asleep with Settings
 saying it is listening.
 
 **Both taps are destroyed before anything that takes the grant or the process away**: a quit, which is also

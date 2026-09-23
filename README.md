@@ -192,7 +192,7 @@ ShiftPick is free and carries no ads. If it saves you trouble, you can leave a t
 ## Notes
 
 - Personal build: English and French.
-- `swift test` runs 368 tests across the two library targets (330 + 38); the app target's verification is
+- `swift test` runs 383 tests across the two library targets (345 + 38); the app target's verification is
   `docs/manual-test-checklist.md`, the log, and `swift run axdump range`.
 - The app icon is a placeholder, generated from the same three-bar mark the menu-bar item draws. See
   `Resources/ICON-NOTES.md`.
