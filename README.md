@@ -30,6 +30,16 @@ edge, or holding ⌘ Command and clicking forty times.
 
 The Desktop is icon view too, so it has the same gap.
 
+## Click one, ⇧ Shift click another
+
+<p align="center">
+  <img src="docs/assets/shift-click.gif" width="720" alt="A Finder window in icon view. Finder alone: one file is clicked, then another with ⇧ Shift held, and only that one is added. With ShiftPick in the menu bar, the same two clicks select every file between them, across the row and down to the next, and a third ⇧ Shift click narrows the range from the same first file.">
+</p>
+
+That is the whole of it. The animation is an illustration, drawn to the app's own rules: the reading order,
+what a ⇧ Shift click leaves selected and the first file every range is measured from are the real ones. The
+window is schematic.
+
 ## What it does
 
 | You do | What happens |
