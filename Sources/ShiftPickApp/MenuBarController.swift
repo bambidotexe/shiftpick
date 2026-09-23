@@ -100,41 +100,58 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     // MARK: - The mark
 
     /// The brand mark, drawn rather than shipped as an asset so that it rebuilds from source and follows
-    /// the menu bar's own colour as a template image.
+    /// the menu bar's own colour as a template image. It is the app icon's drawing on an 18 pt canvas.
     ///
-    /// A column of three bars: the first and the third are outlines and the middle one is filled, which is
-    /// the gesture in one picture — two clicks, and everything between them taken. The numbers below are
-    /// the only ones that fit an 18 pt canvas with equal gaps above, below and between: three bars of
-    /// `barHeight` and two gaps of `gap` fill exactly the inset height.
+    /// Four icons in a grid, three of them selected and the fourth not: a range picked out of a folder.
+    /// The numbers are the menu-bar SVG's, in its own top-left coordinates, which is why the image is
+    /// flipped. The fourth tile is a ring: its hole is a second tile inside it, cut out by the even-odd rule.
     static func icon() -> NSImage {
-        let side: CGFloat = 18
-        let image = NSImage(size: NSSize(width: side, height: side), flipped: false) { _ in
-            let width: CGFloat = 13
-            let barHeight: CGFloat = 3.4
-            let gap: CGFloat = 1.9
-            let stroke: CGFloat = 1.1
-            let total = barHeight * 3 + gap * 2
-            let left = (side - width) / 2
-            var top = (side + total) / 2 - barHeight
-
-            NSColor.black.setFill()
-            NSColor.black.setStroke()
-            for index in 0..<3 {
-                let rect = NSRect(x: left, y: top, width: width, height: barHeight)
-                let path = NSBezierPath(roundedRect: index == 1 ? rect : rect.insetBy(dx: stroke / 2, dy: stroke / 2),
-                                        xRadius: barHeight / 2, yRadius: barHeight / 2)
-                if index == 1 {
-                    path.fill()
-                } else {
-                    path.lineWidth = stroke
-                    path.stroke()
-                }
-                top -= barHeight + gap
+        let image = NSImage(size: NSSize(width: 18, height: 18), flipped: true) { _ in
+            let path = NSBezierPath()
+            path.windingRule = .evenOdd
+            for origin in [NSPoint(x: 1, y: 1), NSPoint(x: 10, y: 1), NSPoint(x: 1, y: 10), NSPoint(x: 10, y: 10)] {
+                appendTile(to: path, in: NSRect(origin: origin, size: NSSize(width: 7, height: 7)), radius: 1.566)
             }
+            appendTile(to: path, in: NSRect(x: 11.5, y: 11.5, width: 4, height: 4), radius: 0.2)
+            NSColor.black.setFill()
+            path.fill()
             return true
         }
         image.isTemplate = true
         image.accessibilityDescription = AppIdentity.name
         return image
+    }
+
+    /// One rounded square with the SVG's continuous corners: each corner leaves its edge 1.6 radii before
+    /// the corner, eases in, turns through the middle 36° of a circle of `radius` and eases out. That arc
+    /// is written as one cubic, which is within a millionth of the radius of the circle.
+    private static func appendTile(to path: NSBezierPath, in rect: NSRect, radius: CGFloat) {
+        // One corner, in radii from the corner itself: the first number runs along the edge coming in, the
+        // second along the edge going out. Three points to a curve: two controls, then where it ends.
+        let corner: [(CGFloat, CGFloat)] = [
+            (-1.0396, 0), (-0.760, 0), (-0.546, 0.109),
+            (-0.358, 0.205), (-0.205, 0.358), (-0.109, 0.546),
+            (0, 0.760), (0, 1.0396), (0, 1.5996),
+        ]
+        // Clockwise on screen, starting along the top edge: each corner, the way in and the way out.
+        let turns: [(NSPoint, CGVector, CGVector)] = [
+            (NSPoint(x: rect.maxX, y: rect.minY), CGVector(dx: 1, dy: 0), CGVector(dx: 0, dy: 1)),
+            (NSPoint(x: rect.maxX, y: rect.maxY), CGVector(dx: 0, dy: 1), CGVector(dx: -1, dy: 0)),
+            (NSPoint(x: rect.minX, y: rect.maxY), CGVector(dx: -1, dy: 0), CGVector(dx: 0, dy: -1)),
+            (NSPoint(x: rect.minX, y: rect.minY), CGVector(dx: 0, dy: -1), CGVector(dx: 1, dy: 0)),
+        ]
+        for (index, (point, incoming, outgoing)) in turns.enumerated() {
+            func at(_ offset: (CGFloat, CGFloat)) -> NSPoint {
+                NSPoint(x: point.x + (offset.0 * incoming.dx + offset.1 * outgoing.dx) * radius,
+                        y: point.y + (offset.0 * incoming.dy + offset.1 * outgoing.dy) * radius)
+            }
+            let start = at((-1.5996, 0))
+            if index == 0 { path.move(to: start) } else { path.line(to: start) }
+            for curve in stride(from: 0, to: corner.count, by: 3) {
+                path.curve(to: at(corner[curve + 2]),
+                           controlPoint1: at(corner[curve]), controlPoint2: at(corner[curve + 1]))
+            }
+        }
+        path.close()
     }
 }

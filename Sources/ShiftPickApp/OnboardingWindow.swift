@@ -41,7 +41,7 @@ final class OnboardingWindowController: NSWindowController, NSWindowDelegate {
 
     /// The app icon's own blue (`Resources/AppIcon.icon/icon.json`), used to accent one word of the headline
     /// and to tint the capsules.
-    private static let brand = NSColor(srgbRed: 0.29804, green: 0.49020, blue: 0.94118, alpha: 1)
+    private static let brand = NSColor(srgbRed: 0.22353, green: 0.47059, blue: 0.96078, alpha: 1)
 
     private var step = 0
     private var observers: [NSObjectProtocol] = []

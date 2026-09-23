@@ -336,6 +336,10 @@ SHIFTPICK_UPDATE_FEED=file:///tmp/latest.json /Applications/ShiftPick.app/Conten
       the **Start Listening Again** button (§9). The permission missing: no group at all, the Accessibility
       row saying it instead.
 - [ ] **Launch at login** on, log out and in: the app starts and **opens no window**.
+- [ ] **The icons.** The menu-bar mark is the four-tile grid, three filled and the bottom-right one a ring,
+      crisp and in the menu bar's own colour on a light and a dark wallpaper, and inverted while its menu is
+      open. The app icon in the Applications folder, in the wizard's first page and on Settings › General is
+      the blue glass grid, not a generic application icon.
 - [ ] **Show in menu bar** off: the icon goes and the app keeps working. Open the app again from the
       Applications folder: the Settings window comes back.
 - [ ] `make install` over a running copy: the app is replaced and **opens no window** (the quiet-launch

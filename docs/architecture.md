@@ -204,9 +204,10 @@ inside a comparator: that alone was the difference between 47 seconds and 0.06 f
 ## Build and signing
 
 `scripts/make-app.sh` assembles `build/ShiftPick.app`: the release binary, `Assets.car` compiled by
-`actool` from `Resources/AppIcon.icon`, a flat `.icns` rasterised from the 1024 px master, two `.lproj`
-directories so the app appears in Language & Region's per-app list, a generated `Info.plist`, and one
-`codesign` with `--options runtime --timestamp`. There is nothing nested to sign.
+`actool` from `Resources/AppIcon.icon`, a flat `.icns` rasterised from the 1024 px master that `ictool`
+renders from the same document (`Resources/ICON-NOTES.md`), two `.lproj` directories so the app appears in
+Language & Region's per-app list, a generated `Info.plist`, and one `codesign` with `--options runtime
+--timestamp`. There is nothing nested to sign.
 
 **The app's name, its bundle identifier and its GitHub repository are written once**, in
 `scripts/signing.env`. `make-app.sh` puts all three into the built `Info.plist` — the repository as a

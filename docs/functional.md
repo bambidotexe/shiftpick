@@ -379,7 +379,9 @@ ignored.
 
 ## 6. The menu-bar item
 
-Rebuilt from scratch every time it is opened, so it is never a language or a state behind.
+Rebuilt from scratch every time it is opened, so it is never a language or a state behind. Its mark is the
+app icon's drawing, 18 pt, as a template image that takes the menu bar's own colour: four icons in a grid,
+three of them selected and the fourth an outline.
 
 ```
 Launch at Login             ✓
