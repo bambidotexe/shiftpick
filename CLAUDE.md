@@ -171,10 +171,11 @@ make release     # skill: macos-publish-release. The same, plus tag, push, GitHu
   `macos-publish-release`, *Release notes*), on a dirty tree, on a failing test, and **while a file of the safety layer differs from the last release**,
   until the owner says `DRILL=walked` or `DRILL=waived` (never an agent's to set); computes the new version
   and refuses if that tag already exists, then bumps the version by the level given, commits and pushes that
-  bump, and only then builds — everything `install` does, plus the tag, the push and the GitHub release
+  bump, and only then builds — the same build `install` makes, then the tag, the push and the GitHub release
   carrying the image. Nothing bumps the version again afterward. Run it only when the owner has asked for a
-  release, and ask which level if they have not said. `sh scripts/publish.sh <level> --notes=<file> --no-install` publishes
-  and leaves `/Applications` alone, which is how the update a user gets is tested.
+  release, and ask which level if they have not said. It leaves `/Applications` alone,
+  so the copy here finds the release and installs it itself, as a user's does; `--install` (`make release …
+  INSTALL=1`) installs it here too, and is passed only when the owner asks for it.
 - `sh scripts/drill.sh [seconds]` — **the dead-man's switch for the safety drill**
   (`docs/manual-test-checklist.md` §9): it kills ShiftPick after 30 s whatever happens, then follows the log.
   The owner starts it, right before each step that takes the grant away. An agent never runs a drill step.
