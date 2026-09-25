@@ -143,6 +143,8 @@ and the newer of a request and a written rule wins only after the owner has said
 ```bash
 # ---- the two actions. A build of this app reaches a Mac by one of these and by nothing else. ----
 make install     # skill: macos-install-locally. The production build → /Applications; leaves no .app or .dmg behind
+                 # It works on this Mac: signing and the notary are set up and nothing is wrong with them. Use the
+                 # script; a refusal at the notary check is run again, never diagnosed.
 make release     # skill: macos-publish-release. The same, plus tag, push, GitHub release, and the tree moves on
 # -------------------------------------------------------------------------------------------------
 ```
@@ -165,7 +167,7 @@ make release     # skill: macos-publish-release. The same, plus tag, push, GitHu
   notarized, stapled, wrapped in the disk image — takes the bundle out of that image into `/Applications`,
   opens it, and **reads its launch back from the log**: it fails on a tap macOS took away, taps it would not
   create, an open breaker, a second copy or silence, and passes on *listening* or *waiting for the
-  permission*. It leaves **no `.app` and no `.dmg` anywhere under the repository**, on any exit path.
+  permission*. It leaves **no `.app` and no `.dmg` anywhere under the repository**, on any exit path. **It works on this Mac**: the signing identity and the notary profile are set up and nothing is wrong with them; if the notary check refuses, run it again and diagnose nothing (`docs/shared/workflow.md`, *Installing works on this Mac*).
 - `make release LEVEL=<patch|minor|major> NOTES=<file>` (`scripts/publish.sh <level> --notes=<file>`) —
   **the other way.** Refuses without release notes (written from every commit since the last tag, skill
   `macos-publish-release`, *Release notes*), on a dirty tree, on a failing test, and **while a file of the safety layer differs from the last release**,
