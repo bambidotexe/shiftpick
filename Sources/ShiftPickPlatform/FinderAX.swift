@@ -39,7 +39,7 @@ public enum FinderAX {
         /// An Open or Save panel shown as icons. **Measured**: its hierarchy is Finder's, identifier for
         /// identifier, and its own ⇧ Shift click has exactly the same gap — it adds the one item under the
         /// pointer. It is hosted by whichever application put the panel up, so the process is not Finder's
-        /// and the window's `AXIdentifier` is what recognises it instead.
+        /// and the `AXIdentifier` of the panel's own window, or of its sheet, is what recognises it instead.
         case panel
     }
 
@@ -111,8 +111,8 @@ public enum FinderAX {
         AX.setTimeout(timeout, on: hit)
 
         // The chain up from what was hit. Twelve is far more than any of the three shapes needs — the
-        // deepest, a file panel, puts its window seven above the icon — and it bounds the walk in a
-        // hierarchy this code does not own.
+        // deepest, a file panel shown as a sheet, puts the window it is attached to eight above the icon —
+        // and it bounds the walk in a hierarchy this code does not own.
         var chain: [AXUIElement] = [hit]
         while chain.count < 12, shouldContinue(), let parent = AX.parent(chain[chain.count - 1]) {
             AX.setTimeout(timeout, on: parent)
@@ -131,10 +131,10 @@ public enum FinderAX {
                 return .item(Target(view: view, item: chain[depth - 1]))
             }
             if role == "AXList", subrole == "AXCollectionList" {
-                let window = self.window(of: element, above: depth, in: chain)
                 // Finder's own window, or a panel, and nothing else: another application's collection
                 // list is somebody else's control, whatever it looks like.
-                guard let host = host(isFinder: isFinder, window: window) else { return .elsewhere }
+                guard let host = host(isFinder: isFinder, above: chain[(depth + 1)...]) else { return .elsewhere }
+                let window = self.window(of: element, above: depth, in: chain)
                 let view = IconView(container: element, window: window, host: host)
                 // The item is a section's child, so the section has to lie between them: a hit on the
                 // section itself is the gap between two icons, and a hit on a group's header is its text.
@@ -146,9 +146,11 @@ public enum FinderAX {
         return .elsewhere
     }
 
-    /// The window a view is in. Finder's collection list answers `AXWindow` itself; **a file panel's does
-    /// not** (measured: `AXWindow` on it is `kAXErrorNoValue`), so the chain the hit test already walked is
-    /// searched for one instead.
+    /// The window a view is in, which is the one a swallowed click raises. Finder's collection list answers
+    /// `AXWindow` itself; **a file panel's does not** (measured: `AXWindow` on it is `kAXErrorNoValue`), so
+    /// the chain the hit test already walked is searched for one instead. For a panel shown as a sheet that
+    /// is the window the sheet is attached to: measured, the sheet takes `AXRaise` but has no `AXMain`, and
+    /// its window takes both.
     private static func window(of container: AXUIElement, above depth: Int,
                                in chain: [AXUIElement]) -> AXUIElement? {
         if let window = AX.element(container, "AXWindow") { return window }
@@ -161,9 +163,19 @@ public enum FinderAX {
     private static let panelWindowIdentifiers: Set<String> = ["open-panel", "save-panel"]
 
     /// nil when this collection list is neither Finder's nor a file panel's.
-    private static func host(isFinder: Bool, window: AXUIElement?) -> Host? {
+    ///
+    /// A panel says what it is on **its own window: the first window or sheet above the view**, which is
+    /// not always the window the view is in. A panel standing on its own is an `AXWindow` carrying the
+    /// identifier. **A panel shown as a sheet**, as a browser shows its file chooser and as anything put up
+    /// with `beginSheetModal` is, is an `AXSheet` carrying it, inside the application's `AXWindow`, which
+    /// carries the application's own identifier or none (measured on Chrome's; `docs/pitfalls.md` 18).
+    private static func host(isFinder: Bool, above: ArraySlice<AXUIElement>) -> Host? {
         if isFinder { return .finderWindow }
-        guard let window, let identifier = AX.string(window, "AXIdentifier"),
+        let own = above.first { element in
+            let role = AX.role(element)
+            return role == "AXWindow" || role == "AXSheet"
+        }
+        guard let own, let identifier = AX.string(own, "AXIdentifier"),
               panelWindowIdentifiers.contains(identifier) else { return nil }
         return .panel
     }

@@ -90,6 +90,7 @@ the rule was **follow the most recently committed one**, which is `my-sidepulse`
 | The rename check is **not** made for a panel | A Save panel keeps its name field focused the whole time it is up, so asking Finder's question of a panel would refuse every click in it. |
 | The application brought forward is the panel's own, not Finder | That is what the click would have done. |
 | The window is found by walking the chain, not by asking for `AXWindow` | Measured: a panel's collection list answers `kAXErrorNoValue` for `AXWindow`, where Finder's answers with its window. |
+| The identifier is read off the first window **or sheet** above the view, and the window raised is still the first `AXWindow` | Measured on Chrome's file chooser: a panel shown as a sheet is an `AXSheet` carrying `open-panel`, inside the application's `AXWindow`, which carries none. The sheet is the panel's own window; the window it is attached to is the one to raise, because the sheet has no `AXMain` (`docs/pitfalls.md` 18). |
 
 ## What was left out, and why
 

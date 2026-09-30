@@ -107,9 +107,40 @@ AXWindow / AXDialog    AXIdentifier=open-panel        ← what recognises it
                  └ AXImage
 ```
 
+**Shown as a sheet**, as a browser shows its file chooser and as anything put up with `beginSheetModal` is,
+the same panel is an `AXSheet` inside the application's window, and **the identifier is on the sheet**: the
+window above it carries the application's own identifier, or none. Read on macOS 27.2 (26B5091g), over
+Chrome's chooser and over an AppKit window's:
+
+```
+AXWindow / AXStandardWindow                           ← the application's window: no identifier
+ └ AXSheet             AXIdentifier=open-panel        ← what recognises it
+     └ AXSplitGroup … AXScrollArea             id=_NS:23
+         └ AXList / AXCollectionList           id=IconView
+             └ …                                          as above
+```
+
+A Save panel put up the same way is an `AXSheet` carrying `save-panel` (read collapsed, and expanded in
+column view; its icon view has not been read). The sheet takes `AXRaise` and has no `AXMain`
+(`kAXErrorAttributeUnsupported`); the window it is attached to takes both.
+
+**The icons are not the application's.** Read on the same build, standing alone and as a sheet alike: the
+panel's sections and icons answer from `com.apple.appkit.xpc.openAndSavePanelService`, a process of their
+own, while the collection list and everything above it answer from the application. `AXParent` crosses back
+from the service to the application, so the walk up from a hit test is unbroken. `AXWindow` and
+`AXTopLevelUIElement` on that collection list both answer `kAXErrorNoValue` (`pitfalls.md` 12 and 18).
+
 `AXSelectedChildren` on that collection list is settable and takes a range of any size, exactly as
-Finder's does. **And the panel has the same gap**: measured, its own ⇧ Shift click selected the first and
-the third icon of a row and left the second alone.
+Finder's does, although the icons it names are the service's: a range of eight set there was read back
+exactly, in a panel standing alone and in Chrome's sheet. **And the panel has the same gap**: measured, its
+own ⇧ Shift click selected the first and the third icon of a row and left the second alone.
+
+**A panel keeps only what it was set up to take, and answers success either way.** Set up for one file (an
+application asking for one document, a page's `<input type=file>` without `multiple`), it keeps one icon of a
+range, and not predictably the first or the last: on a `choose file` panel, {0, 2} kept 0, {3, 4, 5, 6} kept
+6 and {5, 4, 3} kept 4. Set up for files, it keeps none of a range of folders: in Chrome's chooser, two
+folders and nine folders both came back as nothing selected, where two, three and eight files came back
+exactly.
 
 The two identifiers are `open-panel` and `save-panel`. They are AppKit's and are not translated, unlike the
 role descriptions beside them.

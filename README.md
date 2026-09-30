@@ -54,7 +54,7 @@ window is schematic.
 It works in **every Finder icon view**: folders, search results, Recents, tags, iCloud Drive, and the
 Desktop. In every Sort By mode, with or without **Use Groups**, with or without **Stacks**, and in a folder
 nobody has sorted at all. It works in **Open and Save panels shown as icons** too, whichever app put them
-up: measured, those have exactly the same gap. There is no setting that says where it works, because there
+up, a browser's file chooser included: measured, those have exactly the same gap. There is no setting that says where it works, because there
 is no place it does not.
 
 - **Between** means what you would expect it to mean. In a sorted view it is the reading order: across the

@@ -95,6 +95,10 @@ without touching anything.
       selected, exactly as in Finder.
 - [ ] A **Save** panel shown as icons, with its name field focused as it always is: a ⇧ Shift click still
       selects a range. (The rename check is deliberately not made for panels.)
+- [ ] A **browser's file chooser**, which is a sheet: an upload field that takes several files
+      (`<input type=file multiple>`), the panel switched to **icons**, a folder of files. Click one,
+      ⇧ Shift click another: the range is selected, and the browser window the sheet hangs from stays in
+      front.
 - [ ] The **application that owns the panel stays frontmost**. Finder must not come forward.
 - [ ] A panel that asks for **one** file: ⇧ Shift does whatever that panel does. ShiftPick sets a range and
       the panel keeps one of it; nothing breaks.

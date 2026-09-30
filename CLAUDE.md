@@ -295,7 +295,8 @@ the log.
 - **Never assume Finder's hierarchy.** It is not documented and it is not stable. `docs/macOS.md` holds
   what was read, `swift run axdump` is how it is read again, and `FinderAX` is the only file that may know
   it.
-- **A view that is not Finder's is refused unless its window says it is a file panel.** The process check
+- **A view that is not Finder's is refused unless its own window says it is a file panel**: the first window
+  or sheet above it, since a browser's file chooser is a sheet on the browser's window. The process check
   is what keeps ShiftPick out of everybody else's controls; `open-panel` and `save-panel` are the only two
   identifiers that get past it, and they are AppKit's own and not translated.
 - **Accessibility is the only permission the app needs, and the only one it asks for.** Notifications are

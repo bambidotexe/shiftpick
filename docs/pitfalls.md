@@ -261,6 +261,38 @@ reason never heard going, and a seeded run after every step of which the listene
 a reason is held. `SafetyNetTests` pins that the delegate suspends and resumes the engine through that value
 and nowhere else.
 
+## 18. A file panel shown as a sheet is an `AXSheet`, and the window above it is the application's
+
+**Symptom.** A ⇧ Shift click in a browser's file chooser adds the one file under the pointer, exactly as if
+ShiftPick were not running, while a free-standing Open panel and every Finder window select the range.
+`swift run axdump at` over one of the chooser's icons says `not a Finder icon view`.
+
+**What was read**, the chain up from an icon of Chrome's chooser for `<input type=file multiple>`, and the
+same over an AppKit window's `beginSheetModal`:
+
+```
+AXImage ← AXGroup ← AXList/AXSectionList   ← com.apple.appkit.xpc.openAndSavePanelService
+AXList/AXCollectionList  id=IconView       ← the application's, like everything above it
+AXScrollArea ← AXSplitGroup ← AXSplitGroup
+AXSheet                  id=open-panel     ← the panel's own window
+AXWindow/AXStandardWindow                  ← the application's window: no identifier
+AXApplication
+```
+
+**Why.** A panel's collection list has no `AXWindow` (12), so the check walked the chain for the first
+element whose role is `AXWindow` and read the identifier there. A panel standing on its own is that element.
+A panel shown as a sheet is not: its role is `AXSheet`, so the walk went past it to the application's window,
+found no `open-panel` there, and refused every click in the sheet. A browser shows its file chooser that way,
+and so does any application that attaches its panel to one of its windows.
+
+**What holds.** `FinderAX.host` reads the identifier off the first window **or sheet** above the view, and
+`FinderAX.window` still returns the first `AXWindow`, the one a swallowed click raises: for a sheet, the window
+it is attached to, which takes `AXRaise` and `AXMain` where the sheet has no `AXMain`. `axdump at` over
+Chrome's chooser answers `item in panel`, and over a free-standing panel and a Finder window as before.
+**Mind the two processes in the dump**: a panel's icons answer from the panel service and its collection list
+from the application, so they never share a pid. Which application to bring forward and whether it is in
+front are asked of the collection list's pid, and the selection is read and set on the collection list.
+
 ---
 
 ## Open issues
@@ -276,5 +308,9 @@ and nowhere else.
   and ShiftPick installing over itself are `manual-test-checklist.md` §10.
 - **Open and Save panels are covered, and only lightly walked.** A panel's icon view was read, its
   selection was set through Accessibility, and its own ⇧ Shift click was measured toggling one item; the
-  live gesture in a panel is `manual-test-checklist.md` §5. A panel that allows only one file is left alone by the
-  panel itself, not by ShiftPick.
+  live gesture in a panel is `manual-test-checklist.md` §5. A panel shown as a sheet was read in Chrome and
+  in an AppKit window (18); a Save sheet was read collapsed and in column view only, so its icon view has
+  not been seen. **A panel keeps only what it was set up to take, and answers success either way**: set up
+  for one file it keeps one file of a range, not predictably the first or the last, and set up for files it
+  keeps none of a range of folders (`macOS.md`). ShiftPick has swallowed the click by then, so what is left
+  selected in those two is the panel's choice.

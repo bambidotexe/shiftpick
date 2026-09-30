@@ -324,13 +324,17 @@ Every Finder icon view and the Desktop. Folders, search results, Recents, tags, 
 mode, with or without **Use Groups**, with or without **Stacks**, and a folder nobody has sorted at all.
 **No setting restricts where it works**, because there is no place it should not.
 
-**And Open and Save panels shown as icons**, whichever application put them up. Measured: a panel's icon
-view has Finder's hierarchy identifier for identifier, and its own ⇧ Shift click has exactly the same gap,
-adding the one item under the pointer. A panel is recognised by its window's `AXIdentifier`, `open-panel`
-or `save-panel`, because it belongs to the application that opened it and not to Finder; nothing about the
-Finder path changes for it. Two things differ:
+**And Open and Save panels shown as icons**, whichever application put them up, **standing on their own or
+shown as a sheet**, which is how a browser puts up its file chooser. Measured: a panel's icon view has
+Finder's hierarchy identifier for identifier, and its own ⇧ Shift click has exactly the same gap, adding the
+one item under the pointer. A panel is recognised by the `AXIdentifier` of its own window, `open-panel` or
+`save-panel`, because it belongs to the application that opened it and not to Finder. **Its own window is
+the first window or sheet above the icon view**: a panel shown as a sheet carries the identifier on the
+sheet, never on the application's window the sheet is attached to. Nothing about the Finder path changes for
+it. Two things differ:
 
-- The application brought forward when the click is swallowed is the panel's own, not Finder.
+- The application brought forward when the click is swallowed is the panel's own, not Finder, and the window
+  raised is the one the panel is in: the panel itself, or the window its sheet is attached to.
 - The rename check is not made. A Save panel keeps its name field focused the whole time it is up, so the
   same question asked of a panel would refuse every click in it.
 
