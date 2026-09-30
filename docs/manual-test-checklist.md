@@ -4,7 +4,7 @@
 path, and note anything that surprises you in `docs/pitfalls.md`.
 
 **§9 is owed after any change to a file of the safety layer** (`SAFETY_FILES` in `scripts/safety-gates.sh`),
-on an installed build of that tree and before it is published: `make release` refuses until the owner says
+on an installed build of that tree and before it is published: `scripts/publish.sh` refuses until the owner says
 `DRILL=walked` or `DRILL=waived`. Its watching steps are anybody's; **its drill is the owner's alone.**
 
 Two things make it quicker:
@@ -200,7 +200,7 @@ checklist with it.
       again and open the app from the Applications folder while it still runs: the wizard, not Settings.
 - [ ] **Settings › System › Start over**: a fresh wizard at page one, with every row re-read.
 - [ ] **Launch at login** on, wizard never finished, log out and in: the app starts and **opens no window**.
-- [ ] `make install` over a running copy: no window, wizard included.
+- [ ] `sh scripts/install.sh` over a running copy: no window, wizard included.
 
 ## 9. The taps, and the safety drill
 
@@ -346,7 +346,7 @@ SHIFTPICK_UPDATE_FEED=file:///tmp/latest.json /Applications/ShiftPick.app/Conten
       the blue glass grid, not a generic application icon.
 - [ ] **Show in menu bar** off: the icon goes and the app keeps working. Open the app again from the
       Applications folder: the Settings window comes back.
-- [ ] `make install` over a running copy: the app is replaced and **opens no window** (the quiet-launch
+- [ ] `sh scripts/install.sh` over a running copy: the app is replaced and **opens no window** (the quiet-launch
       marker), and the Accessibility grant survives.
 - [ ] **Settings › Health**, the stethoscope between System and Tip, with everything in place: two tables and
       nothing else. **Health**: *Accessibility permission* *Granted* and *Watching for ⇧ Shift clicks*

@@ -75,10 +75,11 @@ keep what it asserts.** It fails because a net is gone: **put the net back.**
 3. **Update `docs/functional.md` §0** when a guarantee changes, in the same commit, after the owner said so.
 4. **Verify**: `swift build`, then `swift test`, and count **two** summary lines. `SafetyNetTests`,
    `TapLifecycleTests` and `TapLifecycleInvariantTests` among them.
-5. **On a real Mac**, with the owner: `make install` reads the launch back from the log and fails on a tap
+5. **On a real Mac**, with the owner: offer to run `sh scripts/install.sh`, and run it only when they say so.
+   It reads the launch back from the log and fails on a tap
    taken away, a refusal, an open breaker or a second copy. Then `docs/manual-test-checklist.md` §9: the
    watching steps first, then the drill, which **the owner** walks behind `sh scripts/drill.sh`.
-6. **A release** (`make release`) refuses while a file of `SAFETY_FILES` (`scripts/safety-gates.sh`) differs
+6. **A release** (`sh scripts/publish.sh`) refuses while a file of `SAFETY_FILES` (`scripts/safety-gates.sh`) differs
    from the last release, until the owner says `DRILL=walked` or `DRILL=waived`. Never set either yourself.
 
 ## Reading it on the Mac
@@ -103,6 +104,7 @@ keep what it asserts.** It fails because a net is gone: **put the net back.**
 - Takes the Accessibility grant away, runs `tccutil`, or creates an event tap from a shell, a script or a
   test, on this Mac or any other.
 - Reproduces the wedge, or walks the drill: the drill is the owner's, behind the switch.
-- Builds ad hoc, installs, or publishes without the owner asking (`CLAUDE.md`, Rules), or sets `DRILL`.
+- Builds ad hoc, runs `scripts/install.sh` or `scripts/publish.sh` without the owner saying so (offering the
+  install at the end of a change is expected), names `make install` or `make release`, or sets `DRILL`.
 - Removes, loosens or skips a net, a check that pins one, or a gate in the scripts, without the owner's
   words for that net.

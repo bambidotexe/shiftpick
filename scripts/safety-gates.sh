@@ -97,7 +97,7 @@ drill_gate() {
   echo "refusing: the safety layer changed since the last release:" >&2
   echo "$owed" | /usr/bin/sed 's/^/  /' >&2
   echo "This is the owner's call, not an agent's. docs/manual-test-checklist.md §9 is walked by the owner on an" >&2
-  echo "installed build of this tree (make install), behind scripts/drill.sh. Then DRILL=walked, or DRILL=waived" >&2
+  echo "installed build of this tree (scripts/install.sh), behind scripts/drill.sh. Then DRILL=walked, or DRILL=waived" >&2
   echo "if the owner decides this change does not need it." >&2
   return 1
 }

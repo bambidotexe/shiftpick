@@ -25,7 +25,7 @@ swift build                                     # three targets and the probe
 swift test                                      # two bundles; count two summary lines
 swift run axdump trust                          # can this terminal ask Finder anything
 swift run axdump views                          # every icon view on screen, and its items in reading order
-make install                                    # production build, notarized, into /Applications
+sh scripts/install.sh                           # production build, notarized, into /Applications
 /usr/bin/log stream --predicate 'subsystem == "dev.rubens.ShiftPick"' --level debug
 ```
 

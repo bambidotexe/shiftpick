@@ -141,11 +141,12 @@ and the newer of a request and a written rule wins only after the owner has said
 ## Commands
 
 ```bash
-# ---- the two actions. A build of this app reaches a Mac by one of these and by nothing else. ----
-make install     # skill: macos-install-locally. The production build → /Applications; leaves no .app or .dmg behind
-                 # It works on this Mac: signing and the notary are set up and nothing is wrong with them. Use the
-                 # script; a refusal at the notary check is run again, never diagnosed.
-make release     # skill: macos-publish-release. The same, plus tag, push, GitHub release, and the tree moves on
+# ---- the two scripts. A build of this app reaches a Mac by one of these and by nothing else. ----
+sh scripts/install.sh                                     # skill: macos-install-locally. The production build → /Applications
+sh scripts/publish.sh <patch|minor|major> --notes=<file>  # skill: macos-publish-release. The same, plus tag, push, GitHub release
+# Called directly, never through make. Both work on this Mac: signing and the notary are set up and nothing
+# is wrong with them; a refusal at the notary check is run again, never diagnosed. At the end of a change,
+# offer to run the install script and run it only when the owner says so; publish only when asked.
 # -------------------------------------------------------------------------------------------------
 ```
 
@@ -162,13 +163,13 @@ make release     # skill: macos-publish-release. The same, plus tag, push, GitHu
   itself is allowed to. `axdump range` works a ⇧ Shift click out exactly as the app does — the reading order,
   the stand-in, the shape and the selection it would leave — and prints it instead of applying it, which is
   how a doubt about a layout is settled.
-- `make install` (`scripts/install.sh`) — **one of the two ways a build of this app reaches a Mac.** It
+- `sh scripts/install.sh` — **one of the two ways a build of this app reaches a Mac.** It
   refuses a tree whose tests fail, builds the real thing — Release, Developer ID, Hardened Runtime,
   notarized, stapled, wrapped in the disk image — takes the bundle out of that image into `/Applications`,
   opens it, and **reads its launch back from the log**: it fails on a tap macOS took away, taps it would not
   create, an open breaker, a second copy or silence, and passes on *listening* or *waiting for the
   permission*. It leaves **no `.app` and no `.dmg` anywhere under the repository**, on any exit path. **It works on this Mac**: the signing identity and the notary profile are set up and nothing is wrong with them; if the notary check refuses, run it again and diagnose nothing (`docs/shared/workflow.md`, *Installing works on this Mac*).
-- `make release LEVEL=<patch|minor|major> NOTES=<file>` (`scripts/publish.sh <level> --notes=<file>`) —
+- `sh scripts/publish.sh <patch|minor|major> --notes=<file>` —
   **the other way.** Refuses without release notes (written from every commit since the last tag, skill
   `macos-publish-release`, *Release notes*), on a dirty tree, on a failing test, and **while a file of the safety layer differs from the last release**,
   until the owner says `DRILL=walked` or `DRILL=waived` (never an agent's to set); computes the new version
@@ -176,8 +177,8 @@ make release     # skill: macos-publish-release. The same, plus tag, push, GitHu
   bump, and only then builds — the same build `install` makes, then the tag, the push and the GitHub release
   carrying the image. Nothing bumps the version again afterward. Run it only when the owner has asked for a
   release, and ask which level if they have not said. It leaves `/Applications` alone,
-  so the copy here finds the release and installs it itself, as a user's does; `--install` (`make release …
-  INSTALL=1`) installs it here too, and is passed only when the owner asks for it.
+  so the copy here finds the release and installs it itself, as a user's does; `--install`
+  installs it here too, and is passed only when the owner asks for it.
 - `sh scripts/drill.sh [seconds]` — **the dead-man's switch for the safety drill**
   (`docs/manual-test-checklist.md` §9): it kills ShiftPick after 30 s whatever happens, then follows the log.
   The owner starts it, right before each step that takes the grant away. An agent never runs a drill step.
@@ -357,7 +358,7 @@ tests; `docs/manual-test-checklist.md` is its verification.
 differs from that tag, so no drill is owed; the owner walked §9 of `docs/manual-test-checklist.md` on this
 tree before the release. **Its lid step walks the way back in both orders**: the wake-first order once left
 the listener suspended for good with every window saying it was listening (`docs/pitfalls.md` 17), which is
-fixed and pinned. A change to any file of the safety layer from here on owes §9 again, and `make release`
+fixed and pinned. A change to any file of the safety layer from here on owes §9 again, and `scripts/publish.sh`
 refuses until the owner says `DRILL=walked` or `DRILL=waived`, which is never an agent's to set.
 
 **What is proven and what is not, about the safety model.** The rules are proven: `TapLifecycle` is a value,

@@ -109,7 +109,7 @@ Settings › System › Start over opens the wizard again.
 From this repository instead:
 
 ```sh
-make install
+sh scripts/install.sh
 ```
 
 That builds the same signed, notarized bundle, puts it in `/Applications` and opens it, leaving no `.app`
@@ -127,13 +127,13 @@ Dragging it to the Trash yourself leaves the first two behind, pointing at an ap
 ## Build from source
 
 ```sh
-swift build         # three targets and the Accessibility probe
-swift test          # two bundles; read both summary lines
-make app            # assembles build/ShiftPick.app
-make install        # the real thing, into /Applications
+swift build              # three targets and the Accessibility probe
+swift test               # two bundles; read both summary lines
+sh scripts/make-app.sh   # assembles build/ShiftPick.app
+sh scripts/install.sh    # the real thing, into /Applications
 ```
 
-It is a SwiftPM package with no Xcode project and no third-party dependency. `make app` wants full Xcode for
+It is a SwiftPM package with no Xcode project and no third-party dependency. `scripts/make-app.sh` wants full Xcode for
 the `actool` that compiles the app icon; with the Command Line Tools alone it still builds, warns, and ships
 the flat icon without Liquid Glass.
 
